@@ -20,8 +20,8 @@ namespace MareSynchronos.WebAPI;
 
 public sealed partial class ApiController : DisposableMediatorSubscriberBase, IMareHubClient
 {
-    public const string MainServer = "Lunae Crescere Incipientis (Central Server EU)";
-    public const string MainServiceUri = "wss://maresynchronos.com";
+    public const string MainServer = "Otter Mare (CN main server)";
+    public const string MainServiceUri = "ws://172.96.140.127:6000";
 
     private readonly DalamudUtilService _dalamudUtil;
     private readonly HubFactory _hubFactory;

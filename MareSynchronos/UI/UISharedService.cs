@@ -766,7 +766,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     internal ImFontPtr GetGameFontHandle()
     {
-        return _pluginInterface.UiBuilder.GetGameFontHandle(new GameFontStyle(GameFontFamilyAndSize.Axis12)).ImFont;
+        return _pluginInterface.UiBuilder.GetGameFontHandle(new GameFontStyle(GameFontFamilyAndSize.ChnAxis120)).ImFont;
     }
 
     internal TextureWrap LoadImage(byte[] imageData)
@@ -792,7 +792,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     private void BuildFont()
     {
-        var fontFile = Path.Combine(_pluginInterface.DalamudAssetDirectory.FullName, "UIRes", "NotoSansCJKjp-Medium.otf");
+        var fontFile = Path.Combine(_pluginInterface.DalamudAssetDirectory.FullName, "UIRes", "NotoSansCJKsc-Medium.otf");
         UidFontBuilt = false;
 
         if (File.Exists(fontFile))
