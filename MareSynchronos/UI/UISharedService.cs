@@ -891,7 +891,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     private void BuildFont()
     {
-        var fontFile = Path.Combine(_pluginInterface.DalamudAssetDirectory.FullName, "UIRes", "NotoSansCJKsc-Medium.otf");
+        var fontFile = Path.Combine(_pluginInterface.DalamudAssetDirectory.FullName, "UIRes", "NotoSansCJKjp-Medium.otf");
         UidFontBuilt = false;
 
         if (File.Exists(fontFile))
