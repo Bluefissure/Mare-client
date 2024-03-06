@@ -108,9 +108,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             };
             if (ImGui.BeginChildFrame(1000, childFrame))
             {
-                ImGui.PushFont(_uiSharedService.GetGameFontHandle());
                 ImGui.TextWrapped(mareProfile.Description);
-                ImGui.PopFont();
             }
             ImGui.EndChildFrame();
 

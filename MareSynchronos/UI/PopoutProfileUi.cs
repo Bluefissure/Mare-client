@@ -158,7 +158,6 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
             }
 
             ImGui.Separator();
-            ImGui.PushFont(_uiSharedService.GetGameFontHandle());
             var remaining = ImGui.GetWindowContentRegionMax().Y - ImGui.GetCursorPosY();
             var descText = mareProfile.Description;
             var textSize = ImGui.CalcTextSize(descText, 256f * ImGuiHelpers.GlobalScale);
@@ -169,7 +168,6 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
                 textSize = ImGui.CalcTextSize(descText + $"...{Environment.NewLine}[打开档案窗口以获取完整描述]", 256f * ImGuiHelpers.GlobalScale);
             }
             UiSharedService.TextWrapped(trimmed ? descText + $"...{Environment.NewLine}[打开档案窗口以获取完整描述]" : mareProfile.Description);
-            ImGui.PopFont();
 
             var padding = ImGui.GetStyle().WindowPadding.X / 2;
             bool tallerThanWide = _textureWrap.Height >= _textureWrap.Width;
