@@ -133,7 +133,7 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
             }
             if (_pair.UserPair.IndividualPairStatus == API.Data.Enum.IndividualPairStatus.Bidirectional)
             {
-                ImGui.TextUnformatted("直接配对");
+                ImGui.TextUnformatted("独立配对");
                 if (_pair.UserPair.OwnPermissions.IsPaused())
                 {
                     ImGui.SameLine();

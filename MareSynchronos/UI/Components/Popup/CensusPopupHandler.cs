@@ -27,33 +27,33 @@ public class CensusPopupHandler : IPopupHandler
         var start = 0f;
         using (ImRaii.PushFont(_uiSharedService.UidFont))
         {
-            start = ImGui.GetCursorPosY() - ImGui.CalcTextSize("Mare Census Data").Y;
-            UiSharedService.TextWrapped("Mare Census Participation");
+            start = ImGui.GetCursorPosY() - ImGui.CalcTextSize("Mare角色数据普查").Y;
+            UiSharedService.TextWrapped("参与Mare角色数据普查");
         }
         ImGuiHelpers.ScaledDummy(5f);
-        UiSharedService.TextWrapped("If you are seeing this popup you are updating from a Mare version that did not collect census data. Please read the following carefully.");
+        UiSharedService.TextWrapped("请仔细阅读以下内容.");
         ImGui.Separator();
-        UiSharedService.TextWrapped("Mare Census is a data collecting service that can be used for statistical purposes. " +
-            "All data collected through Mare Census is temporary and will be stored associated with your UID on the connected service as long as you are connected. " +
-            "The data cannot be used for long term tracking of individuals.");
-        UiSharedService.TextWrapped("If enabled, Mare Census will collect following data:" + Environment.NewLine
-            + "- Currently connected World" + Environment.NewLine
-            + "- Current Gender (reflecting Glamourer changes)" + Environment.NewLine
-            + "- Current Race (reflecting Glamourer changes)" + Environment.NewLine
-            + "- Current Clan (i.e. Seeker of the Sun, Keeper of the Moon, etc., reflecting Glamourer changes)");
-        UiSharedService.TextWrapped("To consent to collecting census data press the appropriate button below.");
-        UiSharedService.TextWrapped("This setting can be changed anytime in the Mare Settings.");
+        UiSharedService.TextWrapped("Mare角色数据普查是一个仅为了数据统计而进行的数据收集活动. " +
+            "所有收集的数据仅会与你的UID关联,被短暂的存储在服务器上,这些数据将于你与服务器断开连接时删除. " +
+            "这些数据不会被用户长期追踪特定用户.");
+        UiSharedService.TextWrapped("如果开启,你将发送以下数据:" + Environment.NewLine
+            + "- 角色所在服务器" + Environment.NewLine
+            + "- 角色性别 (Glamourer生效后数据)" + Environment.NewLine
+            + "- 角色种族 (Glamourer生效后数据)" + Environment.NewLine
+            + "- 角色氏族 (逐日之民等., Glamourer生效后数据)");
+        UiSharedService.TextWrapped("如果同意发送以上数据,请点击下方按钮.");
+        UiSharedService.TextWrapped("本设置可以随时开启或关闭.");
         var width = ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X;
-        var buttonSize = ImGuiHelpers.GetButtonSize("I consent to send my census data");
+        var buttonSize = ImGuiHelpers.GetButtonSize("我同意发送我的角色数据");
         ImGuiHelpers.ScaledDummy(5f);
-        if (ImGui.Button("I consent to send my census data", new Vector2(width, buttonSize.Y * 2.5f)))
+        if (ImGui.Button("我同意发送我的角色数据", new Vector2(width, buttonSize.Y * 2.5f)))
         {
             _serverConfigurationManager.SendCensusData = true;
             _serverConfigurationManager.ShownCensusPopup = true;
             ImGui.CloseCurrentPopup();
         }
         ImGuiHelpers.ScaledDummy(1f);
-        if (ImGui.Button("I do not consent to send my census data", new Vector2(width, buttonSize.Y)))
+        if (ImGui.Button("我不同意发送角色数据", new Vector2(width, buttonSize.Y)))
         {
             _serverConfigurationManager.SendCensusData = false;
             _serverConfigurationManager.ShownCensusPopup = true;

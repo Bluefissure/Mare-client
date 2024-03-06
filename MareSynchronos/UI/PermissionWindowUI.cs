@@ -47,24 +47,24 @@ public class PermissionWindowUI : WindowMediatorSubscriberBase
         var style = ImGui.GetStyle();
         var indentSize = ImGui.GetFrameHeight() + style.ItemSpacing.X;
 
-        _uiSharedService.BigText("Permissions for " + Pair.UserData.AliasOrUID);
+        _uiSharedService.BigText("权限设置 " + Pair.UserData.AliasOrUID);
         ImGuiHelpers.ScaledDummy(1f);
 
-        if (ImGui.Checkbox("Preferred Permissions", ref sticky))
+        if (ImGui.Checkbox("首选权限", ref sticky))
         {
             _ownPermissions.SetSticky(sticky);
         }
-        UiSharedService.DrawHelpText("Preferred Permissions, when enabled, will exclude this user from any permission changes on any syncshells you share with this user.");
+        UiSharedService.DrawHelpText("当使用首选权限时, 你对该用户的设置将覆盖你对同步贝的所有权限设置.");
 
         ImGuiHelpers.ScaledDummy(1f);
 
 
-        if (ImGui.Checkbox("Pause Sync", ref paused))
+        if (ImGui.Checkbox("暂停同步", ref paused))
         {
             _ownPermissions.SetPaused(paused);
         }
-        UiSharedService.DrawHelpText("Pausing will completely cease any sync with this user." + UiSharedService.TooltipSeparator
-            + "Note: this is bidirectional, either user pausing will cease sync completely.");
+        UiSharedService.DrawHelpText("这将完全暂停与目标用户的同步." + UiSharedService.TooltipSeparator
+            + "注意: 任意一方用户暂停同步都会使得双方的同步停止.");
         var otherPerms = Pair.UserPair.OtherPermissions;
 
         var otherIsPaused = otherPerms.IsPaused();
@@ -77,53 +77,53 @@ public class PermissionWindowUI : WindowMediatorSubscriberBase
             UiSharedService.BooleanToColoredIcon(!otherIsPaused, false);
             ImGui.SameLine();
             ImGui.AlignTextToFramePadding();
-            ImGui.Text(Pair.UserData.AliasOrUID + " has " + (!otherIsPaused ? "not " : string.Empty) + "paused you");
+            ImGui.Text(Pair.UserData.AliasOrUID + " 与你 " + (!otherIsPaused ? "未 " : string.Empty) + "暂停同步");
         }
 
         ImGuiHelpers.ScaledDummy(0.5f);
         ImGui.Separator();
         ImGuiHelpers.ScaledDummy(0.5f);
 
-        if (ImGui.Checkbox("Disable Sounds", ref disableSounds))
+        if (ImGui.Checkbox("暂停声音", ref disableSounds))
         {
             _ownPermissions.SetDisableSounds(disableSounds);
         }
-        UiSharedService.DrawHelpText("Disabling sounds will remove all sounds synced with this user on both sides." + UiSharedService.TooltipSeparator
-            + "Note: this is bidirectional, either user disabling sound sync will stop sound sync on both sides.");
+        UiSharedService.DrawHelpText("这将完全暂停与目标用户的声音同步." + UiSharedService.TooltipSeparator
+            + "注意: 任意一方用户暂停声音同步都会使得双方的声音同步停止.");
         using (ImRaii.PushIndent(indentSize, false))
         {
             UiSharedService.BooleanToColoredIcon(!otherDisableSounds, false);
             ImGui.SameLine();
             ImGui.AlignTextToFramePadding();
-            ImGui.Text(Pair.UserData.AliasOrUID + " has " + (!otherDisableSounds ? "not " : string.Empty) + "disabled sound sync with you");
+            ImGui.Text(Pair.UserData.AliasOrUID + " 与你 " + (!otherDisableSounds ? "未 " : string.Empty) + "暂停声音同步");
         }
 
-        if (ImGui.Checkbox("Disable Animations", ref disableAnimations))
+        if (ImGui.Checkbox("暂停动画", ref disableAnimations))
         {
             _ownPermissions.SetDisableAnimations(disableAnimations);
         }
-        UiSharedService.DrawHelpText("Disabling sounds will remove all animations synced with this user on both sides." + UiSharedService.TooltipSeparator
-            + "Note: this is bidirectional, either user disabling animation sync will stop animation sync on both sides.");
+        UiSharedService.DrawHelpText("这将完全暂停与目标用户的动画同步." + UiSharedService.TooltipSeparator
+            + "注意: 任意一方用户暂停动画同步都会使得双方的动画同步停止.");
         using (ImRaii.PushIndent(indentSize, false))
         {
             UiSharedService.BooleanToColoredIcon(!otherDisableAnimations, false);
             ImGui.SameLine();
             ImGui.AlignTextToFramePadding();
-            ImGui.Text(Pair.UserData.AliasOrUID + " has " + (!otherDisableAnimations ? "not " : string.Empty) + "disabled animation sync with you");
+            ImGui.Text(Pair.UserData.AliasOrUID + " 与你 " + (!otherDisableAnimations ? "未 " : string.Empty) + "暂停动画同步");
         }
 
-        if (ImGui.Checkbox("Disable VFX", ref disableVfx))
+        if (ImGui.Checkbox("暂停VFX", ref disableVfx))
         {
             _ownPermissions.SetDisableVFX(disableVfx);
         }
-        UiSharedService.DrawHelpText("Disabling sounds will remove all VFX synced with this user on both sides." + UiSharedService.TooltipSeparator
-            + "Note: this is bidirectional, either user disabling VFX sync will stop VFX sync on both sides.");
+        UiSharedService.DrawHelpText("这将完全暂停与目标用户的VFX同步." + UiSharedService.TooltipSeparator
+            + "注意: 任意一方用户暂停VFX同步都会使得双方的VFX同步停止.");
         using (ImRaii.PushIndent(indentSize, false))
         {
             UiSharedService.BooleanToColoredIcon(!otherDisableVFX, false);
             ImGui.SameLine();
             ImGui.AlignTextToFramePadding();
-            ImGui.Text(Pair.UserData.AliasOrUID + " has " + (!otherDisableVFX ? "not " : string.Empty) + "disabled VFX sync with you");
+            ImGui.Text(Pair.UserData.AliasOrUID + " 与你 " + (!otherDisableVFX ? "未 " : string.Empty) + "暂停VFX同步");
         }
 
         ImGuiHelpers.ScaledDummy(0.5f);
@@ -133,7 +133,7 @@ public class PermissionWindowUI : WindowMediatorSubscriberBase
         bool hasChanges = _ownPermissions != Pair.UserPair.OwnPermissions;
 
         using (ImRaii.Disabled(!hasChanges))
-            if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.Save, "Save"))
+            if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.Save, "保存"))
             {
                 _ = _apiController.SetBulkPermissions(new(
                     new(StringComparer.Ordinal)
@@ -143,23 +143,23 @@ public class PermissionWindowUI : WindowMediatorSubscriberBase
                     new(StringComparer.Ordinal)
                 ));
             }
-        UiSharedService.AttachToolTip("Save and apply all changes");
+        UiSharedService.AttachToolTip("保存并应用");
 
-        var rightSideButtons = UiSharedService.GetNormalizedIconTextButtonSize(Dalamud.Interface.FontAwesomeIcon.Undo, "Revert").X +
-            UiSharedService.GetNormalizedIconTextButtonSize(Dalamud.Interface.FontAwesomeIcon.ArrowsSpin, "Reset to Default").X;
+        var rightSideButtons = UiSharedService.GetNormalizedIconTextButtonSize(Dalamud.Interface.FontAwesomeIcon.Undo, "撤销").X +
+            UiSharedService.GetNormalizedIconTextButtonSize(Dalamud.Interface.FontAwesomeIcon.ArrowsSpin, "恢复默认设置").X;
         var availableWidth = ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X;
 
         ImGui.SameLine(availableWidth - rightSideButtons);
 
         using (ImRaii.Disabled(!hasChanges))
-            if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.Undo, "Revert"))
+            if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.Undo, "撤销"))
             {
                 _ownPermissions = Pair.UserPair.OwnPermissions.DeepClone();
             }
-        UiSharedService.AttachToolTip("Revert all changes");
+        UiSharedService.AttachToolTip("撤销所有改动");
 
         ImGui.SameLine();
-        if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.ArrowsSpin, "Reset to Default"))
+        if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.ArrowsSpin, "恢复默认设置"))
         {
             var defaultPermissions = _apiController.DefaultPermissions!;
             _ownPermissions.SetSticky(Pair.IsDirectlyPaired || defaultPermissions.IndividualIsSticky);
@@ -175,7 +175,7 @@ public class PermissionWindowUI : WindowMediatorSubscriberBase
                 new(StringComparer.Ordinal)
             ));
         }
-        UiSharedService.AttachToolTip("This will set all permissions to your defined default permissions in the Mare Settings");
+        UiSharedService.AttachToolTip("这将把所有同步设置重置为你Mare设置中的默认同步设置");
 
         var ySize = ImGui.GetCursorPosY() + style.FramePadding.Y * ImGuiHelpers.GlobalScale + style.FrameBorderSize;
         ImGui.SetWindowSize(new(400, ySize));

@@ -818,8 +818,8 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         if (_serverConfigurationManager.GetSecretKey(_serverSelectionIndex) != null)
         {
             ImGui.SameLine();
-            var text = "已连接";
-            if (_serverSelectionIndex == _serverConfigurationManager.CurrentServerIndex) text = "重新连接...";
+            var text = "连接";
+            if (_serverSelectionIndex == _serverConfigurationManager.CurrentServerIndex) text = "重新连接";
             if (NormalizedIconTextButton(FontAwesomeIcon.Link, text))
             {
                 _serverConfigurationManager.SelectServer(_serverSelectionIndex);

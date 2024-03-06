@@ -30,7 +30,7 @@ public class SelectPairForTagUi
         var minSize = new Vector2(300, workHeight < 400 ? workHeight : 400) * ImGuiHelpers.GlobalScale;
         var maxSize = new Vector2(300, 1000) * ImGuiHelpers.GlobalScale;
 
-        var popupName = $"Choose Users for Group {_tag}";
+        var popupName = $"为 {_tag} 选择用户";
 
         if (!_show)
         {
@@ -48,7 +48,7 @@ public class SelectPairForTagUi
         ImGui.SetNextWindowSizeConstraints(minSize, maxSize);
         if (ImGui.BeginPopupModal(popupName, ref _show, ImGuiWindowFlags.Popup | ImGuiWindowFlags.Modal))
         {
-            UiSharedService.FontText($"Select users for group {_tag}", UiBuilder.DefaultFont);
+            UiSharedService.FontText($"为 {_tag} 选择用户", UiBuilder.DefaultFont);
             ImGui.InputTextWithHint("##filter", "Filter", ref _filter, 255, ImGuiInputTextFlags.None);
             foreach (var item in pairs
                 .Where(p => string.IsNullOrEmpty(_filter) || PairName(p).Contains(_filter, StringComparison.OrdinalIgnoreCase))

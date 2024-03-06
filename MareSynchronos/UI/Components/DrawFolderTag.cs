@@ -91,7 +91,7 @@ public class DrawFolderTag : DrawFolderBase
 
                 ImGui.TextUnformatted("[" + OnlinePairs.ToString() + "]");
             }
-            UiSharedService.AttachToolTip(OnlinePairs + " online" + Environment.NewLine + TotalPairs + " total");
+            UiSharedService.AttachToolTip(OnlinePairs + " 在线" + Environment.NewLine + TotalPairs + " 总计");
         }
         ImGui.SameLine();
         return ImGui.GetCursorPosX();
@@ -99,18 +99,18 @@ public class DrawFolderTag : DrawFolderBase
 
     protected override void DrawMenu(float menuWidth)
     {
-        ImGui.TextUnformatted("Group Menu");
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Users, "Select Pairs", menuWidth, true))
+        ImGui.TextUnformatted("群组菜单");
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Users, "选择独立配对", menuWidth, true))
         {
             _selectPairForTagUi.Open(_id);
         }
-        UiSharedService.AttachToolTip("Select Individual Pairs for this Pair Group");
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "Delete Pair Group", menuWidth, true) && UiSharedService.CtrlPressed())
+        UiSharedService.AttachToolTip("选择本群组的独立配对");
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "删除配对群组", menuWidth, true) && UiSharedService.CtrlPressed())
         {
             _tagHandler.RemoveTag(_id);
         }
-        UiSharedService.AttachToolTip("Hold CTRL to remove this Group permanently." + Environment.NewLine +
-            "Note: this will not unpair with users in this Group.");
+        UiSharedService.AttachToolTip("按住CTRL删除本群组." + Environment.NewLine +
+            "注意: 这个操作无法取消.");
     }
 
     protected override void DrawName(float width)
@@ -119,12 +119,12 @@ public class DrawFolderTag : DrawFolderBase
 
         string name = _id switch
         {
-            TagHandler.CustomUnpairedTag => "One-sided Individual Pairs",
-            TagHandler.CustomOnlineTag => "Online / Paused by you",
-            TagHandler.CustomOfflineTag => "Offline / Paused by other",
-            TagHandler.CustomOfflineSyncshellTag => "Offline Syncshell Users",
-            TagHandler.CustomVisibleTag => "Visible",
-            TagHandler.CustomAllTag => "Users",
+            TagHandler.CustomUnpairedTag => "单向独立配对",
+            TagHandler.CustomOnlineTag => "在线 / 你已暂停配对",
+            TagHandler.CustomOfflineTag => "离线 / 已被暂停配对",
+            TagHandler.CustomOfflineSyncshellTag => "已离线同步贝用户",
+            TagHandler.CustomVisibleTag => "可见",
+            TagHandler.CustomAllTag => "用户",
             _ => _id
         };
 
@@ -154,11 +154,11 @@ public class DrawFolderTag : DrawFolderBase
         }
         if (allArePaused)
         {
-            UiSharedService.AttachToolTip($"Resume pairing with all pairs in {_id}");
+            UiSharedService.AttachToolTip($"恢复以下的所有配对 {_id}");
         }
         else
         {
-            UiSharedService.AttachToolTip($"Pause pairing with all pairs in {_id}");
+            UiSharedService.AttachToolTip($"暂停以下的所有配对 {_id}");
         }
 
         return currentRightSideX;

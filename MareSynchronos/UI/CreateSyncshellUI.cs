@@ -21,7 +21,7 @@ public class CreateSyncshellUI : WindowMediatorSubscriberBase
 
     public CreateSyncshellUI(ILogger<CreateSyncshellUI> logger, MareMediator mareMediator, ApiController apiController, UiSharedService uiSharedService,
         PerformanceCollectorService performanceCollectorService)
-        : base(logger, mareMediator, "Create new Syncshell###MareSynchronosCreateSyncshell", performanceCollectorService)
+        : base(logger, mareMediator, "创建同步贝###MareSynchronosCreateSyncshell", performanceCollectorService)
     {
         _apiController = apiController;
         _uiSharedService = uiSharedService;
@@ -39,11 +39,11 @@ public class CreateSyncshellUI : WindowMediatorSubscriberBase
     protected override void DrawInternal()
     {
         using (ImRaii.PushFont(_uiSharedService.UidFont))
-            ImGui.TextUnformatted("Create new Syncshell");
+            ImGui.TextUnformatted("创建同步贝");
 
         if (_lastCreatedGroup == null)
         {
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Plus, "Create Syncshell"))
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Plus, "创建同步贝"))
             {
                 try
                 {
@@ -62,52 +62,52 @@ public class CreateSyncshellUI : WindowMediatorSubscriberBase
 
         if (_lastCreatedGroup == null)
         {
-            UiSharedService.TextWrapped("Creating a new Syncshell with create it defaulting to your current preferred permissions for Syncshells." + Environment.NewLine +
-                "- You can own up to " + _apiController.ServerInfo.MaxGroupsCreatedByUser + " Syncshells on this server." + Environment.NewLine +
-                "- You can join up to " + _apiController.ServerInfo.MaxGroupsJoinedByUser + " Syncshells on this server (including your own)" + Environment.NewLine +
-                "- Syncshells on this server can have a maximum of " + _apiController.ServerInfo.MaxGroupUserCount + " users");
+            UiSharedService.TextWrapped("根据你的首选权限设置创建一个新的同步贝." + Environment.NewLine +
+                "- 你最多可以拥有 " + _apiController.ServerInfo.MaxGroupsCreatedByUser + " 个同步贝." + Environment.NewLine +
+                "- 你最多可以加入 " + _apiController.ServerInfo.MaxGroupsJoinedByUser + " 个同步贝 (包括你拥有的)" + Environment.NewLine +
+                "- 每个同步贝最多拥有 " + _apiController.ServerInfo.MaxGroupUserCount + " 个用户");
             ImGuiHelpers.ScaledDummy(2f);
-            ImGui.TextUnformatted("Your current Syncshell preferred permissions are:");
+            ImGui.TextUnformatted("你目前的同步贝首选权限设置为:");
             ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted("- Animations");
+            ImGui.TextUnformatted("- 动画");
             UiSharedService.BooleanToColoredIcon(!_apiController.DefaultPermissions!.DisableGroupAnimations);
             ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted("- Sounds");
+            ImGui.TextUnformatted("- 声音");
             UiSharedService.BooleanToColoredIcon(!_apiController.DefaultPermissions!.DisableGroupSounds);
             ImGui.AlignTextToFramePadding();
             ImGui.TextUnformatted("- VFX");
             UiSharedService.BooleanToColoredIcon(!_apiController.DefaultPermissions!.DisableGroupVFX);
-            UiSharedService.TextWrapped("(Those preferred permissions can be changed anytime after Syncshell creation, your defaults can be changed anytime in the Mare Settings)");
+            UiSharedService.TextWrapped("(这些设置可以在创建后随时修改, 你的默认设置可以在设置界面进行修改)");
         }
         else
         {
             _errorGroupCreate = false;
-            ImGui.TextUnformatted("Syncshell ID: " + _lastCreatedGroup.Group.GID);
+            ImGui.TextUnformatted("同步贝ID: " + _lastCreatedGroup.Group.GID);
             ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted("Syncshell Password: " + _lastCreatedGroup.Password);
+            ImGui.TextUnformatted("同步贝密码: " + _lastCreatedGroup.Password);
             ImGui.SameLine();
             if (UiSharedService.NormalizedIconButton(FontAwesomeIcon.Copy))
             {
                 ImGui.SetClipboardText(_lastCreatedGroup.Password);
             }
-            UiSharedService.TextWrapped("You can change the Syncshell password later at any time.");
+            UiSharedService.TextWrapped("你可以随时修改同步贝密码.");
             ImGui.Separator();
-            UiSharedService.TextWrapped("These settings were set based on your preferred syncshell permissions:");
+            UiSharedService.TextWrapped("以下设置是根据你的首选设置推荐的默认设置:");
             ImGuiHelpers.ScaledDummy(2f);
             ImGui.AlignTextToFramePadding();
-            UiSharedService.TextWrapped("Suggest Animation sync:");
+            UiSharedService.TextWrapped("建议的动画同步设置:");
             UiSharedService.BooleanToColoredIcon(!_lastCreatedGroup.GroupUserPreferredPermissions.IsDisableAnimations());
             ImGui.AlignTextToFramePadding();
-            UiSharedService.TextWrapped("Suggest Sounds sync:");
+            UiSharedService.TextWrapped("建议的声音同步设置:");
             UiSharedService.BooleanToColoredIcon(!_lastCreatedGroup.GroupUserPreferredPermissions.IsDisableSounds());
             ImGui.AlignTextToFramePadding();
-            UiSharedService.TextWrapped("Suggest VFX sync:");
+            UiSharedService.TextWrapped("建议的VFX同步设置:");
             UiSharedService.BooleanToColoredIcon(!_lastCreatedGroup.GroupUserPreferredPermissions.IsDisableVFX());
         }
 
         if (_errorGroupCreate)
         {
-            UiSharedService.ColorTextWrapped("Something went wrong during creation of a new Syncshell", new Vector4(1, 0, 0, 1));
+            UiSharedService.ColorTextWrapped("在创建新的同步贝的过程中发生了错误", new Vector4(1, 0, 0, 1));
         }
     }
 

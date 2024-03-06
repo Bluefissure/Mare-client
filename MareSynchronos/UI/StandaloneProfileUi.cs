@@ -120,7 +120,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             {
                 UiSharedService.ColorText(note, ImGuiColors.DalamudGrey);
             }
-            string status = Pair.IsVisible ? "Visible" : (Pair.IsOnline ? "Online" : "Offline");
+            string status = Pair.IsVisible ? "可见" : (Pair.IsOnline ? "在线" : "离线");
             UiSharedService.ColorText(status, (Pair.IsVisible || Pair.IsOnline) ? ImGuiColors.HealerGreen : ImGuiColors.DalamudRed);
             if (Pair.IsVisible)
             {
@@ -129,22 +129,22 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             }
             if (Pair.UserPair != null)
             {
-                ImGui.TextUnformatted("Directly paired");
+                ImGui.TextUnformatted("独立配对");
                 if (Pair.UserPair.OwnPermissions.IsPaused())
                 {
                     ImGui.SameLine();
-                    UiSharedService.ColorText("You: paused", ImGuiColors.DalamudYellow);
+                    UiSharedService.ColorText("你: 已暂停", ImGuiColors.DalamudYellow);
                 }
                 if (Pair.UserPair.OtherPermissions.IsPaused())
                 {
                     ImGui.SameLine();
-                    UiSharedService.ColorText("They: paused", ImGuiColors.DalamudYellow);
+                    UiSharedService.ColorText("他/她: 已暂停", ImGuiColors.DalamudYellow);
                 }
             }
 
             if (Pair.UserPair.Groups.Any())
             {
-                ImGui.TextUnformatted("Paired through Syncshells:");
+                ImGui.TextUnformatted("通过同步贝配对:");
                 foreach (var group in Pair.UserPair.Groups)
                 {
                     var groupNote = _serverManager.GetNoteForGid(group);

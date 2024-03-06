@@ -85,7 +85,7 @@ public class CompactUi : WindowMediatorSubscriberBase
                 ShowTooltip = () =>
                 {
                     ImGui.BeginTooltip();
-                    ImGui.Text("Open Mare Settings");
+                    ImGui.Text("打开Mare设置");
                     ImGui.EndTooltip();
                 }
             },
@@ -100,7 +100,7 @@ public class CompactUi : WindowMediatorSubscriberBase
                 ShowTooltip = () =>
                 {
                     ImGui.BeginTooltip();
-                    ImGui.Text("Open Mare Event Viewer");
+                    ImGui.Text("打开Mare事件查看器");
                     ImGui.EndTooltip();
                 }
             }
@@ -109,13 +109,13 @@ public class CompactUi : WindowMediatorSubscriberBase
         _drawFolders = GetDrawFolders().ToList();
 
 #if DEBUG
-        string dev = "Dev Build";
+        string dev = "测试版";
         var ver = Assembly.GetExecutingAssembly().GetName().Version!;
-        WindowName = $"Mare Synchronos {dev} ({ver.Major}.{ver.Minor}.{ver.Build})###MareSynchronosMainUI";
+        WindowName = $"月海同步器 {dev} ({ver.Major}.{ver.Minor}.{ver.Build})###MareSynchronosMainUI";
         Toggle();
 #else
         var ver = Assembly.GetExecutingAssembly().GetName().Version;
-        WindowName = "Mare Synchronos " + ver.Major + "." + ver.Minor + "." + ver.Build + "###MareSynchronosMainUI";
+        WindowName = "月海同步器 " + ver.Major + "." + ver.Minor + "." + ver.Build + "###MareSynchronosMainUI";
 #endif
         Mediator.Subscribe<SwitchToMainUiMessage>(this, (_) => IsOpen = true);
         Mediator.Subscribe<SwitchToIntroUiMessage>(this, (_) => IsOpen = false);
@@ -187,7 +187,7 @@ public class CompactUi : WindowMediatorSubscriberBase
             else
             {
                 UiSharedService.TextWrapped($"您已成功添加 {_lastAddedUser.UserData.AliasOrUID}。在下面的字段中为用户设置本地备注：");
-                ImGui.InputTextWithHint("##noteforuser", $"Note for {_lastAddedUser.UserData.AliasOrUID}", ref _lastAddedUserComment, 100);
+                ImGui.InputTextWithHint("##noteforuser", $"{_lastAddedUser.UserData.AliasOrUID} 的备注", ref _lastAddedUserComment, 100);
                 if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Save, "保存备注"))
                 {
                     _serverManager.SetNoteForUid(_lastAddedUser.UserData.UID, _lastAddedUserComment);
@@ -262,9 +262,9 @@ public class CompactUi : WindowMediatorSubscriberBase
         var userSize = ImGui.CalcTextSize(userCount);
         var textSize = ImGui.CalcTextSize("用户在线");
 #if DEBUG
-        string shardConnection = $"Shard: {_apiController.ServerInfo.ShardName}";
+        string shardConnection = $"子服务器: {_apiController.ServerInfo.ShardName}";
 #else
-        string shardConnection = string.Equals(_apiController.ServerInfo.ShardName, "Main", StringComparison.OrdinalIgnoreCase) ? string.Empty : $"Shard: {_apiController.ServerInfo.ShardName}";
+        string shardConnection = string.Equals(_apiController.ServerInfo.ShardName, "主要", StringComparison.OrdinalIgnoreCase) ? string.Empty : $"子服务器: {_apiController.ServerInfo.ShardName}";
 #endif
         var shardTextSize = ImGui.CalcTextSize(shardConnection);
         var printShard = !string.IsNullOrEmpty(_apiController.ServerInfo.ShardName) && shardConnection != string.Empty;

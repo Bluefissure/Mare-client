@@ -70,7 +70,7 @@ public abstract class DrawFolderBase : IDrawFolder
             }
             else
             {
-                ImGui.TextUnformatted("No users (online)");
+                ImGui.TextUnformatted("无用户 (在线)");
             }
 
             ImGui.Separator();

@@ -138,17 +138,17 @@ public sealed class DtrEntry : IDisposable, IHostedService
                         .Select(x => string.Format("{0}", _configService.Current.PreferNoteInDtrTooltip ? x.GetNote() ?? x.PlayerName : x.PlayerName));
                 }
 
-                tooltip = $"Mare Synchronos: Connected{Environment.NewLine}----------{Environment.NewLine}{string.Join(Environment.NewLine, visiblePairs)}";
+                tooltip = $"月海同步器: 已连接{Environment.NewLine}----------{Environment.NewLine}{string.Join(Environment.NewLine, visiblePairs)}";
             }
             else
             {
-                tooltip = "Mare Synchronos: Connected";
+                tooltip = "月海同步器: 已连接";
             }
         }
         else
         {
             text = "\uE044 \uE04C";
-            tooltip = "Mare Synchronos: Not Connected";
+            tooltip = "月海同步器: 未连接";
         }
 
         if (!string.Equals(text, _text, StringComparison.Ordinal))

@@ -44,7 +44,7 @@ public class DrawFolderGroup : DrawFolderBase
         UiSharedService.NormalizedIcon(_groupFullInfoDto.GroupPermissions.IsDisableInvites() ? FontAwesomeIcon.Lock : FontAwesomeIcon.Users);
         if (_groupFullInfoDto.GroupPermissions.IsDisableInvites())
         {
-            UiSharedService.AttachToolTip("Syncshell " + _groupFullInfoDto.GroupAliasOrGID + " is closed for invites");
+            UiSharedService.AttachToolTip("同步贝 " + _groupFullInfoDto.GroupAliasOrGID + " 关闭了邀请功能");
         }
 
         using (ImRaii.PushStyle(ImGuiStyleVar.ItemSpacing, ImGui.GetStyle().ItemSpacing with { X = ImGui.GetStyle().ItemSpacing.X / 2f }))
@@ -54,26 +54,26 @@ public class DrawFolderGroup : DrawFolderBase
 
             ImGui.TextUnformatted("[" + OnlinePairs.ToString() + "]");
         }
-        UiSharedService.AttachToolTip(OnlinePairs + " online" + Environment.NewLine + TotalPairs + " total");
+        UiSharedService.AttachToolTip(OnlinePairs + " 在线" + Environment.NewLine + TotalPairs + " 总计");
 
         ImGui.SameLine();
         if (IsOwner)
         {
             ImGui.AlignTextToFramePadding();
             UiSharedService.NormalizedIcon(FontAwesomeIcon.Crown);
-            UiSharedService.AttachToolTip("You are the owner of " + _groupFullInfoDto.GroupAliasOrGID);
+            UiSharedService.AttachToolTip("你是 " + _groupFullInfoDto.GroupAliasOrGID + " 的所有者");
         }
         else if (IsModerator)
         {
             ImGui.AlignTextToFramePadding();
             UiSharedService.NormalizedIcon(FontAwesomeIcon.UserShield);
-            UiSharedService.AttachToolTip("You are a moderator in " + _groupFullInfoDto.GroupAliasOrGID);
+            UiSharedService.AttachToolTip("你是 " + _groupFullInfoDto.GroupAliasOrGID + " 的管理员");
         }
         else if (IsPinned)
         {
             ImGui.AlignTextToFramePadding();
             UiSharedService.NormalizedIcon(FontAwesomeIcon.Thumbtack);
-            UiSharedService.AttachToolTip("You are pinned in " + _groupFullInfoDto.GroupAliasOrGID);
+            UiSharedService.AttachToolTip("你在 " + _groupFullInfoDto.GroupAliasOrGID + " 被置顶");
         }
         ImGui.SameLine();
         return ImGui.GetCursorPosX();
@@ -81,34 +81,34 @@ public class DrawFolderGroup : DrawFolderBase
 
     protected override void DrawMenu(float menuWidth)
     {
-        ImGui.TextUnformatted("Syncshell Menu (" + _groupFullInfoDto.GroupAliasOrGID + ")");
+        ImGui.TextUnformatted("同步贝菜单 (" + _groupFullInfoDto.GroupAliasOrGID + ")");
         ImGui.Separator();
 
-        ImGui.TextUnformatted("General Syncshell Actions");
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Copy, "Copy ID", menuWidth, true))
+        ImGui.TextUnformatted("通用同步贝功能");
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Copy, "复制ID", menuWidth, true))
         {
             ImGui.CloseCurrentPopup();
             ImGui.SetClipboardText(_groupFullInfoDto.GroupAliasOrGID);
         }
-        UiSharedService.AttachToolTip("Copy Syncshell ID to Clipboard");
+        UiSharedService.AttachToolTip("复制同步贝ID到剪贴板");
 
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.StickyNote, "Copy Notes", menuWidth, true))
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.StickyNote, "复制备注", menuWidth, true))
         {
             ImGui.CloseCurrentPopup();
             ImGui.SetClipboardText(UiSharedService.GetNotes(DrawPairs.Select(k => k.Pair).ToList()));
         }
-        UiSharedService.AttachToolTip("Copies all your notes for all users in this Syncshell to the clipboard." + Environment.NewLine + "They can be imported via Settings -> Privacy -> Import Notes from Clipboard");
+        UiSharedService.AttachToolTip("复制同步贝中的所有备注到剪贴板." + Environment.NewLine + "可以通过设置 -> 隐私 -> 从剪切板导入备注");
 
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.ArrowCircleLeft, "Leave Syncshell", menuWidth, true) && UiSharedService.CtrlPressed())
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.ArrowCircleLeft, "离开同步贝", menuWidth, true) && UiSharedService.CtrlPressed())
         {
             _ = _apiController.GroupLeave(_groupFullInfoDto);
             ImGui.CloseCurrentPopup();
         }
-        UiSharedService.AttachToolTip("Hold CTRL and click to leave this Syncshell" + (!string.Equals(_groupFullInfoDto.OwnerUID, _apiController.UID, StringComparison.Ordinal)
-            ? string.Empty : Environment.NewLine + "WARNING: This action is irreversible" + Environment.NewLine + "Leaving an owned Syncshell will transfer the ownership to a random person in the Syncshell."));
+        UiSharedService.AttachToolTip("按住CTRL并点击以离开同步贝" + (!string.Equals(_groupFullInfoDto.OwnerUID, _apiController.UID, StringComparison.Ordinal)
+            ? string.Empty : Environment.NewLine + "警告: 该操作无法取消" + Environment.NewLine + "同步贝所有者离开同步贝将把同步贝权限移交给同步贝中的随机成员."));
 
         ImGui.Separator();
-        ImGui.TextUnformatted("Permission Settings");
+        ImGui.TextUnformatted("权限设置");
         var perm = _groupFullInfoDto.GroupUserPermissions;
         bool disableSounds = perm.IsDisableSounds();
         bool disableAnims = perm.IsDisableAnimations();
@@ -117,7 +117,7 @@ public class DrawFolderGroup : DrawFolderBase
         if ((_groupFullInfoDto.GroupPermissions.IsPreferDisableAnimations() != disableAnims
             || _groupFullInfoDto.GroupPermissions.IsPreferDisableSounds() != disableSounds
             || _groupFullInfoDto.GroupPermissions.IsPreferDisableVFX() != disableVfx)
-            && UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Check, "Align with suggested permissions", menuWidth, true))
+            && UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Check, "设为推荐权限", menuWidth, true))
         {
             perm.SetDisableVFX(_groupFullInfoDto.GroupPermissions.IsPreferDisableVFX());
             perm.SetDisableSounds(_groupFullInfoDto.GroupPermissions.IsPreferDisableSounds());
@@ -126,7 +126,7 @@ public class DrawFolderGroup : DrawFolderBase
             ImGui.CloseCurrentPopup();
         }
 
-        if (UiSharedService.NormalizedIconTextButton(disableSounds ? FontAwesomeIcon.VolumeUp : FontAwesomeIcon.VolumeOff, disableSounds ? "Enable Sound Sync" : "Disable Sound Sync",
+        if (UiSharedService.NormalizedIconTextButton(disableSounds ? FontAwesomeIcon.VolumeUp : FontAwesomeIcon.VolumeOff, disableSounds ? "启用声音同步" : "禁用声音同步",
             menuWidth, true))
         {
             perm.SetDisableSounds(!disableSounds);
@@ -134,7 +134,7 @@ public class DrawFolderGroup : DrawFolderBase
             ImGui.CloseCurrentPopup();
         }
 
-        if (UiSharedService.NormalizedIconTextButton(disableAnims ? FontAwesomeIcon.Running : FontAwesomeIcon.Stop, disableAnims ? "Enable Animation Sync" : "Disable Animation Sync",
+        if (UiSharedService.NormalizedIconTextButton(disableAnims ? FontAwesomeIcon.Running : FontAwesomeIcon.Stop, disableAnims ? "启用动画同步" : "禁用动画同步",
             menuWidth, true))
         {
             perm.SetDisableAnimations(!disableAnims);
@@ -142,7 +142,7 @@ public class DrawFolderGroup : DrawFolderBase
             ImGui.CloseCurrentPopup();
         }
 
-        if (UiSharedService.NormalizedIconTextButton(disableVfx ? FontAwesomeIcon.Sun : FontAwesomeIcon.Circle, disableVfx ? "Enable VFX Sync" : "Disable VFX Sync",
+        if (UiSharedService.NormalizedIconTextButton(disableVfx ? FontAwesomeIcon.Sun : FontAwesomeIcon.Circle, disableVfx ? "启用VFX同步" : "禁用VFX同步",
             menuWidth, true))
         {
             perm.SetDisableVFX(!disableVfx);
@@ -153,8 +153,8 @@ public class DrawFolderGroup : DrawFolderBase
         if (IsModerator || IsOwner)
         {
             ImGui.Separator();
-            ImGui.TextUnformatted("Syncshell Admin Functions");
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Cog, "Open Admin Panel", menuWidth, true))
+            ImGui.TextUnformatted("同步贝管理员功能");
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Cog, "打开管理员面板", menuWidth, true))
             {
                 ImGui.CloseCurrentPopup();
                 _mareMediator.Publish(new OpenSyncshellAdminPanel(_groupFullInfoDto));
@@ -193,44 +193,44 @@ public class DrawFolderGroup : DrawFolderBase
         {
             ImGui.BeginTooltip();
 
-            ImGui.TextUnformatted("Syncshell Permissions");
+            ImGui.TextUnformatted("同步贝设置");
             ImGuiHelpers.ScaledDummy(2f);
 
             UiSharedService.BooleanToColoredIcon(!individualSoundsDisabled, inline: false);
             ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
             ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted("Sound Sync");
+            ImGui.TextUnformatted("同步声音");
 
             UiSharedService.BooleanToColoredIcon(!individualAnimDisabled, inline: false);
             ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
             ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted("Animation Sync");
+            ImGui.TextUnformatted("同步动画");
 
             UiSharedService.BooleanToColoredIcon(!individualVFXDisabled, inline: false);
             ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
             ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted("VFX Sync");
+            ImGui.TextUnformatted("同步VFX");
 
             ImGui.Separator();
 
             ImGuiHelpers.ScaledDummy(2f);
-            ImGui.TextUnformatted("Suggested Permissions");
+            ImGui.TextUnformatted("推荐设置");
             ImGuiHelpers.ScaledDummy(2f);
 
             UiSharedService.BooleanToColoredIcon(!_groupFullInfoDto.GroupPermissions.IsPreferDisableSounds(), inline: false);
             ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
             ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted("Sound Sync");
+            ImGui.TextUnformatted("同步声音");
 
             UiSharedService.BooleanToColoredIcon(!_groupFullInfoDto.GroupPermissions.IsPreferDisableAnimations(), inline: false);
             ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
             ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted("Animation Sync");
+            ImGui.TextUnformatted("同步动画");
 
             UiSharedService.BooleanToColoredIcon(!_groupFullInfoDto.GroupPermissions.IsPreferDisableVFX(), inline: false);
             ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
             ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted("VFX Sync");
+            ImGui.TextUnformatted("同步VFX");
 
             ImGui.EndTooltip();
         }

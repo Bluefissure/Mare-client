@@ -53,30 +53,30 @@ internal class JoinSyncshellUI : WindowMediatorSubscriberBase
     protected override void DrawInternal()
     {
         using (ImRaii.PushFont(_uiSharedService.UidFont))
-            ImGui.TextUnformatted(_groupJoinInfo == null || !_groupJoinInfo.Success ? "Join Syncshell" : "Finalize join Syncshell " + _groupJoinInfo.GroupAliasOrGID);
+            ImGui.TextUnformatted(_groupJoinInfo == null || !_groupJoinInfo.Success ? "加入同步贝" : "尝试加入同步贝 " + _groupJoinInfo.GroupAliasOrGID);
         ImGui.Separator();
 
         if (_groupJoinInfo == null || !_groupJoinInfo.Success)
         {
-            UiSharedService.TextWrapped("Here you can join existing Syncshells. " +
-                "Please keep in mind that you cannot join more than " + _apiController.ServerInfo.MaxGroupsJoinedByUser + " syncshells on this server." + Environment.NewLine +
-                "Joining a Syncshell will pair you implicitly with all existing users in the Syncshell." + Environment.NewLine +
-                "All permissions to all users in the Syncshell will be set to the preferred Syncshell permissions on joining, excluding prior set preferred permissions.");
+            UiSharedService.TextWrapped("你可以在此加入已有的同步贝. " +
+                "请注意你最多只能加入 " + _apiController.ServerInfo.MaxGroupsJoinedByUser + " 个同步贝." + Environment.NewLine +
+                "加入同步贝会让你与所有同步贝中的成员同步." + Environment.NewLine +
+                "同步贝中所有用户的同步权限会被设置为该同步贝的首选权限, 除了已经被你设置过权限的用户.");
             ImGui.Separator();
-            ImGui.TextUnformatted("Note: Syncshell ID and Password are case sensitive. MSS- is part of Syncshell IDs, unless using Vanity IDs.");
+            ImGui.TextUnformatted("注意: 同步贝ID和密码区分大小写. MSS- 是同步贝ID的一部分, 使用个性化ID的除外.");
 
             ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted("Syncshell ID");
+            ImGui.TextUnformatted("同步贝ID");
             ImGui.SameLine(200);
-            ImGui.InputTextWithHint("##syncshellId", "Full Syncshell ID", ref _desiredSyncshellToJoin, 20);
+            ImGui.InputTextWithHint("##syncshellId", "同步贝ID", ref _desiredSyncshellToJoin, 20);
 
             ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted("Syncshell Password");
+            ImGui.TextUnformatted("同步贝密码");
             ImGui.SameLine(200);
-            ImGui.InputTextWithHint("##syncshellpw", "Password", ref _syncshellPassword, 50, ImGuiInputTextFlags.Password);
+            ImGui.InputTextWithHint("##syncshellpw", "密码", ref _syncshellPassword, 50, ImGuiInputTextFlags.Password);
             using (ImRaii.Disabled(string.IsNullOrEmpty(_desiredSyncshellToJoin) || string.IsNullOrEmpty(_syncshellPassword)))
             {
-                if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.Plus, "Join Syncshell"))
+                if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.Plus, "加入同步贝"))
                 {
                     _groupJoinInfo = _apiController.GroupJoin(new GroupPasswordDto(new API.Data.GroupData(_desiredSyncshellToJoin), _syncshellPassword)).Result;
                     _previousPassword = _syncshellPassword;
@@ -85,22 +85,22 @@ internal class JoinSyncshellUI : WindowMediatorSubscriberBase
             }
             if (_groupJoinInfo != null && !_groupJoinInfo.Success)
             {
-                UiSharedService.ColorTextWrapped("Failed to join the Syncshell. This is due to one of following reasons:" + Environment.NewLine +
-                    "- The Syncshell does not exist or the password is incorrect" + Environment.NewLine +
-                    "- You are already in that Syncshell or are banned from that Syncshell" + Environment.NewLine +
-                    "- The Syncshell is at capacity or has invites disabled" + Environment.NewLine, ImGuiColors.DalamudYellow);
+                UiSharedService.ColorTextWrapped("加入同步贝失败. 以下是可能的原因:" + Environment.NewLine +
+                    "- 同步贝不存在或密码错误" + Environment.NewLine +
+                    "- 你已经加入了该同步贝或已被该同步贝封禁" + Environment.NewLine +
+                    "- 同步贝人数已达上限或关闭了邀请功能" + Environment.NewLine, ImGuiColors.DalamudYellow);
             }
         }
         else
         {
-            ImGui.TextUnformatted("You are about to join the Syncshell " + _groupJoinInfo.GroupAliasOrGID + " by " + _groupJoinInfo.OwnerAliasOrUID);
+            ImGui.TextUnformatted("你即将加入同步贝 " + _groupJoinInfo.GroupAliasOrGID + " 所有者为 " + _groupJoinInfo.OwnerAliasOrUID);
             ImGuiHelpers.ScaledDummy(2f);
-            ImGui.TextUnformatted("This Syncshell staff has set the following suggested Syncshell permissions:");
+            ImGui.TextUnformatted("同步贝管理员设置了如下的默认同步权限:");
             ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted("- Sounds ");
+            ImGui.TextUnformatted("- 声音 ");
             UiSharedService.BooleanToColoredIcon(!_groupJoinInfo.GroupPermissions.IsPreferDisableSounds());
             ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted("- Animations");
+            ImGui.TextUnformatted("- 动画");
             UiSharedService.BooleanToColoredIcon(!_groupJoinInfo.GroupPermissions.IsPreferDisableAnimations());
             ImGui.AlignTextToFramePadding();
             ImGui.TextUnformatted("- VFX");
@@ -111,19 +111,19 @@ internal class JoinSyncshellUI : WindowMediatorSubscriberBase
                 || _groupJoinInfo.GroupPermissions.IsPreferDisableAnimations() != _ownPermissions.DisableGroupAnimations)
             {
                 ImGuiHelpers.ScaledDummy(2f);
-                UiSharedService.ColorText("Your current preferred default Syncshell permissions deviate from the suggested permissions:", ImGuiColors.DalamudYellow);
+                UiSharedService.ColorText("你当前的首选权限设置与贝的默认设置不同:", ImGuiColors.DalamudYellow);
                 if (_groupJoinInfo.GroupPermissions.IsPreferDisableSounds() != _ownPermissions.DisableGroupSounds)
                 {
                     ImGui.AlignTextToFramePadding();
-                    ImGui.TextUnformatted("- Sounds");
+                    ImGui.TextUnformatted("- 声音");
                     UiSharedService.BooleanToColoredIcon(!_ownPermissions.DisableGroupSounds);
                     ImGui.SameLine(200);
                     ImGui.AlignTextToFramePadding();
-                    ImGui.TextUnformatted("Suggested");
+                    ImGui.TextUnformatted("推荐的设置");
                     UiSharedService.BooleanToColoredIcon(!_groupJoinInfo.GroupPermissions.IsPreferDisableSounds());
                     ImGui.SameLine();
                     using var id = ImRaii.PushId("suggestedSounds");
-                    if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.ArrowRight, "Apply suggested"))
+                    if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.ArrowRight, "使用推荐的设置"))
                     {
                         _ownPermissions.DisableGroupSounds = _groupJoinInfo.GroupPermissions.IsPreferDisableSounds();
                     }
@@ -131,15 +131,15 @@ internal class JoinSyncshellUI : WindowMediatorSubscriberBase
                 if (_groupJoinInfo.GroupPermissions.IsPreferDisableAnimations() != _ownPermissions.DisableGroupAnimations)
                 {
                     ImGui.AlignTextToFramePadding();
-                    ImGui.TextUnformatted("- Animations");
+                    ImGui.TextUnformatted("- 动画");
                     UiSharedService.BooleanToColoredIcon(!_ownPermissions.DisableGroupAnimations);
                     ImGui.SameLine(200);
                     ImGui.AlignTextToFramePadding();
-                    ImGui.TextUnformatted("Suggested");
+                    ImGui.TextUnformatted("推荐的设置");
                     UiSharedService.BooleanToColoredIcon(!_groupJoinInfo.GroupPermissions.IsPreferDisableAnimations());
                     ImGui.SameLine();
                     using var id = ImRaii.PushId("suggestedAnims");
-                    if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.ArrowRight, "Apply suggested"))
+                    if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.ArrowRight, "使用推荐的设置"))
                     {
                         _ownPermissions.DisableGroupAnimations = _groupJoinInfo.GroupPermissions.IsPreferDisableAnimations();
                     }
@@ -151,23 +151,23 @@ internal class JoinSyncshellUI : WindowMediatorSubscriberBase
                     UiSharedService.BooleanToColoredIcon(!_ownPermissions.DisableGroupVFX);
                     ImGui.SameLine(200);
                     ImGui.AlignTextToFramePadding();
-                    ImGui.TextUnformatted("Suggested");
+                    ImGui.TextUnformatted("推荐的设置");
                     UiSharedService.BooleanToColoredIcon(!_groupJoinInfo.GroupPermissions.IsPreferDisableVFX());
                     ImGui.SameLine();
                     using var id = ImRaii.PushId("suggestedVfx");
-                    if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.ArrowRight, "Apply suggested"))
+                    if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.ArrowRight, "使用推荐的设置"))
                     {
                         _ownPermissions.DisableGroupVFX = _groupJoinInfo.GroupPermissions.IsPreferDisableVFX();
                     }
                 }
-                UiSharedService.TextWrapped("Note: you do not need to apply the suggested Syncshell permissions, they are solely suggestions by the staff of the Syncshell.");
+                UiSharedService.TextWrapped("注意: 你并非一定要修改以上的同步设置, 这只是同步贝管理们的推荐设置.");
             }
             else
             {
-                UiSharedService.TextWrapped("Your default syncshell permissions on joining are in line with the suggested Syncshell permissions through the owner.");
+                UiSharedService.TextWrapped("你对当前同步贝的同步设置将使用同步贝的推荐设置.");
             }
             ImGuiHelpers.ScaledDummy(2f);
-            if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.Plus, "Finalize and join " + _groupJoinInfo.GroupAliasOrGID))
+            if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.Plus, "确认并加入 " + _groupJoinInfo.GroupAliasOrGID))
             {
                 GroupUserPreferredPermissions joinPermissions = GroupUserPreferredPermissions.NoneSet;
                 joinPermissions.SetDisableSounds(_ownPermissions.DisableGroupSounds);

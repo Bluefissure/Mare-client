@@ -26,17 +26,17 @@ public class BanUserPopupHandler : IPopupHandler
 
     public void DrawContent()
     {
-        UiSharedService.TextWrapped("User " + (_reportedPair.UserData.AliasOrUID) + " will be banned and removed from this Syncshell.");
-        ImGui.InputTextWithHint("##banreason", "Ban Reason", ref _banReason, 255);
+        UiSharedService.TextWrapped("用户 " + (_reportedPair.UserData.AliasOrUID) + " 将被从本同步贝封禁.");
+        ImGui.InputTextWithHint("##banreason", "封禁原因", ref _banReason, 255);
 
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.UserSlash, "Ban User"))
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.UserSlash, "封禁用户"))
         {
             ImGui.CloseCurrentPopup();
             var reason = _banReason;
             _ = _apiController.GroupBanUser(new GroupPairDto(_group.Group, _reportedPair.UserData), reason);
             _banReason = string.Empty;
         }
-        UiSharedService.TextWrapped("The reason will be displayed in the banlist. The current server-side alias if present (Vanity ID) will automatically be attached to the reason.");
+        UiSharedService.TextWrapped("封禁原因将显示在封禁列表中. 个性化UID也将附在其中.");
     }
 
     public void Open(OpenBanUserPopupMessage message)

@@ -100,7 +100,7 @@ internal class EventViewerUI : WindowMediatorSubscriberBase
     {
         using (ImRaii.Disabled(!_eventAggregator.NewEventsAvailable))
         {
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.ArrowsToCircle, "Refresh events"))
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.ArrowsToCircle, "刷新事件"))
             {
                 CurrentEvents = _eventAggregator.EventList.Value.OrderByDescending(f => f.EventTime).ToList();
             }
@@ -110,13 +110,13 @@ internal class EventViewerUI : WindowMediatorSubscriberBase
         {
             ImGui.SameLine();
             ImGui.AlignTextToFramePadding();
-            UiSharedService.ColorTextWrapped("New events are available, press refresh to update", ImGuiColors.DalamudYellow);
+            UiSharedService.ColorTextWrapped("有新的事件,请点击刷新查看", ImGuiColors.DalamudYellow);
         }
 
-        var buttonSize = UiSharedService.GetNormalizedIconTextButtonSize(FontAwesomeIcon.FolderOpen, "Open EventLog Folder");
+        var buttonSize = UiSharedService.GetNormalizedIconTextButtonSize(FontAwesomeIcon.FolderOpen, "打开事件记录文件夹");
         var dist = ImGui.GetWindowContentRegionMax().X - buttonSize.X;
         ImGui.SameLine(dist);
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.FolderOpen, "Open EventLog folder"))
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.FolderOpen, "打开事件记录文件夹"))
         {
             ProcessStartInfo ps = new()
             {
@@ -127,25 +127,25 @@ internal class EventViewerUI : WindowMediatorSubscriberBase
             Process.Start(ps);
         }
 
-        UiSharedService.FontText("Last Events", _uiSharedService.UidFont);
-        var foldOut = ImRaii.TreeNode("Filter");
+        UiSharedService.FontText("最近的事件", _uiSharedService.UidFont);
+        var foldOut = ImRaii.TreeNode("筛选");
         if (foldOut)
         {
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Ban, "Clear Filters"))
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Ban, "清除筛选"))
             {
                 ClearFilters();
             }
             bool changedFilter = false;
             ImGui.SetNextItemWidth(200);
-            changedFilter |= ImGui.InputText("Search all columns", ref _filterFreeText, 50);
+            changedFilter |= ImGui.InputText("查找所有列", ref _filterFreeText, 50);
             ImGui.SetNextItemWidth(200);
-            changedFilter |= ImGui.InputText("Filter by Source", ref _filterSource, 50);
+            changedFilter |= ImGui.InputText("按来源筛选", ref _filterSource, 50);
             ImGui.SetNextItemWidth(200);
-            changedFilter |= ImGui.InputText("Filter by UID", ref _filterUid, 50);
+            changedFilter |= ImGui.InputText("按UID筛选", ref _filterUid, 50);
             ImGui.SetNextItemWidth(200);
-            changedFilter |= ImGui.InputText("Filter by Character", ref _filterCharacter, 50);
+            changedFilter |= ImGui.InputText("按角色筛选", ref _filterCharacter, 50);
             ImGui.SetNextItemWidth(200);
-            changedFilter |= ImGui.InputText("Filter by Event", ref _filterEvent, 50);
+            changedFilter |= ImGui.InputText("按事件筛选", ref _filterEvent, 50);
             if (changedFilter) _filteredEvents = RecreateFilter();
         }
         foldOut.Dispose();
@@ -161,11 +161,11 @@ internal class EventViewerUI : WindowMediatorSubscriberBase
         {
             ImGui.TableSetupScrollFreeze(0, 1);
             ImGui.TableSetupColumn(string.Empty, ImGuiTableColumnFlags.NoSort);
-            ImGui.TableSetupColumn("Time");
-            ImGui.TableSetupColumn("Source");
+            ImGui.TableSetupColumn("时间");
+            ImGui.TableSetupColumn("来源");
             ImGui.TableSetupColumn("UID");
-            ImGui.TableSetupColumn("Character");
-            ImGui.TableSetupColumn("Event");
+            ImGui.TableSetupColumn("角色");
+            ImGui.TableSetupColumn("事件");
             ImGui.TableHeadersRow();
             foreach (var ev in _filteredEvents.Value)
             {

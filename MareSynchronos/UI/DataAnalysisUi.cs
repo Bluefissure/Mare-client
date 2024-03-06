@@ -62,11 +62,11 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
         if (_conversionTask != null && !_conversionTask.IsCompleted)
         {
             _showModal = true;
-            if (ImGui.BeginPopupModal("BC7 Conversion in Progress"))
+            if (ImGui.BeginPopupModal("BC7 转换正在进行中"))
             {
-                ImGui.TextUnformatted("BC7 Conversion in progress: " + _conversionCurrentFileProgress + "/" + _texturesToConvert.Count);
-                UiSharedService.TextWrapped("Current file: " + _conversionCurrentFileName);
-                if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.StopCircle, "Cancel conversion"))
+                ImGui.TextUnformatted("BC7 转换正在进行中: " + _conversionCurrentFileProgress + "/" + _texturesToConvert.Count);
+                UiSharedService.TextWrapped("当前文件: " + _conversionCurrentFileName);
+                if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.StopCircle, "取消转换"))
                 {
                     _conversionCancellationTokenSource.Cancel();
                 }
@@ -89,7 +89,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
 
         if (_showModal && !_modalOpen)
         {
-            ImGui.OpenPopup("BC7 Conversion in Progress");
+            ImGui.OpenPopup("BC7 转换正在进行中");
             _modalOpen = true;
         }
 

@@ -47,7 +47,7 @@ public class SelectTagForPairUi
         }
 
         var name = PairName(_pair);
-        var popupName = $"Choose Groups for {name}";
+        var popupName = $"为 {name} 选择群组";
         // Is the popup supposed to show but did not open yet? Open it
         if (_show)
         {

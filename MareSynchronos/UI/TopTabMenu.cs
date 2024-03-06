@@ -94,7 +94,7 @@ public class TopTabMenu
                     xAfter with { Y = xAfter.Y + buttonSize.Y + spacing.Y, X = xAfter.X - spacing.X },
                     underlineColor, 2);
         }
-        UiSharedService.AttachToolTip("Individual Pair Menu");
+        UiSharedService.AttachToolTip("独立配对");
 
         using (ImRaii.PushFont(UiBuilder.IconFont))
         {
@@ -110,7 +110,7 @@ public class TopTabMenu
                     xAfter with { Y = xAfter.Y + buttonSize.Y + spacing.Y, X = xAfter.X - spacing.X },
                     underlineColor, 2);
         }
-        UiSharedService.AttachToolTip("Syncshell Menu");
+        UiSharedService.AttachToolTip("同步贝");
 
         ImGui.SameLine();
         using (ImRaii.PushFont(UiBuilder.IconFont))
@@ -128,7 +128,7 @@ public class TopTabMenu
                     xAfter with { Y = xAfter.Y + buttonSize.Y + spacing.Y, X = xAfter.X - spacing.X },
                     underlineColor, 2);
         }
-        UiSharedService.AttachToolTip("Filter");
+        UiSharedService.AttachToolTip("过滤器");
 
         ImGui.SameLine();
         using (ImRaii.PushFont(UiBuilder.IconFont))
@@ -146,7 +146,7 @@ public class TopTabMenu
                     xAfter with { Y = xAfter.Y + buttonSize.Y + spacing.Y, X = xAfter.X - spacing.X },
                     underlineColor, 2);
         }
-        UiSharedService.AttachToolTip("Your User Menu");
+        UiSharedService.AttachToolTip("用户设置");
 
         ImGui.NewLine();
         btncolor.Dispose();
@@ -178,34 +178,34 @@ public class TopTabMenu
 
     private void DrawAddPair(float availableXWidth, float spacingX)
     {
-        var buttonSize = UiSharedService.GetNormalizedIconTextButtonSize(FontAwesomeIcon.UserPlus, "Add");
+        var buttonSize = UiSharedService.GetNormalizedIconTextButtonSize(FontAwesomeIcon.UserPlus, "添加");
         ImGui.SetNextItemWidth(availableXWidth - buttonSize.X - spacingX);
-        ImGui.InputTextWithHint("##otheruid", "Other players UID/Alias", ref _pairToAdd, 20);
+        ImGui.InputTextWithHint("##otheruid", "目标UID/个性UID", ref _pairToAdd, 20);
         ImGui.SameLine();
         var alreadyExisting = _pairManager.DirectPairs.Exists(p => string.Equals(p.UserData.UID, _pairToAdd, StringComparison.Ordinal) || string.Equals(p.UserData.Alias, _pairToAdd, StringComparison.Ordinal));
         using (ImRaii.Disabled(alreadyExisting || string.IsNullOrEmpty(_pairToAdd)))
         {
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.UserPlus, "Add"))
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.UserPlus, "添加"))
             {
                 _ = _apiController.UserAddPair(new(new(_pairToAdd)));
                 _pairToAdd = string.Empty;
             }
         }
-        UiSharedService.AttachToolTip("Pair with " + (_pairToAdd.IsNullOrEmpty() ? "other user" : _pairToAdd));
+        UiSharedService.AttachToolTip("与 " + (_pairToAdd.IsNullOrEmpty() ? "其他用户" : _pairToAdd) + " 配对");
     }
 
     private void DrawFilter(float availableWidth, float spacingX)
     {
-        var buttonSize = UiSharedService.GetNormalizedIconTextButtonSize(FontAwesomeIcon.Ban, "Clear");
+        var buttonSize = UiSharedService.GetNormalizedIconTextButtonSize(FontAwesomeIcon.Ban, "清除");
         ImGui.SetNextItemWidth(availableWidth - buttonSize.X - spacingX);
         string filter = Filter;
-        if (ImGui.InputTextWithHint("##filter", "Filter for UID/notes", ref filter, 255))
+        if (ImGui.InputTextWithHint("##filter", "UID/备注过滤", ref filter, 255))
         {
             Filter = filter;
         }
         ImGui.SameLine();
         using var disabled = ImRaii.Disabled(string.IsNullOrEmpty(Filter));
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Ban, "Clear"))
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Ban, "清除"))
         {
             Filter = string.Empty;
         }
@@ -223,11 +223,11 @@ public class TopTabMenu
 
             if (ImGui.Button(FontAwesomeIcon.Pause.ToIconString(), buttonSize))
             {
-                ImGui.OpenPopup("Individual Pause");
+                ImGui.OpenPopup("独立配对同步");
             }
         }
-        UiSharedService.AttachToolTip("Globally resume or pause all individual pairs." + UiSharedService.TooltipSeparator
-            + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator + "Available again in " + _globalControlCountdown + " seconds." : string.Empty));
+        UiSharedService.AttachToolTip("全局暂停或恢复独立配对同步." + UiSharedService.TooltipSeparator
+            + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator +  _globalControlCountdown + " 秒后可再次使用." : string.Empty));
 
         ImGui.SameLine();
         using (ImRaii.PushFont(UiBuilder.IconFont))
@@ -236,11 +236,11 @@ public class TopTabMenu
 
             if (ImGui.Button(FontAwesomeIcon.VolumeUp.ToIconString(), buttonSize))
             {
-                ImGui.OpenPopup("Individual Sounds");
+                ImGui.OpenPopup("独立配对声音同步");
             }
         }
-        UiSharedService.AttachToolTip("Globally enable or disable sound sync with all individual pairs."
-            + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator + "Available again in " + _globalControlCountdown + " seconds." : string.Empty));
+        UiSharedService.AttachToolTip("全局启用或禁用独立配对声音同步."
+            + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator + _globalControlCountdown + " 秒后可再次使用." : string.Empty));
 
         ImGui.SameLine();
         using (ImRaii.PushFont(UiBuilder.IconFont))
@@ -249,11 +249,11 @@ public class TopTabMenu
 
             if (ImGui.Button(FontAwesomeIcon.Running.ToIconString(), buttonSize))
             {
-                ImGui.OpenPopup("Individual Animations");
+                ImGui.OpenPopup("独立配对动画同步");
             }
         }
-        UiSharedService.AttachToolTip("Globally enable or disable animation sync with all individual pairs." + UiSharedService.TooltipSeparator
-            + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator + "Available again in " + _globalControlCountdown + " seconds." : string.Empty));
+        UiSharedService.AttachToolTip("全局启用或禁用独立配对动画同步." + UiSharedService.TooltipSeparator
+            + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator + _globalControlCountdown + " 秒后可再次使用." : string.Empty));
 
         ImGui.SameLine();
         using (ImRaii.PushFont(UiBuilder.IconFont))
@@ -262,14 +262,14 @@ public class TopTabMenu
 
             if (ImGui.Button(FontAwesomeIcon.Sun.ToIconString(), buttonSize))
             {
-                ImGui.OpenPopup("Individual VFX");
+                ImGui.OpenPopup("独立配对VFX同步");
             }
         }
-        UiSharedService.AttachToolTip("Globally enable or disable VFX sync with all individual pairs." + UiSharedService.TooltipSeparator
-            + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator + "Available again in " + _globalControlCountdown + " seconds." : string.Empty));
+        UiSharedService.AttachToolTip("全局启用或禁用独立配对VFX同步." + UiSharedService.TooltipSeparator
+            + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator + _globalControlCountdown + " 秒后可再次使用." : string.Empty));
 
 
-        PopupIndividualSetting("Individual Pause", "Unpause all individuals", "Pause all individuals",
+        PopupIndividualSetting("独立配对同步", "恢复独立配对同步", "暂停独立配对同步",
             FontAwesomeIcon.Play, FontAwesomeIcon.Pause,
             (perm) =>
             {
@@ -281,7 +281,7 @@ public class TopTabMenu
                 perm.SetPaused(true);
                 return perm;
             });
-        PopupIndividualSetting("Individual Sounds", "Enable sounds for all individuals", "Disable sounds for all individuals",
+        PopupIndividualSetting("独立配对声音同步", "启用独立配对声音同步", "禁用独立配对声音同步",
             FontAwesomeIcon.VolumeUp, FontAwesomeIcon.VolumeMute,
             (perm) =>
             {
@@ -293,7 +293,7 @@ public class TopTabMenu
                 perm.SetDisableSounds(true);
                 return perm;
             });
-        PopupIndividualSetting("Individual Animations", "Enable animations for all individuals", "Disable animations for all individuals",
+        PopupIndividualSetting("独立配对动画同步", "启用独立配对动画同步", "禁用独立配对动画同步",
             FontAwesomeIcon.Running, FontAwesomeIcon.Stop,
             (perm) =>
             {
@@ -305,7 +305,7 @@ public class TopTabMenu
                 perm.SetDisableAnimations(true);
                 return perm;
             });
-        PopupIndividualSetting("Individual VFX", "Enable VFX for all individuals", "Disable VFX for all individuals",
+        PopupIndividualSetting("独立配对VFX同步", "启用独立配对VFX同步", "禁用独立配对VFX同步",
             FontAwesomeIcon.Sun, FontAwesomeIcon.Circle,
             (perm) =>
             {
@@ -331,12 +331,12 @@ public class TopTabMenu
 
             if (ImGui.Button(FontAwesomeIcon.Pause.ToIconString(), buttonSize))
             {
-                ImGui.OpenPopup("Syncshell Pause");
+                ImGui.OpenPopup("同步贝同步");
             }
         }
-        UiSharedService.AttachToolTip("Globally resume or pause all syncshells." + UiSharedService.TooltipSeparator
-                        + "Note: This will not affect users with preferred permissions in syncshells."
-            + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator + "Available again in " + _globalControlCountdown + " seconds." : string.Empty));
+        UiSharedService.AttachToolTip("全局暂停或恢复同步贝同步." + UiSharedService.TooltipSeparator
+                        + "注意: 这不会影响同步贝你中进行了单独设置的用户."
+            + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator + _globalControlCountdown + " 秒后可再次使用." : string.Empty));
 
         ImGui.SameLine();
         using (ImRaii.PushFont(UiBuilder.IconFont))
@@ -345,12 +345,12 @@ public class TopTabMenu
 
             if (ImGui.Button(FontAwesomeIcon.VolumeUp.ToIconString(), buttonSize))
             {
-                ImGui.OpenPopup("Syncshell Sounds");
+                ImGui.OpenPopup("同步贝声音同步");
             }
         }
-        UiSharedService.AttachToolTip("Globally enable or disable sound sync with all syncshells." + UiSharedService.TooltipSeparator
-                        + "Note: This will not affect users with preferred permissions in syncshells."
-                        + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator + "Available again in " + _globalControlCountdown + " seconds." : string.Empty));
+        UiSharedService.AttachToolTip("全局启用或禁用同步贝声音同步." + UiSharedService.TooltipSeparator
+                        + "注意: 这不会影响同步贝你中进行了单独设置的用户."
+                        + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator + _globalControlCountdown + " 秒后可再次使用." : string.Empty));
 
         ImGui.SameLine();
         using (ImRaii.PushFont(UiBuilder.IconFont))
@@ -359,12 +359,12 @@ public class TopTabMenu
 
             if (ImGui.Button(FontAwesomeIcon.Running.ToIconString(), buttonSize))
             {
-                ImGui.OpenPopup("Syncshell Animations");
+                ImGui.OpenPopup("同步贝动画同步");
             }
         }
-        UiSharedService.AttachToolTip("Globally enable or disable animation sync with all syncshells." + UiSharedService.TooltipSeparator
-                        + "Note: This will not affect users with preferred permissions in syncshells."
-            + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator + "Available again in " + _globalControlCountdown + " seconds." : string.Empty));
+        UiSharedService.AttachToolTip("全局启用或禁用同步贝动画同步." + UiSharedService.TooltipSeparator
+                        + "注意: 这不会影响同步贝你中进行了单独设置的用户."
+            + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator + _globalControlCountdown + " 秒后可再次使用." : string.Empty));
 
         ImGui.SameLine();
         using (ImRaii.PushFont(UiBuilder.IconFont))
@@ -373,15 +373,15 @@ public class TopTabMenu
 
             if (ImGui.Button(FontAwesomeIcon.Sun.ToIconString(), buttonSize))
             {
-                ImGui.OpenPopup("Syncshell VFX");
+                ImGui.OpenPopup("同步贝VFX同步");
             }
         }
-        UiSharedService.AttachToolTip("Globally enable or disable VFX sync with all syncshells." + UiSharedService.TooltipSeparator
-                        + "Note: This will not affect users with preferred permissions in syncshells."
-            + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator + "Available again in " + _globalControlCountdown + " seconds." : string.Empty));
+        UiSharedService.AttachToolTip("全局启用或禁用同步贝VFX同步." + UiSharedService.TooltipSeparator
+                        + "注意: 这不会影响同步贝你中进行了单独设置的用户."
+            + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator + _globalControlCountdown + " 秒后可再次使用." : string.Empty));
 
 
-        PopupSyncshellSetting("Syncshell Pause", "Unpause all syncshells", "Pause all syncshells",
+        PopupSyncshellSetting("同步贝同步", "恢复同步贝同步", "暂停同步贝同步",
             FontAwesomeIcon.Play, FontAwesomeIcon.Pause,
             (perm) =>
             {
@@ -393,7 +393,7 @@ public class TopTabMenu
                 perm.SetPaused(true);
                 return perm;
             });
-        PopupSyncshellSetting("Syncshell Sounds", "Enable sounds for all syncshells", "Disable sounds for all syncshells",
+        PopupSyncshellSetting("同步贝声音同步", "启用同步贝声音同步", "禁用同步贝声音同步",
             FontAwesomeIcon.VolumeUp, FontAwesomeIcon.VolumeMute,
             (perm) =>
             {
@@ -405,7 +405,7 @@ public class TopTabMenu
                 perm.SetDisableSounds(true);
                 return perm;
             });
-        PopupSyncshellSetting("Syncshell Animations", "Enable animations for all syncshells", "Disable animations for all syncshells",
+        PopupSyncshellSetting("同步贝动画同步", "启用同步贝动画同步", "禁用同步贝动画同步",
             FontAwesomeIcon.Running, FontAwesomeIcon.Stop,
             (perm) =>
             {
@@ -417,7 +417,7 @@ public class TopTabMenu
                 perm.SetDisableAnimations(true);
                 return perm;
             });
-        PopupSyncshellSetting("Syncshell VFX", "Enable VFX for all syncshells", "Disable VFX for all syncshells",
+        PopupSyncshellSetting("同步贝VFX同步", "启用或禁用独立配对VFX同步", "禁用独立配对VFX同步",
             FontAwesomeIcon.Sun, FontAwesomeIcon.Circle,
             (perm) =>
             {
@@ -451,12 +451,12 @@ public class TopTabMenu
                 _ = _apiController.SetBulkPermissions(new(new(StringComparer.Ordinal), bulkSyncshells)).ConfigureAwait(false);
             }
         }
-        UiSharedService.AttachToolTip("Globally align syncshell permissions to suggested syncshell permissions." + UiSharedService.TooltipSeparator
-            + "Note: This will not affect users with preferred permissions in syncshells." + Environment.NewLine
-            + "Note: If multiple users share one syncshell the permissions to that user will be set to " + Environment.NewLine
-            + "the ones of the last applied syncshell in alphabetical order." + UiSharedService.TooltipSeparator
-            + "Hold CTRL to enable this button"
-            + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator + "Available again in " + _globalControlCountdown + " seconds." : string.Empty));
+        UiSharedService.AttachToolTip("同步同步贝设置为推荐设置." + UiSharedService.TooltipSeparator
+            + "注意: 这不会影响同步贝你中进行了单独设置的用户." + Environment.NewLine
+            + "注意: 如果一个用户在多个同步贝中" + Environment.NewLine
+            + "其权限将被设为按字母排序最后一个同步贝的设置." + UiSharedService.TooltipSeparator
+            + "按住CTRL并点击"
+            + (_globalControlCountdown > 0 ? UiSharedService.TooltipSeparator + _globalControlCountdown + " 秒后可再次使用." : string.Empty));
     }
 
     private void DrawSyncshellMenu(float availableWidth, float spacingX)
@@ -466,7 +466,7 @@ public class TopTabMenu
         using (ImRaii.Disabled(_pairManager.GroupPairs.Select(k => k.Key).Distinct()
             .Count(g => string.Equals(g.OwnerUID, _apiController.UID, StringComparison.Ordinal)) >= _apiController.ServerInfo.MaxGroupsCreatedByUser))
         {
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Plus, "Create new Syncshell", buttonX))
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Plus, "创建新同步贝", buttonX))
             {
                 _mareMediator.Publish(new UiToggleMessage(typeof(CreateSyncshellUI)));
             }
@@ -475,7 +475,7 @@ public class TopTabMenu
 
         using (ImRaii.Disabled(_pairManager.GroupPairs.Select(k => k.Key).Distinct().Count() >= _apiController.ServerInfo.MaxGroupsJoinedByUser))
         {
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Users, "Join existing Syncshell", buttonX))
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Users, "加入现有的同步贝", buttonX))
             {
                 _mareMediator.Publish(new UiToggleMessage(typeof(JoinSyncshellUI)));
             }
@@ -485,17 +485,17 @@ public class TopTabMenu
     private void DrawUserConfig(float availableWidth, float spacingX)
     {
         var buttonX = (availableWidth - spacingX) / 2f;
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.UserCircle, "Edit Mare Profile", buttonX))
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.UserCircle, "编辑月海档案", buttonX))
         {
             _mareMediator.Publish(new UiToggleMessage(typeof(EditProfileUi)));
         }
-        UiSharedService.AttachToolTip("Edit your Mare Profile");
+        UiSharedService.AttachToolTip("编辑你的月海档案");
         ImGui.SameLine();
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.PersonCircleQuestion, "Chara Data Analysis", buttonX))
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.PersonCircleQuestion, "角色数据分析", buttonX))
         {
             _mareMediator.Publish(new UiToggleMessage(typeof(DataAnalysisUi)));
         }
-        UiSharedService.AttachToolTip("View and analyze your generated character data");
+        UiSharedService.AttachToolTip("查看并分析你当前的角色数据");
     }
 
     private async Task GlobalControlCountdown(int countdown)

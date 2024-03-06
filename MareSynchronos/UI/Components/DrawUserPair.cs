@@ -79,23 +79,23 @@ public class DrawUserPair
             UiSharedService.AttachToolTip("这将上次接收的角色数据重新应用到此角色");
         }
 
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.PlayCircle, "循环暂停状态", _menuRenderWidth, true))
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.PlayCircle, "暂停循环状态", _menuRenderWidth, true))
         {
             _ = _apiController.CyclePause(_pair.UserData);
             ImGui.CloseCurrentPopup();
         }
         ImGui.Separator();
 
-        ImGui.TextUnformatted("Pair Permission Functions");
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.WindowMaximize, "Open Permissions Window", _menuRenderWidth, true))
+        ImGui.TextUnformatted("配对权限功能");
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.WindowMaximize, "打开权限设置窗口", _menuRenderWidth, true))
         {
             _mediator.Publish(new OpenPermissionWindow(_pair));
             ImGui.CloseCurrentPopup();
         }
-        UiSharedService.AttachToolTip("Opens the Permissions Window which allows you to manage multiple permissions at once.");
+        UiSharedService.AttachToolTip("打开权限设置窗口来便捷的修改各种配对权限.");
 
         var isSticky = _pair.UserPair!.OwnPermissions.IsSticky();
-        string stickyText = isSticky ? "Disable Preferred Permissions" : "Enable Preferred Permissions";
+        string stickyText = isSticky ? "禁用首选权限配置" : "启用首选权限配置";
         var stickyIcon = isSticky ? FontAwesomeIcon.ArrowCircleDown : FontAwesomeIcon.ArrowCircleUp;
         if (UiSharedService.NormalizedIconTextButton(stickyIcon, stickyText, _menuRenderWidth, true))
         {
@@ -103,15 +103,15 @@ public class DrawUserPair
             permissions.SetSticky(!isSticky);
             _ = _apiController.UserSetPairPermissions(new(_pair.UserData, permissions));
         }
-        UiSharedService.AttachToolTip("Preferred permissions means that this pair will not" + Environment.NewLine + " be affected by any syncshell permission changes through you.");
+        UiSharedService.AttachToolTip("首选权限配置将不会被配对贝的设置影响.");
 
-        string individualText = Environment.NewLine + Environment.NewLine + "Note: changing this permission will turn the permissions for this"
-            + Environment.NewLine + "user to preferred permissions. You can change this behavior"
-            + Environment.NewLine + "in the permission settings.";
+        string individualText = Environment.NewLine + Environment.NewLine + "注意: 修改权限会将对该用户的设置设置为"
+            + Environment.NewLine + "默认首选配置. 你可以在权限设置中"
+            + Environment.NewLine + "修改本设置.";
         bool individual = !_pair.IsDirectlyPaired && _apiController.DefaultPermissions!.IndividualIsSticky;
 
         var isDisableSounds = _pair.UserPair!.OwnPermissions.IsDisableSounds();
-        string disableSoundsText = isDisableSounds ? "Enable sound sync" : "Disable sound sync";
+        string disableSoundsText = isDisableSounds ? "启用声音同步" : "禁用声音同步";
         var disableSoundsIcon = isDisableSounds ? FontAwesomeIcon.VolumeUp : FontAwesomeIcon.VolumeMute;
         if (UiSharedService.NormalizedIconTextButton(disableSoundsIcon, disableSoundsText, _menuRenderWidth, true))
         {
@@ -119,7 +119,7 @@ public class DrawUserPair
             permissions.SetDisableSounds(!isDisableSounds);
             _ = _apiController.UserSetPairPermissions(new UserPermissionsDto(_pair.UserData, permissions));
         }
-        UiSharedService.AttachToolTip("Changes sound sync permissions with this user." + (individual ? individualText : string.Empty));
+        UiSharedService.AttachToolTip("修改与该用户的声音同步权限设置." + (individual ? individualText : string.Empty));
 
         var isDisableAnims = _pair.UserPair!.OwnPermissions.IsDisableAnimations();
         string disableAnimsText = isDisableAnims ? "启用动画同步" : "禁用动画同步";
@@ -130,7 +130,7 @@ public class DrawUserPair
             permissions.SetDisableAnimations(!isDisableAnims);
             _ = _apiController.UserSetPairPermissions(new UserPermissionsDto(_pair.UserData, permissions));
         }
-        UiSharedService.AttachToolTip("Changes animation sync permissions with this user." + (individual ? individualText : string.Empty));
+        UiSharedService.AttachToolTip("修改与该用户的动画同步权限设置." + (individual ? individualText : string.Empty));
 
         var isDisableVFX = _pair.UserPair!.OwnPermissions.IsDisableVFX();
         string disableVFXText = isDisableVFX ? "启用视效VFX同步" : "禁用视效VFX同步";
@@ -141,7 +141,7 @@ public class DrawUserPair
             permissions.SetDisableVFX(!isDisableVFX);
             _ = _apiController.UserSetPairPermissions(new UserPermissionsDto(_pair.UserData, permissions));
         }
-        UiSharedService.AttachToolTip("Changes VFX sync permissions with this user." + (individual ? individualText : string.Empty));
+        UiSharedService.AttachToolTip("修改与该用户的VFX同步权限设置." + (individual ? individualText : string.Empty));
 
         if (!_pair.IsPaused)
         {
@@ -158,29 +158,29 @@ public class DrawUserPair
 
     private void DrawIndividualMenu()
     {
-        ImGui.TextUnformatted("Individual Pair Functions");
+        ImGui.TextUnformatted("独立配对功能");
         var entryUID = _pair.UserData.AliasOrUID;
 
         if (_pair.IndividualPairStatus != API.Data.Enum.IndividualPairStatus.None)
         {
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Folder, "Pair Groups", _menuRenderWidth, true))
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Folder, "配对组", _menuRenderWidth, true))
             {
                 _selectTagForPairUi.Open(_pair);
             }
-            UiSharedService.AttachToolTip("Choose pair groups for " + entryUID);
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "Unpair Permanently", _menuRenderWidth, true) && UiSharedService.CtrlPressed())
+            UiSharedService.AttachToolTip("为 " + entryUID + "选择配对组");
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "永久取消独立配对", _menuRenderWidth, true) && UiSharedService.CtrlPressed())
             {
                 _ = _apiController.UserRemovePair(new(_pair.UserData));
             }
-            UiSharedService.AttachToolTip("Hold CTRL and click to unpair permanently from " + entryUID);
+            UiSharedService.AttachToolTip("按住CTRL并点击来与 " + entryUID + "取消配对");
         }
         else
         {
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Plus, "Pair individually", _menuRenderWidth, true))
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Plus, "独立配对", _menuRenderWidth, true))
             {
                 _ = _apiController.UserAddPair(new(_pair.UserData));
             }
-            UiSharedService.AttachToolTip("Pair individually with " + entryUID);
+            UiSharedService.AttachToolTip("与 " + entryUID + " 独立配对");
         }
     }
 
@@ -194,7 +194,7 @@ public class DrawUserPair
         {
             using var _ = ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudYellow);
             UiSharedService.NormalizedIcon(FontAwesomeIcon.PauseCircle);
-            userPairText = _pair.UserData.AliasOrUID + " is paused";
+            userPairText = _pair.UserData.AliasOrUID + " 已暂停";
         }
         else if (!_pair.IsOnline)
         {
@@ -203,12 +203,12 @@ public class DrawUserPair
                 ? FontAwesomeIcon.ArrowsLeftRight
                 : (_pair.IndividualPairStatus == API.Data.Enum.IndividualPairStatus.Bidirectional
                     ? FontAwesomeIcon.User : FontAwesomeIcon.Users));
-            userPairText = _pair.UserData.AliasOrUID + " is offline";
+            userPairText = _pair.UserData.AliasOrUID + " 离线";
         }
         else if (_pair.IsVisible)
         {
             UiSharedService.NormalizedIcon(FontAwesomeIcon.Eye, ImGuiColors.ParsedGreen);
-            userPairText = _pair.UserData.AliasOrUID + " is visible: " + _pair.PlayerName + Environment.NewLine + "Click to target this player";
+            userPairText = _pair.UserData.AliasOrUID + " 可见: " + _pair.PlayerName + Environment.NewLine + "点击以选中角色";
             if (ImGui.IsItemClicked())
             {
                 _mediator.Publish(new TargetPairMessage(_pair));
@@ -219,22 +219,22 @@ public class DrawUserPair
             using var _ = ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.HealerGreen);
             UiSharedService.NormalizedIcon(_pair.IndividualPairStatus == API.Data.Enum.IndividualPairStatus.Bidirectional
                 ? FontAwesomeIcon.User : FontAwesomeIcon.Users);
-            userPairText = _pair.UserData.AliasOrUID + " is online";
+            userPairText = _pair.UserData.AliasOrUID + " 在线";
         }
 
         if (_pair.IndividualPairStatus == API.Data.Enum.IndividualPairStatus.OneSided)
         {
-            userPairText += UiSharedService.TooltipSeparator + "User has not added you back";
+            userPairText += UiSharedService.TooltipSeparator + "用户还没有添加你";
         }
         else if (_pair.IndividualPairStatus == API.Data.Enum.IndividualPairStatus.Bidirectional)
         {
-            userPairText += UiSharedService.TooltipSeparator + "You are directly Paired";
+            userPairText += UiSharedService.TooltipSeparator + "已独立配对";
         }
 
         if (_pair.LastAppliedDataSize >= 0)
         {
-            userPairText += UiSharedService.TooltipSeparator + (!_pair.IsVisible ? "(Last) " : string.Empty) +
-                "Loaded Mods Size: " + UiSharedService.ByteToString(_pair.LastAppliedDataSize, true);
+            userPairText += UiSharedService.TooltipSeparator + (!_pair.IsVisible ? "(最近) " : string.Empty) +
+                "已加载的MOD大小: " + UiSharedService.ByteToString(_pair.LastAppliedDataSize, true);
         }
 
         if (_syncedGroups.Any())
@@ -244,7 +244,7 @@ public class DrawUserPair
                 {
                     var groupNote = _serverConfigurationManager.GetNoteForGid(g.GID);
                     var groupString = string.IsNullOrEmpty(groupNote) ? g.GroupAliasOrGID : $"{groupNote} ({g.GroupAliasOrGID})";
-                    return "Paired through " + groupString;
+                    return "通过 " + groupString + " 配对";
                 }));
         }
 
@@ -274,7 +274,7 @@ public class DrawUserPair
                 var groupNote = _serverConfigurationManager.GetNoteForGid(entry.GID);
                 var groupString = string.IsNullOrEmpty(groupNote) ? entry.GroupAliasOrGID : $"{groupNote} ({entry.GroupAliasOrGID})";
 
-                if (ImGui.BeginMenu(groupString + " Moderation Functions"))
+                if (ImGui.BeginMenu(groupString + " 管理功能"))
                 {
                     DrawSyncshellMenu(entry, selfIsOwner, selfIsModerator, userIsPinned, userIsModerator);
                     ImGui.EndMenu();
@@ -308,8 +308,8 @@ public class DrawUserPair
             _ = _apiController.UserSetPairPermissions(new(_pair.UserData, perm));
         }
         UiSharedService.AttachToolTip(!_pair.UserPair!.OwnPermissions.IsPaused()
-            ? "Pause pairing with " + _pair.UserData.AliasOrUID
-            : "Resume pairing with " + _pair.UserData.AliasOrUID);
+            ? "暂停与 " + _pair.UserData.AliasOrUID + " 的配对"
+            : "暂停与 " + _pair.UserData.AliasOrUID + " 的配对");
 
         if (_pair.IsPaired)
         {
@@ -330,7 +330,7 @@ public class DrawUserPair
                 {
                     ImGui.BeginTooltip();
 
-                    ImGui.TextUnformatted("Individual User permissions");
+                    ImGui.TextUnformatted("独立配对设置");
                     ImGui.Separator();
 
                     if (individualIsSticky)
@@ -338,14 +338,14 @@ public class DrawUserPair
                         UiSharedService.NormalizedIcon(individualIcon);
                         ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
                         ImGui.AlignTextToFramePadding();
-                        ImGui.TextUnformatted("Preferred permissions enabled");
+                        ImGui.TextUnformatted("首选权限设置已启用");
                         if (individualAnimDisabled || individualSoundsDisabled || individualVFXDisabled)
                             ImGui.Separator();
                     }
 
                     if (individualSoundsDisabled)
                     {
-                        var userSoundsText = "Sound sync";
+                        var userSoundsText = "同步声音";
                         UiSharedService.NormalizedIcon(FontAwesomeIcon.VolumeOff);
                         ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
                         ImGui.AlignTextToFramePadding();
@@ -353,17 +353,17 @@ public class DrawUserPair
                         ImGui.NewLine();
                         ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
                         ImGui.AlignTextToFramePadding();
-                        ImGui.TextUnformatted("You");
+                        ImGui.TextUnformatted("你");
                         UiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OwnPermissions.IsDisableSounds());
                         ImGui.SameLine();
                         ImGui.AlignTextToFramePadding();
-                        ImGui.TextUnformatted("They");
+                        ImGui.TextUnformatted("他们");
                         UiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OtherPermissions.IsDisableSounds());
                     }
 
                     if (individualAnimDisabled)
                     {
-                        var userAnimText = "Animation sync";
+                        var userAnimText = "同步动画";
                         UiSharedService.NormalizedIcon(FontAwesomeIcon.Stop);
                         ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
                         ImGui.AlignTextToFramePadding();
@@ -371,17 +371,17 @@ public class DrawUserPair
                         ImGui.NewLine();
                         ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
                         ImGui.AlignTextToFramePadding();
-                        ImGui.TextUnformatted("You");
+                        ImGui.TextUnformatted("你");
                         UiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OwnPermissions.IsDisableAnimations());
                         ImGui.SameLine();
                         ImGui.AlignTextToFramePadding();
-                        ImGui.TextUnformatted("They");
+                        ImGui.TextUnformatted("他们");
                         UiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OtherPermissions.IsDisableAnimations());
                     }
 
                     if (individualVFXDisabled)
                     {
-                        var userVFXText = "VFX sync";
+                        var userVFXText = "同步VFX";
                         UiSharedService.NormalizedIcon(FontAwesomeIcon.Circle);
                         ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
                         ImGui.AlignTextToFramePadding();
@@ -389,11 +389,11 @@ public class DrawUserPair
                         ImGui.NewLine();
                         ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
                         ImGui.AlignTextToFramePadding();
-                        ImGui.TextUnformatted("You");
+                        ImGui.TextUnformatted("你");
                         UiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OwnPermissions.IsDisableVFX());
                         ImGui.SameLine();
                         ImGui.AlignTextToFramePadding();
-                        ImGui.TextUnformatted("They");
+                        ImGui.TextUnformatted("他们");
                         UiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OtherPermissions.IsDisableVFX());
                     }
 
@@ -409,19 +409,19 @@ public class DrawUserPair
             if (string.Equals(_currentGroup.OwnerUID, _pair.UserData.UID, StringComparison.Ordinal))
             {
                 icon = FontAwesomeIcon.Crown;
-                text = "User is owner of this syncshell";
+                text = "用户是本配对贝的所有者";
             }
             else if (_currentGroup.GroupPairUserInfos.TryGetValue(_pair.UserData.UID, out var userinfo))
             {
                 if (userinfo.IsModerator())
                 {
                     icon = FontAwesomeIcon.UserShield;
-                    text = "User is moderator in this syncshell";
+                    text = "用户是本配对贝的管理员";
                 }
                 else if (userinfo.IsPinned())
                 {
                     icon = FontAwesomeIcon.Thumbtack;
-                    text = "User is pinned in this syncshell";
+                    text = "用户在本配对贝中被置顶";
                 }
             }
 
@@ -438,7 +438,7 @@ public class DrawUserPair
         {
             using (ImRaii.PushId($"buttons-{_pair.UserData.UID}"))
             {
-                ImGui.TextUnformatted("Common Pair Functions");
+                ImGui.TextUnformatted("通常配对设置");
                 DrawCommonClientMenu();
                 ImGui.Separator();
                 DrawPairedClientMenu();
@@ -458,8 +458,8 @@ public class DrawUserPair
     {
         if (selfIsOwner || ((selfIsModerator) && (!userIsModerator)))
         {
-            ImGui.TextUnformatted("Syncshell Moderator Functions");
-            var pinText = userIsPinned ? "Unpin user" : "Pin user";
+            ImGui.TextUnformatted("配对贝管理设置");
+            var pinText = userIsPinned ? "取消置顶用户" : "置顶用户";
             if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Thumbtack, pinText, _menuRenderWidth, true))
             {
                 ImGui.CloseCurrentPopup();
@@ -473,29 +473,29 @@ public class DrawUserPair
                 }
                 _ = _apiController.GroupSetUserInfo(new GroupPairUserInfoDto(group.Group, _pair.UserData, userinfo));
             }
-            UiSharedService.AttachToolTip("Pin this user to the Syncshell. Pinned users will not be deleted in case of a manually initiated Syncshell clean");
+            UiSharedService.AttachToolTip("在同步贝中置顶用户. 置顶用户不会在手动清理中被删除");
 
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "Remove user", _menuRenderWidth, true) && UiSharedService.CtrlPressed())
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "移除用户", _menuRenderWidth, true) && UiSharedService.CtrlPressed())
             {
                 ImGui.CloseCurrentPopup();
                 _ = _apiController.GroupRemoveUser(new(group.Group, _pair.UserData));
             }
-            UiSharedService.AttachToolTip("Hold CTRL and click to remove user " + (_pair.UserData.AliasOrUID) + " from Syncshell");
+            UiSharedService.AttachToolTip("按住CTRL并点击,从贝中移除 " + (_pair.UserData.AliasOrUID));
 
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.UserSlash, "Ban User", _menuRenderWidth, true))
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.UserSlash, "封禁用户", _menuRenderWidth, true))
             {
                 _mediator.Publish(new OpenBanUserPopupMessage(_pair, group));
                 ImGui.CloseCurrentPopup();
             }
-            UiSharedService.AttachToolTip("Ban user from this Syncshell");
+            UiSharedService.AttachToolTip("从同步贝中封禁用户");
 
             ImGui.Separator();
         }
 
         if (selfIsOwner)
         {
-            ImGui.TextUnformatted("Syncshell Owner Functions");
-            string modText = userIsModerator ? "Demod user" : "Mod user";
+            ImGui.TextUnformatted("配对贝所有者设置");
+            string modText = userIsModerator ? "取消管理员" : "设为管理员";
             if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.UserShield, modText, _menuRenderWidth, true) && UiSharedService.CtrlPressed())
             {
                 ImGui.CloseCurrentPopup();
@@ -510,16 +510,16 @@ public class DrawUserPair
 
                 _ = _apiController.GroupSetUserInfo(new GroupPairUserInfoDto(group.Group, _pair.UserData, userinfo));
             }
-            UiSharedService.AttachToolTip("Hold CTRL to change the moderator status for " + (_pair.UserData.AliasOrUID) + Environment.NewLine +
-                "Moderators can kick, ban/unban, pin/unpin users and clear the Syncshell.");
+            UiSharedService.AttachToolTip("按住CTRL修改 " + (_pair.UserData.AliasOrUID) + " 的管理员权限" + Environment.NewLine +
+                "管理员可以踢出, 封禁/取消封禁, 置顶/取消置顶用户或清空同步贝.");
 
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Crown, "Transfer Ownership", _menuRenderWidth, true) && UiSharedService.CtrlPressed() && UiSharedService.ShiftPressed())
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Crown, "转移所有权", _menuRenderWidth, true) && UiSharedService.CtrlPressed() && UiSharedService.ShiftPressed())
             {
                 ImGui.CloseCurrentPopup();
                 _ = _apiController.GroupChangeOwnership(new(group.Group, _pair.UserData));
             }
-            UiSharedService.AttachToolTip("Hold CTRL and SHIFT and click to transfer ownership of this Syncshell to "
-                + (_pair.UserData.AliasOrUID) + Environment.NewLine + "WARNING: This action is irreversible.");
+            UiSharedService.AttachToolTip("按住CTRL+SHIFT并点击,将通讯贝的所有权转移给 "
+                + (_pair.UserData.AliasOrUID) + Environment.NewLine + "注意: 这个操作无法取消.");
         }
     }
 }

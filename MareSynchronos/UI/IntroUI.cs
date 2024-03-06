@@ -232,7 +232,7 @@ public class IntroUi : WindowMediatorSubscriberBase
                     if (_serverConfigurationManager.CurrentServer == null) _serverConfigurationManager.SelectServer(0);
                     _serverConfigurationManager.CurrentServer!.SecretKeys.Add(_serverConfigurationManager.CurrentServer.SecretKeys.Select(k => k.Key).LastOrDefault() + 1, new SecretKey()
                     {
-                        FriendlyName = $"Secret Key added on Setup ({DateTime.Now:yyyy-MM-dd})",
+                        FriendlyName = $"首次启动时添加的密钥 ({DateTime.Now:yyyy-MM-dd})",
                         Key = _secretKey,
                     });
                     _serverConfigurationManager.AddCurrentCharacterToServer(addLastSecretKey: true);

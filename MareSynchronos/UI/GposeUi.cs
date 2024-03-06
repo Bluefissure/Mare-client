@@ -71,10 +71,10 @@ public class GposeUi : WindowMediatorSubscriberBase
             }
             if (_applicationTask?.IsFaulted ?? false)
             {
-                UiSharedService.ColorTextWrapped("Failure to read MCDF file. MCDF file is possibly corrupt. Re-export the MCDF file and try again.",
+                UiSharedService.ColorTextWrapped("读取MCDF文件失败. MCDF文件可能损坏. 请重新导出MCDF文件并重试.",
                     ImGuiColors.DalamudRed);
-                UiSharedService.ColorTextWrapped("Note: if this is your MCDF, try redrawing yourself, wait and re-export the file. " +
-                    "If you received it from someone else have them do the same.", ImGuiColors.DalamudYellow);
+                UiSharedService.ColorTextWrapped("注意: 如果这是你的MCDF文件, 请尝试重新绘制自身角色, 稍后再导出文件. " +
+                    "或让导出文件的玩家按此方法重新尝试导出.", ImGuiColors.DalamudYellow);
             }
         }
         else

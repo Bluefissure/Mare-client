@@ -63,7 +63,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
         using var id = ImRaii.PushId("syncshell_admin_" + GroupFullInfo.GID);
 
         using (ImRaii.PushFont(_uiSharedService.UidFont))
-            ImGui.TextUnformatted(GroupFullInfo.GroupAliasOrGID + " Administrative Panel");
+            ImGui.TextUnformatted(GroupFullInfo.GroupAliasOrGID + " 管理员面板");
 
         ImGui.Separator();
         var perm = GroupFullInfo.GroupPermissions;
@@ -72,13 +72,13 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
 
         if (tabbar)
         {
-            var inviteTab = ImRaii.TabItem("Invites");
+            var inviteTab = ImRaii.TabItem("邀请");
             if (inviteTab)
             {
                 bool isInvitesDisabled = perm.IsDisableInvites();
 
                 if (UiSharedService.NormalizedIconTextButton(isInvitesDisabled ? FontAwesomeIcon.Unlock : FontAwesomeIcon.Lock,
-                    isInvitesDisabled ? "Unlock Syncshell" : "Lock Syncshell"))
+                    isInvitesDisabled ? "解锁同步贝" : "锁定同步贝"))
                 {
                     perm.SetDisableInvites(!isInvitesDisabled);
                     _ = _apiController.GroupChangeGroupPermissionState(new(GroupFullInfo.Group, perm));
@@ -86,17 +86,17 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
 
                 ImGuiHelpers.ScaledDummy(2f);
 
-                UiSharedService.TextWrapped("One-time invites work as single-use passwords. Use those if you do not want to distribute your Syncshell password.");
-                if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Envelope, "Single one-time invite"))
+                UiSharedService.TextWrapped("一次性使用的邀请链接. 不想分发同步贝密码时使用.");
+                if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Envelope, "一次性同步贝邀请"))
                 {
                     ImGui.SetClipboardText(_apiController.GroupCreateTempInvite(new(GroupFullInfo.Group), 1).Result.FirstOrDefault() ?? string.Empty);
                 }
-                UiSharedService.AttachToolTip("Creates a single-use password for joining the syncshell which is valid for 24h and copies it to the clipboard.");
+                UiSharedService.AttachToolTip("创建一个24小时内有效的临时同步贝密码并发送到剪切板.");
                 ImGui.InputInt("##amountofinvites", ref _multiInvites);
                 ImGui.SameLine();
                 using (ImRaii.Disabled(_multiInvites <= 1 || _multiInvites > 100))
                 {
-                    if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Envelope, "Generate " + _multiInvites + " one-time invites"))
+                    if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Envelope, "生成 " + _multiInvites + " 一次性邀请"))
                     {
                         _oneTimeInvites.AddRange(_apiController.GroupCreateTempInvite(new(GroupFullInfo.Group), _multiInvites).Result);
                     }
@@ -105,8 +105,8 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                 if (_oneTimeInvites.Any())
                 {
                     var invites = string.Join(Environment.NewLine, _oneTimeInvites);
-                    ImGui.InputTextMultiline("Generated Multi Invites", ref invites, 5000, new(0, 0), ImGuiInputTextFlags.ReadOnly);
-                    if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Copy, "Copy Invites to clipboard"))
+                    ImGui.InputTextMultiline("生成复数邀请", ref invites, 5000, new(0, 0), ImGuiInputTextFlags.ReadOnly);
+                    if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Copy, "复制到剪切板"))
                     {
                         ImGui.SetClipboardText(invites);
                     }
@@ -114,25 +114,25 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
             }
             inviteTab.Dispose();
 
-            var mgmtTab = ImRaii.TabItem("User Management");
+            var mgmtTab = ImRaii.TabItem("用户管理");
             if (mgmtTab)
             {
-                var userNode = ImRaii.TreeNode("User List & Administration");
+                var userNode = ImRaii.TreeNode("用户列表 & 管理员");
                 if (userNode)
                 {
                     if (!_pairManager.GroupPairs.TryGetValue(GroupFullInfo, out var pairs))
                     {
-                        UiSharedService.ColorTextWrapped("No users found in this Syncshell", ImGuiColors.DalamudYellow);
+                        UiSharedService.ColorTextWrapped("同步贝中没有用户", ImGuiColors.DalamudYellow);
                     }
                     else
                     {
                         using var table = ImRaii.Table("userList#" + GroupFullInfo.Group.GID, 4, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.ScrollY);
                         if (table)
                         {
-                            ImGui.TableSetupColumn("Alias/UID/Note", ImGuiTableColumnFlags.None, 3);
-                            ImGui.TableSetupColumn("Online/Name", ImGuiTableColumnFlags.None, 2);
-                            ImGui.TableSetupColumn("Flags", ImGuiTableColumnFlags.None, 1);
-                            ImGui.TableSetupColumn("Actions", ImGuiTableColumnFlags.None, 2);
+                            ImGui.TableSetupColumn("昵称/UID/备注", ImGuiTableColumnFlags.None, 3);
+                            ImGui.TableSetupColumn("在线/角色名", ImGuiTableColumnFlags.None, 2);
+                            ImGui.TableSetupColumn("标记", ImGuiTableColumnFlags.None, 1);
+                            ImGui.TableSetupColumn("操作", ImGuiTableColumnFlags.None, 2);
                             ImGui.TableHeadersRow();
 
                             var groupedPairs = new Dictionary<Pair, GroupPairUserInfo?>(pairs.Select(p => new KeyValuePair<Pair, GroupPairUserInfo?>(p,
@@ -155,7 +155,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                                 ImGui.TextUnformatted(text);
 
                                 ImGui.TableNextColumn(); // online/name
-                                string onlineText = pair.Key.IsOnline ? "Online" : "Offline";
+                                string onlineText = pair.Key.IsOnline ? "在线" : "离线";
                                 if (!string.IsNullOrEmpty(pair.Key.PlayerName))
                                 {
                                     onlineText += " (" + pair.Key.PlayerName + ")";
@@ -170,12 +170,12 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                                     if (pair.Value.Value.IsModerator())
                                     {
                                         UiSharedService.NormalizedIcon(FontAwesomeIcon.UserShield);
-                                        UiSharedService.AttachToolTip("Moderator");
+                                        UiSharedService.AttachToolTip("管理员");
                                     }
                                     if (pair.Value.Value.IsPinned())
                                     {
                                         UiSharedService.NormalizedIcon(FontAwesomeIcon.Thumbtack);
-                                        UiSharedService.AttachToolTip("Pinned");
+                                        UiSharedService.AttachToolTip("置顶");
                                     }
                                 }
                                 else
@@ -194,7 +194,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
 
                                         _ = _apiController.GroupSetUserInfo(new GroupPairUserInfoDto(GroupFullInfo.Group, pair.Key.UserData, userInfo));
                                     }
-                                    UiSharedService.AttachToolTip(pair.Value != null && pair.Value.Value.IsModerator() ? "Demod user" : "Mod user");
+                                    UiSharedService.AttachToolTip(pair.Value != null && pair.Value.Value.IsModerator() ? "取消管理员" : "设为管理员");
                                     ImGui.SameLine();
                                 }
 
@@ -208,7 +208,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
 
                                         _ = _apiController.GroupSetUserInfo(new GroupPairUserInfoDto(GroupFullInfo.Group, pair.Key.UserData, userInfo));
                                     }
-                                    UiSharedService.AttachToolTip(pair.Value != null && pair.Value.Value.IsPinned() ? "Unpin user" : "Pin user");
+                                    UiSharedService.AttachToolTip(pair.Value != null && pair.Value.Value.IsPinned() ? "取消置顶" : "置顶用户");
                                     ImGui.SameLine();
 
                                     using (ImRaii.Disabled(!UiSharedService.CtrlPressed()))
@@ -218,8 +218,8 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                                             _ = _apiController.GroupRemoveUser(new GroupPairDto(GroupFullInfo.Group, pair.Key.UserData));
                                         }
                                     }
-                                    UiSharedService.AttachToolTip("Remove user from Syncshell"
-                                        + UiSharedService.TooltipSeparator + "Hold CTRL to enable this button");
+                                    UiSharedService.AttachToolTip("从同步贝移除"
+                                        + UiSharedService.TooltipSeparator + "请按住CTRL并点击");
 
                                     ImGui.SameLine();
                                     using (ImRaii.Disabled(!UiSharedService.CtrlPressed()))
@@ -229,44 +229,44 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                                             Mediator.Publish(new OpenBanUserPopupMessage(pair.Key, GroupFullInfo));
                                         }
                                     }
-                                    UiSharedService.AttachToolTip("Ban user from Syncshell"
-                                        + UiSharedService.TooltipSeparator + "Hold CTRL to enable this button");
+                                    UiSharedService.AttachToolTip("从同步贝封禁"
+                                        + UiSharedService.TooltipSeparator + "请按住CTRL并点击");
                                 }
                             }
                         }
                     }
                 }
                 userNode.Dispose();
-                var clearNode = ImRaii.TreeNode("Mass Cleanup");
+                var clearNode = ImRaii.TreeNode("手动清理");
                 if (clearNode)
                 {
                     using (ImRaii.Disabled(!UiSharedService.CtrlPressed()))
                     {
-                        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Broom, "Clear Syncshell"))
+                        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Broom, "清理同步贝"))
                         {
                             _ = _apiController.GroupClear(new(GroupFullInfo.Group));
                         }
                     }
-                    UiSharedService.AttachToolTip("This will remove all non-pinned, non-moderator users from the Syncshell."
-                        + UiSharedService.TooltipSeparator + "Hold CTRL to enable this button");
+                    UiSharedService.AttachToolTip("这会移除所有非置顶/非管理员用户."
+                        + UiSharedService.TooltipSeparator + "请按住CTRL并点击");
 
                     ImGuiHelpers.ScaledDummy(2f);
                     ImGui.Separator();
                     ImGuiHelpers.ScaledDummy(2f);
 
-                    if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Unlink, "Check for Inactive Users"))
+                    if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Unlink, "检查不活跃用户"))
                     {
                         _pruneTestTask = _apiController.GroupPrune(new(GroupFullInfo.Group), _pruneDays, execute: false);
                         _pruneTask = null;
                     }
-                    UiSharedService.AttachToolTip($"This will start the prune process for this Syncshell of inactive Mare users that have not logged in in the past {_pruneDays} days."
-                        + Environment.NewLine + "You will be able to review the amount of inactive users before executing the prune."
-                        + UiSharedService.TooltipSeparator + "Note: this check excludes pinned users and moderators of this Syncshell.");
+                    UiSharedService.AttachToolTip($"本操作将统计并移除 {_pruneDays} 以上的不活跃用户."
+                        + Environment.NewLine + "移除前将会显示所有将会受到影响的用户."
+                        + UiSharedService.TooltipSeparator + "注意: 不包含置顶用户和管理员.");
                     ImGui.SameLine();
                     ImGui.SetNextItemWidth(150);
-                    _uiSharedService.DrawCombo("Days of inactivity", [7, 14, 30, 90], (count) =>
+                    _uiSharedService.DrawCombo("不活跃天数", [7, 14, 30, 90], (count) =>
                     {
-                        return count + " days";
+                        return count + " 天";
                     },
                     (selected) =>
                     {
@@ -280,24 +280,24 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                     {
                         if (!_pruneTestTask.IsCompleted)
                         {
-                            UiSharedService.ColorTextWrapped("Calculating inactive users...", ImGuiColors.DalamudYellow);
+                            UiSharedService.ColorTextWrapped("计算不活跃用户中...", ImGuiColors.DalamudYellow);
                         }
                         else
                         {
                             ImGui.AlignTextToFramePadding();
-                            UiSharedService.TextWrapped($"Found {_pruneTestTask.Result} user(s) that have not logged into Mare in the past {_pruneDays} days.");
+                            UiSharedService.TextWrapped($"找到了 {_pruneTestTask.Result} 个未在过去 {_pruneDays} 天内登录过Mare的用户.");
                             if (_pruneTestTask.Result > 0)
                             {
                                 using (ImRaii.Disabled(!UiSharedService.CtrlPressed()))
                                 {
-                                    if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Broom, "Prune Inactive Users"))
+                                    if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Broom, "移除不活跃用户"))
                                     {
                                         _pruneTask = _apiController.GroupPrune(new(GroupFullInfo.Group), _pruneDays, execute: true);
                                         _pruneTestTask = null;
                                     }
                                 }
-                                UiSharedService.AttachToolTip($"Pruning will remove {_pruneTestTask?.Result ?? 0} inactive user(s)."
-                                    + UiSharedService.TooltipSeparator + "Hold CTRL to enable this button");
+                                UiSharedService.AttachToolTip($"这将移除 {_pruneTestTask?.Result ?? 0} 个不活跃用户."
+                                    + UiSharedService.TooltipSeparator + "请按住CTRL并点击");
                             }
                         }
                     }
@@ -305,20 +305,20 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                     {
                         if (!_pruneTask.IsCompleted)
                         {
-                            UiSharedService.ColorTextWrapped("Pruning Syncshell...", ImGuiColors.DalamudYellow);
+                            UiSharedService.ColorTextWrapped("正在清理同步贝...", ImGuiColors.DalamudYellow);
                         }
                         else
                         {
-                            UiSharedService.TextWrapped($"Syncshell was pruned and {_pruneTask.Result} inactive user(s) have been removed.");
+                            UiSharedService.TextWrapped($"同步贝已经清理完成并移除了 {_pruneTask.Result} 个不活跃用户.");
                         }
                     }
                 }
                 clearNode.Dispose();
 
-                var banNode = ImRaii.TreeNode("User Bans");
+                var banNode = ImRaii.TreeNode("用户封禁");
                 if (banNode)
                 {
-                    if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Retweet, "Refresh Banlist from Server"))
+                    if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Retweet, "刷新封禁列表"))
                     {
                         _bannedUsers = _apiController.GroupGetBannedUsers(new GroupDto(GroupFullInfo.Group)).Result;
                     }
@@ -326,11 +326,11 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                     if (ImGui.BeginTable("bannedusertable" + GroupFullInfo.GID, 6, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.ScrollY))
                     {
                         ImGui.TableSetupColumn("UID", ImGuiTableColumnFlags.None, 1);
-                        ImGui.TableSetupColumn("Alias", ImGuiTableColumnFlags.None, 1);
-                        ImGui.TableSetupColumn("By", ImGuiTableColumnFlags.None, 1);
-                        ImGui.TableSetupColumn("Date", ImGuiTableColumnFlags.None, 2);
-                        ImGui.TableSetupColumn("Reason", ImGuiTableColumnFlags.None, 3);
-                        ImGui.TableSetupColumn("Actions", ImGuiTableColumnFlags.None, 1);
+                        ImGui.TableSetupColumn("昵称", ImGuiTableColumnFlags.None, 1);
+                        ImGui.TableSetupColumn("操作者", ImGuiTableColumnFlags.None, 1);
+                        ImGui.TableSetupColumn("日期", ImGuiTableColumnFlags.None, 2);
+                        ImGui.TableSetupColumn("原因", ImGuiTableColumnFlags.None, 3);
+                        ImGui.TableSetupColumn("操作", ImGuiTableColumnFlags.None, 1);
 
                         ImGui.TableHeadersRow();
 
@@ -347,7 +347,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                             ImGui.TableNextColumn();
                             UiSharedService.TextWrapped(bannedUser.Reason);
                             ImGui.TableNextColumn();
-                            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Check, "Unban#" + bannedUser.UID))
+                            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Check, "取消封禁#" + bannedUser.UID))
                             {
                                 _ = _apiController.GroupUnbanUser(bannedUser);
                                 _bannedUsers.RemoveAll(b => string.Equals(b.UID, bannedUser.UID, StringComparison.Ordinal));
@@ -361,7 +361,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
             }
             mgmtTab.Dispose();
 
-            var permissionTab = ImRaii.TabItem("Permissions");
+            var permissionTab = ImRaii.TabItem("推荐设置");
             if (permissionTab)
             {
                 bool isDisableAnimations = perm.IsPreferDisableAnimations();
@@ -369,79 +369,79 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                 bool isDisableVfx = perm.IsPreferDisableVFX();
 
                 ImGui.AlignTextToFramePadding();
-                ImGui.Text("Suggest Sound Sync");
+                ImGui.Text("推荐的声音同步设置");
                 UiSharedService.BooleanToColoredIcon(!isDisableSounds);
                 ImGui.SameLine(230);
                 if (UiSharedService.NormalizedIconTextButton(isDisableSounds ? FontAwesomeIcon.VolumeUp : FontAwesomeIcon.VolumeMute,
-                    isDisableSounds ? "Suggest to enable sound sync" : "Suggest to disable sound sync"))
+                    isDisableSounds ? "建议打开声音同步" : "建议关闭声音同步"))
                 {
                     perm.SetPreferDisableSounds(!perm.IsPreferDisableSounds());
                     _ = _apiController.GroupChangeGroupPermissionState(new(GroupFullInfo.Group, perm));
                 }
 
                 ImGui.AlignTextToFramePadding();
-                ImGui.Text("Suggest Animation Sync");
+                ImGui.Text("推荐的动画同步设置");
                 UiSharedService.BooleanToColoredIcon(!isDisableAnimations);
                 ImGui.SameLine(230);
                 if (UiSharedService.NormalizedIconTextButton(isDisableAnimations ? FontAwesomeIcon.Running : FontAwesomeIcon.Stop,
-                    isDisableAnimations ? "Suggest to enable animation sync" : "Suggest to disable animation sync"))
+                    isDisableAnimations ? "建议打开动画同步" : "建议关闭动画同步"))
                 {
                     perm.SetPreferDisableAnimations(!perm.IsPreferDisableAnimations());
                     _ = _apiController.GroupChangeGroupPermissionState(new(GroupFullInfo.Group, perm));
                 }
 
                 ImGui.AlignTextToFramePadding();
-                ImGui.Text("Suggest VFX Sync");
+                ImGui.Text("推荐的VFX同步设置");
                 UiSharedService.BooleanToColoredIcon(!isDisableVfx);
                 ImGui.SameLine(230);
                 if (UiSharedService.NormalizedIconTextButton(isDisableVfx ? FontAwesomeIcon.Sun : FontAwesomeIcon.Circle,
-                    isDisableVfx ? "Suggest to enable vfx sync" : "Suggest to disable vfx sync"))
+                    isDisableVfx ? "建议打开VFX同步" : "建议关闭VFX同步"))
                 {
                     perm.SetPreferDisableVFX(!perm.IsPreferDisableVFX());
                     _ = _apiController.GroupChangeGroupPermissionState(new(GroupFullInfo.Group, perm));
                 }
 
-                UiSharedService.TextWrapped("Note: those suggested permissions will be shown to users on joining the Syncshell.");
+                UiSharedService.TextWrapped("注意: 推荐设置将在新用户加入时显示.");
             }
             permissionTab.Dispose();
 
             if (_isOwner)
             {
-                var ownerTab = ImRaii.TabItem("Owner Settings");
+                var ownerTab = ImRaii.TabItem("所有者设置");
                 if (ownerTab)
                 {
                     ImGui.AlignTextToFramePadding();
-                    ImGui.TextUnformatted("New Password");
+                    ImGui.TextUnformatted("新密码");
                     var availableWidth = ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X;
-                    var buttonSize = UiSharedService.GetNormalizedIconTextButtonSize(FontAwesomeIcon.Passport, "Change Password").X;
-                    var textSize = ImGui.CalcTextSize("New Password").X;
+                    var buttonSize = UiSharedService.GetNormalizedIconTextButtonSize(FontAwesomeIcon.Passport, "修改密码").X;
+                    var textSize = ImGui.CalcTextSize("新密码").X;
                     var spacing = ImGui.GetStyle().ItemSpacing.X;
 
                     ImGui.SameLine();
                     ImGui.SetNextItemWidth(availableWidth - buttonSize - textSize - spacing * 2);
-                    ImGui.InputTextWithHint("##changepw", "Min 10 characters", ref _newPassword, 50);
+                    ImGui.InputTextWithHint("##changepw", "最短10位字符", ref _newPassword, 50);
                     ImGui.SameLine();
                     using (ImRaii.Disabled(_newPassword.Length < 10))
                     {
-                        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Passport, "Change Password"))
+                        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Passport, "修改密码"))
                         {
                             _pwChangeSuccess = _apiController.GroupChangePassword(new GroupPasswordDto(GroupFullInfo.Group, _newPassword)).Result;
                             _newPassword = string.Empty;
                         }
                     }
-                    UiSharedService.AttachToolTip("Password requires to be at least 10 characters long. This action is irreversible.");
+                    UiSharedService.AttachToolTip("密码长度至少为10位字符,该操作无法取消.");
 
                     if (!_pwChangeSuccess)
                     {
-                        UiSharedService.ColorTextWrapped("Failed to change the password. Password requires to be at least 10 characters long.", ImGuiColors.DalamudYellow);
+                        UiSharedService.ColorTextWrapped("修改密码失败. 密码过短.", ImGuiColors.DalamudYellow);
                     }
 
-                    if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "Delete Syncshell") && UiSharedService.CtrlPressed() && UiSharedService.ShiftPressed())
+                    if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "删除同步贝") && UiSharedService.CtrlPressed() && UiSharedService.ShiftPressed())
                     {
                         IsOpen = false;
                         _ = _apiController.GroupDelete(new(GroupFullInfo.Group));
                     }
-                    UiSharedService.AttachToolTip("Hold CTRL and Shift and click to delete this Syncshell." + Environment.NewLine + "WARNING: this action is irreversible.");
+                    UiSharedService.AttachToolTip("按住CTRL+hift并点击删除同步贝." + Environment.NewLine + "警告: 该操作无法取消.");
                 }
                 ownerTab.Dispose();
             }

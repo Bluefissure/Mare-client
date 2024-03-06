@@ -47,11 +47,11 @@ public class DrawGroupedGroupFolder : IDrawFolder
             ImGui.AlignTextToFramePadding();
             ImGui.TextUnformatted("[" + OnlinePairs.ToString() + "]");
         }
-        UiSharedService.AttachToolTip(OnlinePairs + " online in all of your joined syncshells" + Environment.NewLine +
-            TotalPairs + " pairs combined in all of your joined syncshells");
+        UiSharedService.AttachToolTip("所有同步贝共有 " + OnlinePairs + " 用户在线" + Environment.NewLine +
+           "共有 " + TotalPairs + " 用户");
         ImGui.SameLine();
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted("All Syncshells");
+        ImGui.TextUnformatted("所有同步贝");
         ImGui.Separator();
 
         if (_tagHandler.IsTagOpen(_id))
