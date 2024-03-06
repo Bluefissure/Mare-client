@@ -1,37 +1,41 @@
 ﻿using Dalamud.Interface.Colors;
+using Dalamud.Interface.Internal;
+
+using Dalamud.Interface.Utility;
+using Dalamud.Interface.Utility.Raii;
 using ImGuiNET;
-using ImGuiScene;
+using MareSynchronos.API.Data.Extensions;
 using MareSynchronos.PlayerData.Pairs;
 using MareSynchronos.Services;
 using MareSynchronos.Services.Mediator;
 using MareSynchronos.Services.ServerConfiguration;
 using Microsoft.Extensions.Logging;
 using System.Numerics;
-using MareSynchronos.API.Data.Extensions;
-using Dalamud.Interface;
 
 namespace MareSynchronos.UI;
 
 public class StandaloneProfileUi : WindowMediatorSubscriberBase
 {
     private readonly MareProfileManager _mareProfileManager;
+    private readonly PairManager _pairManager;
     private readonly ServerConfigurationManager _serverManager;
     private readonly UiSharedService _uiSharedService;
     private bool _adjustedForScrollBars = false;
-    private byte[] _lastProfilePicture = Array.Empty<byte>();
-    private byte[] _lastSupporterPicture = Array.Empty<byte>();
-    private TextureWrap? _supporterTextureWrap;
-    private TextureWrap? _textureWrap;
+    private byte[] _lastProfilePicture = [];
+    private byte[] _lastSupporterPicture = [];
+    private IDalamudTextureWrap? _supporterTextureWrap;
+    private IDalamudTextureWrap? _textureWrap;
 
     public StandaloneProfileUi(ILogger<StandaloneProfileUi> logger, MareMediator mediator, UiSharedService uiBuilder,
-        ServerConfigurationManager serverManager, MareProfileManager mareProfileManager, Pair pair)
-        : base(logger, mediator, "Mare Profile of " + pair.UserData.AliasOrUID + "##MareSynchronosStandaloneProfileUI" + pair.UserData.AliasOrUID)
+        ServerConfigurationManager serverManager, MareProfileManager mareProfileManager, PairManager pairManager, Pair pair,
+        PerformanceCollectorService performanceCollector)
+        : base(logger, mediator, "这是 " + pair.UserData.AliasOrUID + " 的月海档案##MareSynchronosStandaloneProfileUI" + pair.UserData.AliasOrUID, performanceCollector)
     {
         _uiSharedService = uiBuilder;
         _serverManager = serverManager;
         _mareProfileManager = mareProfileManager;
         Pair = pair;
-
+        _pairManager = pairManager;
         Flags = ImGuiWindowFlags.NoResize | ImGuiWindowFlags.AlwaysAutoResize;
 
         var spacing = ImGui.GetStyle().ItemSpacing;
@@ -43,7 +47,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
 
     public Pair Pair { get; init; }
 
-    public override void Draw()
+    protected override void DrawInternal()
     {
         try
         {
@@ -74,9 +78,9 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             var rectMax = drawList.GetClipRectMax();
             var headerSize = ImGui.GetCursorPosY() - ImGui.GetStyle().WindowPadding.Y;
 
-            if (_uiSharedService.UidFontBuilt) ImGui.PushFont(_uiSharedService.UidFont);
-            UiSharedService.ColorText(Pair.UserData.AliasOrUID, ImGuiColors.HealerGreen);
-            if (_uiSharedService.UidFontBuilt) ImGui.PopFont();
+            using (ImRaii.PushFont(_uiSharedService.UidFont, _uiSharedService.UidFontBuilt))
+                UiSharedService.ColorText(Pair.UserData.AliasOrUID, ImGuiColors.HealerGreen);
+
             ImGuiHelpers.ScaledDummy(new Vector2(spacing.Y, spacing.Y));
             var textPos = ImGui.GetCursorPosY() - headerSize;
             ImGui.Separator();
@@ -88,12 +92,12 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             var descriptionChildHeight = rectMax.Y - pos.Y - rectMin.Y - spacing.Y * 2;
             if (descriptionTextSize.Y > descriptionChildHeight && !_adjustedForScrollBars)
             {
-                Size = Size.Value with { X = Size.Value.X + ImGui.GetStyle().ScrollbarSize };
+                Size = Size!.Value with { X = Size.Value.X + ImGui.GetStyle().ScrollbarSize };
                 _adjustedForScrollBars = true;
             }
             else if (descriptionTextSize.Y < descriptionChildHeight && _adjustedForScrollBars)
             {
-                Size = Size.Value with { X = Size.Value.X - ImGui.GetStyle().ScrollbarSize };
+                Size = Size!.Value with { X = Size.Value.X - ImGui.GetStyle().ScrollbarSize };
                 _adjustedForScrollBars = false;
             }
             var childFrame = ImGuiHelpers.ScaledVector2(256 + ImGui.GetStyle().WindowPadding.X + ImGui.GetStyle().WindowBorderSize, descriptionChildHeight);
@@ -104,9 +108,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             };
             if (ImGui.BeginChildFrame(1000, childFrame))
             {
-                ImGui.PushFont(_uiSharedService.GetGameFontHandle());
                 ImGui.TextWrapped(mareProfile.Description);
-                ImGui.PopFont();
             }
             ImGui.EndChildFrame();
 
@@ -116,7 +118,7 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             {
                 UiSharedService.ColorText(note, ImGuiColors.DalamudGrey);
             }
-            string status = Pair.IsVisible ? "Visible" : (Pair.IsOnline ? "Online" : "Offline");
+            string status = Pair.IsVisible ? "可见" : (Pair.IsOnline ? "在线" : "离线");
             UiSharedService.ColorText(status, (Pair.IsVisible || Pair.IsOnline) ? ImGuiColors.HealerGreen : ImGuiColors.DalamudRed);
             if (Pair.IsVisible)
             {
@@ -125,25 +127,27 @@ public class StandaloneProfileUi : WindowMediatorSubscriberBase
             }
             if (Pair.UserPair != null)
             {
-                ImGui.TextUnformatted("Directly paired");
+                ImGui.TextUnformatted("独立配对");
                 if (Pair.UserPair.OwnPermissions.IsPaused())
                 {
                     ImGui.SameLine();
-                    UiSharedService.ColorText("You: paused", ImGuiColors.DalamudYellow);
+                    UiSharedService.ColorText("你: 已暂停", ImGuiColors.DalamudYellow);
                 }
                 if (Pair.UserPair.OtherPermissions.IsPaused())
                 {
                     ImGui.SameLine();
-                    UiSharedService.ColorText("They: paused", ImGuiColors.DalamudYellow);
+                    UiSharedService.ColorText("他/她: 已暂停", ImGuiColors.DalamudYellow);
                 }
             }
-            if (Pair.GroupPair.Any())
+
+            if (Pair.UserPair.Groups.Any())
             {
-                ImGui.TextUnformatted("Paired through Syncshells:");
-                foreach (var groupPair in Pair.GroupPair.Select(k => k.Key))
+                ImGui.TextUnformatted("通过同步贝配对:");
+                foreach (var group in Pair.UserPair.Groups)
                 {
-                    var groupNote = _serverManager.GetNoteForGid(groupPair.GID);
-                    var groupString = string.IsNullOrEmpty(groupNote) ? groupPair.GroupAliasOrGID : $"{groupNote} ({groupPair.GroupAliasOrGID})";
+                    var groupNote = _serverManager.GetNoteForGid(group);
+                    var groupName = _pairManager.GroupPairs.First(f => string.Equals(f.Key.GID, group, StringComparison.Ordinal)).Key.GroupAliasOrGID;
+                    var groupString = string.IsNullOrEmpty(groupNote) ? groupName : $"{groupNote} ({groupName})";
                     ImGui.TextUnformatted("- " + groupString);
                 }
             }

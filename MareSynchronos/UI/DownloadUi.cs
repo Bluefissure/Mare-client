@@ -22,7 +22,8 @@ public class DownloadUi : WindowMediatorSubscriberBase
     private readonly ConcurrentDictionary<GameObjectHandler, bool> _uploadingPlayers = new();
 
     public DownloadUi(ILogger<DownloadUi> logger, DalamudUtilService dalamudUtilService, MareConfigService configService,
-        FileUploadManager fileTransferManager, MareMediator mediator, UiSharedService uiShared) : base(logger, mediator, "Mare Synchronos Downloads")
+        FileUploadManager fileTransferManager, MareMediator mediator, UiSharedService uiShared, PerformanceCollectorService performanceCollectorService)
+        : base(logger, mediator, "Mare下载状态", performanceCollectorService)
     {
         _dalamudUtilService = dalamudUtilService;
         _configService = configService;
@@ -45,6 +46,8 @@ public class DownloadUi : WindowMediatorSubscriberBase
         Flags |= ImGuiWindowFlags.NoDecoration;
         Flags |= ImGuiWindowFlags.NoFocusOnAppearing;
 
+        DisableWindowSounds = true;
+
         ForceMainWindow = true;
 
         IsOpen = true;
@@ -66,7 +69,7 @@ public class DownloadUi : WindowMediatorSubscriberBase
         });
     }
 
-    public override void Draw()
+    protected override void DrawInternal()
     {
         if (_configService.Current.ShowTransferWindow)
         {
@@ -84,7 +87,7 @@ public class DownloadUi : WindowMediatorSubscriberBase
                     UiSharedService.DrawOutlinedFont($"▲", ImGuiColors.DalamudWhite, new Vector4(0, 0, 0, 255), 1);
                     ImGui.SameLine();
                     var xDistance = ImGui.GetCursorPosX();
-                    UiSharedService.DrawOutlinedFont($"Compressing+Uploading {doneUploads}/{totalUploads}",
+                    UiSharedService.DrawOutlinedFont($"压缩+上传 {doneUploads}/{totalUploads}",
                         ImGuiColors.DalamudWhite, new Vector4(0, 0, 0, 255), 1);
                     ImGui.NewLine();
                     ImGui.SameLine(xDistance);

@@ -6,12 +6,14 @@ namespace MareSynchronos.Services.Mediator;
 public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber, IDisposable
 {
     protected readonly ILogger _logger;
+    private readonly PerformanceCollectorService _performanceCollectorService;
 
-    protected WindowMediatorSubscriberBase(ILogger logger, MareMediator mediator, string name) : base(name)
+    protected WindowMediatorSubscriberBase(ILogger logger, MareMediator mediator, string name,
+        PerformanceCollectorService performanceCollectorService) : base(name)
     {
         _logger = logger;
         Mediator = mediator;
-
+        _performanceCollectorService = performanceCollectorService;
         _logger.LogTrace("Creating {type}", GetType());
 
         Mediator.Subscribe<UiToggleMessage>(this, (msg) =>
@@ -27,9 +29,16 @@ public abstract class WindowMediatorSubscriberBase : Window, IMediatorSubscriber
 
     public void Dispose()
     {
-        Dispose(true);
+        Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
+
+    public override void Draw()
+    {
+        _performanceCollectorService.LogPerformance(this, "Draw", DrawInternal);
+    }
+
+    protected abstract void DrawInternal();
 
     public virtual Task StopAsync(CancellationToken cancellationToken)
     {

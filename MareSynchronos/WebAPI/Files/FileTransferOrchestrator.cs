@@ -1,7 +1,7 @@
 ﻿using MareSynchronos.MareConfiguration;
 using MareSynchronos.Services.Mediator;
-using MareSynchronos.Services.ServerConfiguration;
 using MareSynchronos.WebAPI.Files.Models;
+using MareSynchronos.WebAPI.SignalR;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Net;
@@ -13,15 +13,17 @@ namespace MareSynchronos.WebAPI.Files;
 
 public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
 {
+    private readonly ConcurrentDictionary<Guid, bool> _downloadReady = new();
     private readonly HttpClient _httpClient;
     private readonly MareConfigService _mareConfig;
     private readonly object _semaphoreModificationLock = new();
-    private readonly ServerConfigurationManager _serverManager;
+    private readonly TokenProvider _tokenProvider;
     private int _availableDownloadSlots;
     private SemaphoreSlim _downloadSemaphore;
-    private readonly ConcurrentDictionary<Guid, bool> _downloadReady = new();
+    private int CurrentlyUsedDownloadSlots => _availableDownloadSlots - _downloadSemaphore.CurrentCount;
 
-    public FileTransferOrchestrator(ILogger<FileTransferOrchestrator> logger, MareConfigService mareConfig, ServerConfigurationManager serverManager, MareMediator mediator) : base(logger, mediator)
+    public FileTransferOrchestrator(ILogger<FileTransferOrchestrator> logger, MareConfigService mareConfig,
+        MareMediator mediator, TokenProvider tokenProvider) : base(logger, mediator)
     {
         if (mareConfig.Current.UseManualProxy)
         {
@@ -38,14 +40,16 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
             HttpClient.DefaultProxy = proxy;
         }
         _mareConfig = mareConfig;
-        _serverManager = serverManager;
-        _httpClient = new();
-        _httpClient.Timeout = TimeSpan.FromSeconds(3000);
+        _tokenProvider = tokenProvider;
+        _httpClient = new()
+        {
+            Timeout = TimeSpan.FromSeconds(3000)
+        };
         var ver = Assembly.GetExecutingAssembly().GetName().Version;
         _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("MareSynchronos", ver!.Major + "." + ver!.Minor + "." + ver!.Build));
 
         _availableDownloadSlots = mareConfig.Current.ParallelDownloads;
-        _downloadSemaphore = new(_availableDownloadSlots);
+        _downloadSemaphore = new(_availableDownloadSlots, _availableDownloadSlots);
 
         Mediator.Subscribe<ConnectedMessage>(this, (msg) =>
         {
@@ -63,12 +67,12 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
     }
 
     public Uri? FilesCdnUri { private set; get; }
-    public List<FileTransfer> ForbiddenTransfers { get; } = new();
+    public List<FileTransfer> ForbiddenTransfers { get; } = [];
     public bool IsInitialized => FilesCdnUri != null;
 
-    public void ReleaseDownloadSlot()
+    public void ClearDownloadRequest(Guid guid)
     {
-        _downloadSemaphore.Release();
+        _downloadReady.Remove(guid, out _);
     }
 
     public bool IsDownloadReady(Guid guid)
@@ -81,15 +85,24 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
         return false;
     }
 
-    public void ClearDownloadRequest(Guid guid)
+    public void ReleaseDownloadSlot()
     {
-        _downloadReady.Remove(guid, out _);
+        try
+        {
+            _downloadSemaphore.Release();
+            Mediator.Publish(new DownloadLimitChangedMessage());
+        }
+        catch (SemaphoreFullException)
+        {
+            // ignore
+        }
     }
 
-    public async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, Uri uri, CancellationToken? ct = null)
+    public async Task<HttpResponseMessage> SendRequestAsync(HttpMethod method, Uri uri,
+        CancellationToken? ct = null, HttpCompletionOption httpCompletionOption = HttpCompletionOption.ResponseContentRead)
     {
         using var requestMessage = new HttpRequestMessage(method, uri);
-        return await SendRequestInternalAsync(requestMessage, ct).ConfigureAwait(false);
+        return await SendRequestInternalAsync(requestMessage, ct, httpCompletionOption).ConfigureAwait(false);
     }
 
     public async Task<HttpResponseMessage> SendRequestAsync<T>(HttpMethod method, Uri uri, T content, CancellationToken ct) where T : class
@@ -116,16 +129,42 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
             if (_availableDownloadSlots != _mareConfig.Current.ParallelDownloads && _availableDownloadSlots == _downloadSemaphore.CurrentCount)
             {
                 _availableDownloadSlots = _mareConfig.Current.ParallelDownloads;
-                _downloadSemaphore = new(_availableDownloadSlots);
+                _downloadSemaphore = new(_availableDownloadSlots, _availableDownloadSlots);
             }
         }
 
         await _downloadSemaphore.WaitAsync(token).ConfigureAwait(false);
+        Mediator.Publish(new DownloadLimitChangedMessage());
     }
 
-    private async Task<HttpResponseMessage> SendRequestInternalAsync(HttpRequestMessage requestMessage, CancellationToken? ct = null)
+    public long DownloadLimitPerSlot()
     {
-        requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serverManager.GetToken());
+        var limit = _mareConfig.Current.DownloadSpeedLimitInBytes;
+        if (limit <= 0) return 0;
+        limit = _mareConfig.Current.DownloadSpeedType switch
+        {
+            MareConfiguration.Models.DownloadSpeeds.Bps => limit,
+            MareConfiguration.Models.DownloadSpeeds.KBps => limit * 1024,
+            MareConfiguration.Models.DownloadSpeeds.MBps => limit * 1024 * 1024,
+            _ => limit,
+        };
+        var currentUsedDlSlots = CurrentlyUsedDownloadSlots;
+        var avaialble = _availableDownloadSlots;
+        var currentCount = _downloadSemaphore.CurrentCount;
+        var dividedLimit = limit / (currentUsedDlSlots == 0 ? 1 : currentUsedDlSlots);
+        if (dividedLimit < 0)
+        {
+            Logger.LogWarning("Calculated Bandwidth Limit is negative, returning Infinity: {value}, CurrentlyUsedDownloadSlots is {currentSlots}, " +
+                "DownloadSpeedLimit is {limit}, available slots: {avail}, current count: {count}", dividedLimit, currentUsedDlSlots, limit, avaialble, currentCount);
+            return long.MaxValue;
+        }
+        return Math.Clamp(dividedLimit, 1, long.MaxValue);
+    }
+
+    private async Task<HttpResponseMessage> SendRequestInternalAsync(HttpRequestMessage requestMessage,
+        CancellationToken? ct = null, HttpCompletionOption httpCompletionOption = HttpCompletionOption.ResponseContentRead)
+    {
+        requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _tokenProvider.GetToken());
 
         if (requestMessage.Content != null && requestMessage.Content is not StreamContent && requestMessage.Content is not ByteArrayContent)
         {
@@ -140,8 +179,8 @@ public class FileTransferOrchestrator : DisposableMediatorSubscriberBase
         try
         {
             if (ct != null)
-                return await _httpClient.SendAsync(requestMessage, ct.Value).ConfigureAwait(false);
-            return await _httpClient.SendAsync(requestMessage).ConfigureAwait(false);
+                return await _httpClient.SendAsync(requestMessage, httpCompletionOption, ct.Value).ConfigureAwait(false);
+            return await _httpClient.SendAsync(requestMessage, httpCompletionOption).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

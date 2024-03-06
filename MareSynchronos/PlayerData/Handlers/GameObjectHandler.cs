@@ -1,10 +1,12 @@
-﻿using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
+﻿using Dalamud.Memory;
+using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 using MareSynchronos.Services;
 using MareSynchronos.Services.Mediator;
 using MareSynchronos.Utils;
 using Microsoft.Extensions.Logging;
-using Penumbra.String;
 using System.Runtime.InteropServices;
+using static FFXIVClientStructs.FFXIV.Client.Game.Character.DrawDataContainer;
 using ObjectKind = MareSynchronos.API.Data.Enum.ObjectKind;
 
 namespace MareSynchronos.PlayerData.Handlers;
@@ -20,10 +22,11 @@ public sealed class GameObjectHandler : DisposableMediatorSubscriberBase
     private bool _haltProcessing = false;
     private bool _ignoreSendAfterRedraw = false;
     private int _ptrNullCounter = 0;
+    private byte _classJob = 0;
     private CancellationTokenSource _zoningCts = new();
 
     public GameObjectHandler(ILogger<GameObjectHandler> logger, PerformanceCollectorService performanceCollector,
-        MareMediator mediator, DalamudUtilService dalamudUtil, ObjectKind objectKind, Func<IntPtr> getAddress, bool watchedObject = true) : base(logger, mediator)
+        MareMediator mediator, DalamudUtilService dalamudUtil, ObjectKind objectKind, Func<IntPtr> getAddress, bool ownedObject = true) : base(logger, mediator)
     {
         _performanceCollector = performanceCollector;
         ObjectKind = objectKind;
@@ -33,10 +36,10 @@ public sealed class GameObjectHandler : DisposableMediatorSubscriberBase
             _dalamudUtil.EnsureIsOnFramework();
             return getAddress.Invoke();
         };
-        _isOwnedObject = watchedObject;
+        _isOwnedObject = ownedObject;
         Name = string.Empty;
 
-        if (watchedObject)
+        if (ownedObject)
         {
             Mediator.Subscribe<TransientResourceChangedMessage>(this, (msg) =>
             {
@@ -46,7 +49,6 @@ public sealed class GameObjectHandler : DisposableMediatorSubscriberBase
                     Mediator.Publish(new CreateCacheForObjectMessage(this));
                 }
             });
-            Mediator.Publish(new AddWatchedGameObjectHandler(this));
         }
 
         Mediator.Subscribe<FrameworkUpdateMessage>(this, (_) => FrameworkUpdate());
@@ -84,6 +86,8 @@ public sealed class GameObjectHandler : DisposableMediatorSubscriberBase
             }
         });
 
+        Mediator.Publish(new GameObjectHandlerCreatedMessage(this, _isOwnedObject));
+
         _dalamudUtil.RunOnFrameworkThread(CheckAndUpdateObject).GetAwaiter().GetResult();
     }
 
@@ -96,12 +100,18 @@ public sealed class GameObjectHandler : DisposableMediatorSubscriberBase
         ModelFilesInSlotLoaded
     }
 
+    public byte RaceId { get; private set; }
+    public byte Gender { get; private set; }
+    public byte TribeId { get; private set; }
+
     public IntPtr Address { get; private set; }
     public string Name { get; private set; }
     public ObjectKind ObjectKind { get; }
     private byte[] CustomizeData { get; set; } = new byte[26];
     private IntPtr DrawObjectAddress { get; set; }
     private byte[] EquipSlotData { get; set; } = new byte[40];
+    private ushort[] MainHandData { get; set; } = new ushort[3];
+    private ushort[] OffHandData { get; set; } = new ushort[3];
 
     public async Task ActOnFrameworkAfterEnsureNoDrawAsync(Action<Dalamud.Game.ClientState.Objects.Types.Character> act, CancellationToken token)
     {
@@ -165,8 +175,7 @@ public sealed class GameObjectHandler : DisposableMediatorSubscriberBase
     {
         base.Dispose(disposing);
 
-        if (_isOwnedObject)
-            Mediator.Publish(new RemoveWatchedGameObjectHandler(this));
+        Mediator.Publish(new GameObjectHandlerDestroyedMessage(this, _isOwnedObject));
     }
 
     private unsafe void CheckAndUpdateObject()
@@ -196,11 +205,11 @@ public sealed class GameObjectHandler : DisposableMediatorSubscriberBase
             if (_clearCts != null)
             {
                 Logger.LogDebug("[{this}] Cancelling Clear Task", this);
-                _clearCts?.CancelDispose();
+                _clearCts.CancelDispose();
                 _clearCts = null;
             }
-            var chara = (FFXIVClientStructs.FFXIV.Client.Game.Character.Character*)Address;
-            var name = new ByteString(chara->GameObject.Name).ToString();
+            var chara = (Character*)Address;
+            MemoryHelper.ReadStringNullTerminated((nint)chara->GameObject.Name, out var name);
             bool nameChange = !string.Equals(name, Name, StringComparison.Ordinal);
             if (nameChange)
             {
@@ -211,7 +220,21 @@ public sealed class GameObjectHandler : DisposableMediatorSubscriberBase
             if (((DrawObject*)DrawObjectAddress)->Object.GetObjectType() == ObjectType.CharacterBase
                 && ((CharacterBase*)DrawObjectAddress)->GetModelType() == CharacterBase.ModelType.Human)
             {
+                var classJob = chara->CharacterData.ClassJob;
+                if (classJob != _classJob)
+                {
+                    Logger.LogTrace("[{this}] classjob changed from {old} to {new}", this, _classJob, classJob);
+                    _classJob = classJob;
+                    Mediator.Publish(new ClassJobChangedMessage(this));
+                }
+
                 equipDiff = CompareAndUpdateEquipByteData((byte*)&((Human*)DrawObjectAddress)->Head);
+
+                ref var mh = ref chara->DrawData.Weapon(WeaponSlot.MainHand);
+                ref var oh = ref chara->DrawData.Weapon(WeaponSlot.OffHand);
+                equipDiff |= CompareAndUpdateMainHand((Weapon*)mh.DrawObject);
+                equipDiff |= CompareAndUpdateOffHand((Weapon*)oh.DrawObject);
+
                 if (equipDiff)
                     Logger.LogTrace("Checking [{this}] equip data as human from draw obj, result: {diff}", this, equipDiff);
             }
@@ -234,6 +257,19 @@ public sealed class GameObjectHandler : DisposableMediatorSubscriberBase
             if (((DrawObject*)DrawObjectAddress)->Object.GetObjectType() == ObjectType.CharacterBase
                 && ((CharacterBase*)DrawObjectAddress)->GetModelType() == CharacterBase.ModelType.Human)
             {
+                var gender = ((Human*)DrawObjectAddress)->Customize.Sex;
+                var raceId = ((Human*)DrawObjectAddress)->Customize.Race;
+                var tribeId = ((Human*)DrawObjectAddress)->Customize.Clan;
+
+                if (_isOwnedObject && ObjectKind == ObjectKind.Player
+                    && (gender != Gender || raceId != RaceId || tribeId != TribeId))
+                {
+                    Mediator.Publish(new CensusUpdateMessage(gender, raceId, tribeId));
+                    Gender = gender;
+                    RaceId = raceId;
+                    TribeId = tribeId;
+                }
+
                 customizeDiff = CompareAndUpdateCustomizeData(((Human*)DrawObjectAddress)->Customize.Data);
                 if (customizeDiff)
                     Logger.LogTrace("Checking [{this}] customize data as human from draw obj, result: {diff}", this, customizeDiff);
@@ -303,6 +339,32 @@ public sealed class GameObjectHandler : DisposableMediatorSubscriberBase
             }
         }
 
+        return hasChanges;
+    }
+
+    private unsafe bool CompareAndUpdateMainHand(Weapon* weapon)
+    {
+        if ((nint)weapon == nint.Zero) return false;
+        bool hasChanges = false;
+        hasChanges |= weapon->ModelSetId != MainHandData[0];
+        MainHandData[0] = weapon->ModelSetId;
+        hasChanges |= weapon->Variant != MainHandData[1];
+        MainHandData[1] = weapon->Variant;
+        hasChanges |= weapon->SecondaryId != MainHandData[2];
+        MainHandData[2] = weapon->SecondaryId;
+        return hasChanges;
+    }
+
+    private unsafe bool CompareAndUpdateOffHand(Weapon* weapon)
+    {
+        if ((nint)weapon == nint.Zero) return false;
+        bool hasChanges = false;
+        hasChanges |= weapon->ModelSetId != OffHandData[0];
+        OffHandData[0] = weapon->ModelSetId;
+        hasChanges |= weapon->Variant != OffHandData[1];
+        OffHandData[1] = weapon->Variant;
+        hasChanges |= weapon->SecondaryId != OffHandData[2];
+        OffHandData[2] = weapon->SecondaryId;
         return hasChanges;
     }
 
@@ -386,7 +448,14 @@ public sealed class GameObjectHandler : DisposableMediatorSubscriberBase
         _clearCts?.Cancel();
         _clearCts?.Dispose();
         _clearCts = null;
-        _zoningCts.CancelAfter(2500);
+        try
+        {
+            _zoningCts?.CancelAfter(2500);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Zoning CTS cancel issue");
+        }
     }
 
     private void ZoneSwitchStart()

@@ -1,26 +1,27 @@
-﻿using System.Text;
+﻿using MareSynchronos.API.Data;
+
 using MareSynchronos.API.Data.Enum;
-using MareSynchronos.API.Data;
 
 namespace MareSynchronos.PlayerData.Data;
 
 public class CharacterData
 {
-    public Dictionary<ObjectKind, string> CustomizePlusScale { get; set; } = new();
-    public Dictionary<ObjectKind, HashSet<FileReplacement>> FileReplacements { get; set; } = new();
+    public Dictionary<ObjectKind, string> CustomizePlusScale { get; set; } = [];
+    public Dictionary<ObjectKind, HashSet<FileReplacement>> FileReplacements { get; set; } = [];
 
-    public Dictionary<ObjectKind, string> GlamourerString { get; set; } = new();
+    public Dictionary<ObjectKind, string> GlamourerString { get; set; } = [];
 
     public string HeelsData { get; set; } = string.Empty;
     public string HonorificData { get; set; } = string.Empty;
-    public bool IsReady => FileReplacements.SelectMany(k => k.Value).All(f => f.Computed);
-
     public string ManipulationString { get; set; } = string.Empty;
-    public string PalettePlusPalette { get; set; } = string.Empty;
+    public string MoodlesData { get; set; } = string.Empty;
 
     public API.Data.CharacterData ToAPI()
     {
-        var fileReplacements = FileReplacements.ToDictionary(k => k.Key, k => k.Value.Where(f => f.HasFileReplacement && !f.IsFileSwap).GroupBy(f => f.Hash, StringComparer.OrdinalIgnoreCase).Select(g =>
+        Dictionary<ObjectKind, List<FileReplacementData>> fileReplacements =
+            FileReplacements.ToDictionary(k => k.Key, k => k.Value.Where(f => f.HasFileReplacement && !f.IsFileSwap)
+            .GroupBy(f => f.Hash, StringComparer.OrdinalIgnoreCase)
+            .Select(g =>
         {
             return new FileReplacementData()
             {
@@ -42,18 +43,8 @@ public class CharacterData
             ManipulationData = ManipulationString,
             HeelsData = HeelsData,
             CustomizePlusData = CustomizePlusScale.ToDictionary(d => d.Key, d => d.Value),
-            PalettePlusData = PalettePlusPalette,
-            HonorificData = HonorificData
+            HonorificData = HonorificData,
+            MoodlesData = MoodlesData
         };
-    }
-
-    public override string ToString()
-    {
-        StringBuilder stringBuilder = new();
-        foreach (var fileReplacement in FileReplacements.SelectMany(k => k.Value).OrderBy(a => a.GamePaths.First(), StringComparer.Ordinal))
-        {
-            stringBuilder.Append(fileReplacement).AppendLine();
-        }
-        return stringBuilder.ToString();
     }
 }

@@ -1,6 +1,4 @@
 ﻿using MareSynchronos.API.SignalR;
-using MareSynchronos.Interop;
-using MareSynchronos.MareConfiguration;
 using MareSynchronos.Services.Mediator;
 using MareSynchronos.Services.ServerConfiguration;
 using MareSynchronos.WebAPI.SignalR.Utils;
@@ -15,25 +13,56 @@ namespace MareSynchronos.WebAPI.SignalR;
 
 public class HubFactory : MediatorSubscriberBase
 {
+    private readonly ILoggerProvider _loggingProvider;
     private readonly ServerConfigurationManager _serverConfigurationManager;
-    private readonly MareConfigService _configService;
+    private readonly TokenProvider _tokenProvider;
     private HubConnection? _instance;
     private bool _isDisposed = false;
 
-    public HubFactory(ILogger<HubFactory> logger, MareMediator mediator, ServerConfigurationManager serverConfigurationManager, MareConfigService configService) : base(logger, mediator)
+    public HubFactory(ILogger<HubFactory> logger, MareMediator mediator,
+        ServerConfigurationManager serverConfigurationManager,
+        TokenProvider tokenProvider, ILoggerProvider pluginLog) : base(logger, mediator)
     {
         _serverConfigurationManager = serverConfigurationManager;
-        _configService = configService;
+        _tokenProvider = tokenProvider;
+        _loggingProvider = pluginLog;
     }
 
-    private HubConnection BuildHubConnection()
+    public async Task DisposeHubAsync()
+    {
+        if (_instance == null || _isDisposed) return;
+
+        Logger.LogDebug("Disposing current HubConnection");
+
+        _isDisposed = true;
+
+        _instance.Closed -= HubOnClosed;
+        _instance.Reconnecting -= HubOnReconnecting;
+        _instance.Reconnected -= HubOnReconnected;
+
+        await _instance.StopAsync().ConfigureAwait(false);
+        await _instance.DisposeAsync().ConfigureAwait(false);
+
+        _instance = null;
+
+        Logger.LogDebug("Current HubConnection disposed");
+    }
+
+    public HubConnection GetOrCreate(CancellationToken ct)
+    {
+        if (!_isDisposed && _instance != null) return _instance;
+
+        return BuildHubConnection(ct);
+    }
+
+    private HubConnection BuildHubConnection(CancellationToken ct)
     {
         Logger.LogDebug("Building new HubConnection");
 
         _instance = new HubConnectionBuilder()
             .WithUrl(_serverConfigurationManager.CurrentApiUrl + IMareHub.Path, options =>
             {
-                options.Headers.Add("Authorization", "Bearer " + _serverConfigurationManager.GetToken());
+                options.AccessTokenProvider = () => _tokenProvider.GetOrUpdateToken(ct);
                 options.Transports = HttpTransportType.WebSockets | HttpTransportType.ServerSentEvents | HttpTransportType.LongPolling;
             })
             .AddMessagePackProtocol(opt =>
@@ -58,7 +87,7 @@ public class HubFactory : MediatorSubscriberBase
             .WithAutomaticReconnect(new ForeverRetryPolicy(Mediator))
             .ConfigureLogging(a =>
             {
-                a.ClearProviders().AddProvider(new DalamudLoggingProvider(_configService));
+                a.ClearProviders().AddProvider(_loggingProvider);
                 a.SetMinimumLevel(LogLevel.Information);
             })
             .Build();
@@ -72,6 +101,12 @@ public class HubFactory : MediatorSubscriberBase
         return _instance;
     }
 
+    private Task HubOnClosed(Exception? arg)
+    {
+        Mediator.Publish(new HubClosedMessage(arg));
+        return Task.CompletedTask;
+    }
+
     private Task HubOnReconnected(string? arg)
     {
         Mediator.Publish(new HubReconnectedMessage(arg));
@@ -82,36 +117,5 @@ public class HubFactory : MediatorSubscriberBase
     {
         Mediator.Publish(new HubReconnectingMessage(arg));
         return Task.CompletedTask;
-    }
-
-    private Task HubOnClosed(Exception? arg)
-    {
-        Mediator.Publish(new HubClosedMessage(arg));
-        return Task.CompletedTask;
-    }
-
-    public HubConnection GetOrCreate()
-    {
-        if (!_isDisposed && _instance != null) return _instance;
-
-        return BuildHubConnection();
-    }
-
-    public async Task DisposeHubAsync()
-    {
-        if (_instance == null || _isDisposed) return;
-
-        Logger.LogDebug("Disposing current HubConnection");
-
-        _isDisposed = true;
-
-        _instance.Closed -= HubOnClosed;
-        _instance.Reconnecting -= HubOnReconnecting;
-        _instance.Reconnected -= HubOnReconnected;
-
-        await _instance.StopAsync().ConfigureAwait(false);
-        await _instance.DisposeAsync().ConfigureAwait(false);
-
-        _instance = null;
     }
 }

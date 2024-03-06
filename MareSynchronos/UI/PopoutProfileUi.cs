@@ -1,47 +1,50 @@
 ﻿using Dalamud.Interface.Colors;
+using Dalamud.Interface.Internal;
+
+using Dalamud.Interface.Utility;
+using Dalamud.Interface.Utility.Raii;
 using ImGuiNET;
-using ImGuiScene;
+using MareSynchronos.API.Data.Extensions;
+using MareSynchronos.MareConfiguration;
 using MareSynchronos.PlayerData.Pairs;
 using MareSynchronos.Services;
 using MareSynchronos.Services.Mediator;
 using MareSynchronos.Services.ServerConfiguration;
 using Microsoft.Extensions.Logging;
 using System.Numerics;
-using MareSynchronos.API.Data.Extensions;
-using MareSynchronos.MareConfiguration;
-using Dalamud.Interface;
 
 namespace MareSynchronos.UI;
 
 public class PopoutProfileUi : WindowMediatorSubscriberBase
 {
     private readonly MareProfileManager _mareProfileManager;
+    private readonly PairManager _pairManager;
     private readonly ServerConfigurationManager _serverManager;
     private readonly UiSharedService _uiSharedService;
     private Vector2 _lastMainPos = Vector2.Zero;
     private Vector2 _lastMainSize = Vector2.Zero;
-    private byte[] _lastProfilePicture = Array.Empty<byte>();
-    private byte[] _lastSupporterPicture = Array.Empty<byte>();
+    private byte[] _lastProfilePicture = [];
+    private byte[] _lastSupporterPicture = [];
     private Pair? _pair;
-    private TextureWrap? _supporterTextureWrap;
-    private TextureWrap? _textureWrap;
+    private IDalamudTextureWrap? _supporterTextureWrap;
+    private IDalamudTextureWrap? _textureWrap;
 
     public PopoutProfileUi(ILogger<PopoutProfileUi> logger, MareMediator mediator, UiSharedService uiBuilder,
         ServerConfigurationManager serverManager, MareConfigService mareConfigService,
-        MareProfileManager mareProfileManager) : base(logger, mediator, "###MareSynchronosPopoutProfileUI")
+        MareProfileManager mareProfileManager, PairManager pairManager, PerformanceCollectorService performanceCollectorService) : base(logger, mediator, "###MareSynchronosPopoutProfileUI", performanceCollectorService)
     {
         _uiSharedService = uiBuilder;
         _serverManager = serverManager;
         _mareProfileManager = mareProfileManager;
-
+        _pairManager = pairManager;
         Flags = ImGuiWindowFlags.NoDecoration;
 
         Mediator.Subscribe<ProfilePopoutToggle>(this, (msg) =>
         {
             IsOpen = msg.Pair != null;
             _pair = msg.Pair;
-            _lastProfilePicture = Array.Empty<byte>();
-            _lastSupporterPicture = Array.Empty<byte>();
+            _lastProfilePicture = [];
+            _lastSupporterPicture = [];
             _textureWrap?.Dispose();
             _textureWrap = null;
             _supporterTextureWrap?.Dispose();
@@ -54,7 +57,6 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
             {
                 var border = ImGui.GetStyle().WindowBorderSize;
                 var padding = ImGui.GetStyle().WindowPadding;
-                var spacing = ImGui.GetStyle().ItemSpacing;
                 Size = new(256 + (padding.X * 2) + border, msg.Size.Y / ImGuiHelpers.GlobalScale);
                 _lastMainSize = msg.Size;
             }
@@ -65,7 +67,7 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
             }
             else
             {
-                Position = new(mainPos.X - Size.Value.X * ImGuiHelpers.GlobalScale, mainPos.Y);
+                Position = new(mainPos.X - Size!.Value.X * ImGuiHelpers.GlobalScale, mainPos.Y);
             }
 
             if (msg.Position != Vector2.Zero)
@@ -77,7 +79,7 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
         IsOpen = false;
     }
 
-    public override void Draw()
+    protected override void DrawInternal()
     {
         if (_pair == null) return;
 
@@ -109,14 +111,14 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
             var rectMin = drawList.GetClipRectMin();
             var rectMax = drawList.GetClipRectMax();
 
-            if (_uiSharedService.UidFontBuilt) ImGui.PushFont(_uiSharedService.UidFont);
-            UiSharedService.ColorText(_pair.UserData.AliasOrUID, ImGuiColors.HealerGreen);
-            if (_uiSharedService.UidFontBuilt) ImGui.PopFont();
-            ImGui.Dummy(new(spacing.Y, spacing.Y));
+            using (ImRaii.PushFont(_uiSharedService.UidFont, _uiSharedService.UidFontBuilt)) 
+                UiSharedService.ColorText(_pair.UserData.AliasOrUID, ImGuiColors.HealerGreen);
+
+            ImGuiHelpers.ScaledDummy(spacing.Y, spacing.Y);
             var textPos = ImGui.GetCursorPosY();
             ImGui.Separator();
             var imagePos = ImGui.GetCursorPos();
-            ImGui.Dummy(new(256, 256 * ImGuiHelpers.GlobalScale + spacing.Y));
+            ImGuiHelpers.ScaledDummy(256, 256 * ImGuiHelpers.GlobalScale + spacing.Y);
             var note = _serverManager.GetNoteForUid(_pair.UserData.UID);
             if (!string.IsNullOrEmpty(note))
             {
@@ -129,9 +131,9 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
                 ImGui.SameLine();
                 ImGui.TextUnformatted($"({_pair.PlayerName})");
             }
-            if (_pair.UserPair != null)
+            if (_pair.UserPair.IndividualPairStatus == API.Data.Enum.IndividualPairStatus.Bidirectional)
             {
-                ImGui.TextUnformatted("直接配对");
+                ImGui.TextUnformatted("独立配对");
                 if (_pair.UserPair.OwnPermissions.IsPaused())
                 {
                     ImGui.SameLine();
@@ -143,30 +145,29 @@ public class PopoutProfileUi : WindowMediatorSubscriberBase
                     UiSharedService.ColorText("他们：已暂停", ImGuiColors.DalamudYellow);
                 }
             }
-            if (_pair.GroupPair.Any())
+            if (_pair.UserPair.Groups.Any())
             {
                 ImGui.TextUnformatted("通过同步贝配对：");
-                foreach (var groupPair in _pair.GroupPair.Select(k => k.Key))
+                foreach (var group in _pair.UserPair.Groups)
                 {
-                    var groupNote = _serverManager.GetNoteForGid(groupPair.GID);
-                    var groupString = string.IsNullOrEmpty(groupNote) ? groupPair.GroupAliasOrGID : $"{groupNote} ({groupPair.GroupAliasOrGID})";
+                    var groupNote = _serverManager.GetNoteForGid(group);
+                    var groupName = _pairManager.GroupPairs.First(f => string.Equals(f.Key.GID, group, StringComparison.Ordinal)).Key.GroupAliasOrGID;
+                    var groupString = string.IsNullOrEmpty(groupNote) ? groupName : $"{groupNote} ({groupName})";
                     ImGui.TextUnformatted("- " + groupString);
                 }
             }
 
             ImGui.Separator();
-            ImGui.PushFont(_uiSharedService.GetGameFontHandle());
             var remaining = ImGui.GetWindowContentRegionMax().Y - ImGui.GetCursorPosY();
             var descText = mareProfile.Description;
             var textSize = ImGui.CalcTextSize(descText, 256f * ImGuiHelpers.GlobalScale);
             bool trimmed = textSize.Y > remaining;
             while (textSize.Y > remaining && descText.Contains(' '))
             {
-                descText = descText.Substring(0, descText.LastIndexOf(' ')).TrimEnd();
+                descText = descText[..descText.LastIndexOf(' ')].TrimEnd();
                 textSize = ImGui.CalcTextSize(descText + $"...{Environment.NewLine}[打开档案窗口以获取完整描述]", 256f * ImGuiHelpers.GlobalScale);
             }
             UiSharedService.TextWrapped(trimmed ? descText + $"...{Environment.NewLine}[打开档案窗口以获取完整描述]" : mareProfile.Description);
-            ImGui.PopFont();
 
             var padding = ImGui.GetStyle().WindowPadding.X / 2;
             bool tallerThanWide = _textureWrap.Height >= _textureWrap.Width;

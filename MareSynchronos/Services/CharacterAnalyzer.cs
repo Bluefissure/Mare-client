@@ -1,12 +1,11 @@
-﻿using MareSynchronos.API.Data;
+﻿using Lumina.Data.Files;
+using MareSynchronos.API.Data;
 using MareSynchronos.API.Data.Enum;
 using MareSynchronos.FileCache;
 using MareSynchronos.Services.Mediator;
 using MareSynchronos.UI;
 using MareSynchronos.Utils;
 using Microsoft.Extensions.Logging;
-using Lumina.Data;
-using Lumina.Data.Files;
 
 namespace MareSynchronos.Services;
 
@@ -15,7 +14,6 @@ public sealed class CharacterAnalyzer : MediatorSubscriberBase, IDisposable
     private readonly FileCacheManager _fileCacheManager;
     private CancellationTokenSource? _analysisCts;
     private string _lastDataHash = string.Empty;
-    internal Dictionary<ObjectKind, Dictionary<string, FileDataEntry>> LastAnalysis { get; } = new();
 
     public CharacterAnalyzer(ILogger<CharacterAnalyzer> logger, MareMediator mediator, FileCacheManager fileCacheManager) : base(logger, mediator)
     {
@@ -26,10 +24,10 @@ public sealed class CharacterAnalyzer : MediatorSubscriberBase, IDisposable
         _fileCacheManager = fileCacheManager;
     }
 
-    public bool IsAnalysisRunning => _analysisCts != null;
-
     public int CurrentFile { get; internal set; }
+    public bool IsAnalysisRunning => _analysisCts != null;
     public int TotalFiles { get; internal set; }
+    internal Dictionary<ObjectKind, Dictionary<string, FileDataEntry>> LastAnalysis { get; } = [];
 
     public void CancelAnalyze()
     {
@@ -53,18 +51,27 @@ public sealed class CharacterAnalyzer : MediatorSubscriberBase, IDisposable
             CurrentFile = 1;
             Logger.LogDebug("=== Computing {amount} remaining files ===", remaining.Count);
 
-            Mediator.Publish(new HaltScanMessage("CharacterAnalyzer"));
-
-            foreach (var file in remaining)
+            Mediator.Publish(new HaltScanMessage(nameof(CharacterAnalyzer)));
+            try
             {
-                Logger.LogDebug("Computing file {file}", file.FilePaths[0]);
-                await file.ComputeSizes(_fileCacheManager, cancelToken).ConfigureAwait(false);
-                CurrentFile++;
+                foreach (var file in remaining)
+                {
+                    Logger.LogDebug("Computing file {file}", file.FilePaths[0]);
+                    await file.ComputeSizes(_fileCacheManager, cancelToken).ConfigureAwait(false);
+                    CurrentFile++;
+                }
+
+                _fileCacheManager.WriteOutFullCsv();
+
             }
-
-            _fileCacheManager.WriteOutFullCsv();
-
-            Mediator.Publish(new ResumeScanMessage("CharacterAnalzyer"));
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to analyze files");
+            }
+            finally
+            {
+                Mediator.Publish(new ResumeScanMessage(nameof(CharacterAnalyzer)));
+            }
         }
 
         Mediator.Publish(new CharacterDataAnalyzedMessage());
@@ -73,6 +80,11 @@ public sealed class CharacterAnalyzer : MediatorSubscriberBase, IDisposable
         _analysisCts = null;
 
         if (print) PrintAnalysis();
+    }
+
+    public void Dispose()
+    {
+        _analysisCts.CancelDispose();
     }
 
     private void BaseAnalysis(CharacterData charaData)
@@ -86,17 +98,25 @@ public sealed class CharacterAnalyzer : MediatorSubscriberBase, IDisposable
             Dictionary<string, FileDataEntry> data = new(StringComparer.OrdinalIgnoreCase);
             foreach (var fileEntry in obj.Value)
             {
-                var fileCacheEntries = _fileCacheManager.GetAllFileCachesByHash(fileEntry.Hash).Where(c => !c.IsCacheEntry).ToList();
+                var fileCacheEntries = _fileCacheManager.GetAllFileCachesByHash(fileEntry.Hash, ignoreCacheEntries: true, validate: false).ToList();
                 if (fileCacheEntries.Count == 0) continue;
 
                 var filePath = fileCacheEntries[0].ResolvedFilepath;
                 FileInfo fi = new(filePath);
-                var ext = fi.Extension[1..];
+                string ext = "unk?";
+                try
+                {
+                    ext = fi.Extension[1..];
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Could not identify extension for {path}", filePath);
+                }
 
                 foreach (var entry in fileCacheEntries)
                 {
                     data[fileEntry.Hash] = new FileDataEntry(fileEntry.Hash, ext,
-                        fileEntry.GamePaths.ToList(),
+                        [.. fileEntry.GamePaths],
                         fileCacheEntries.Select(c => c.ResolvedFilepath).Distinct().ToList(),
                         entry.Size > 0 ? entry.Size.Value : 0, entry.CompressedSize > 0 ? entry.CompressedSize.Value : 0);
                 }
@@ -126,7 +146,7 @@ public sealed class CharacterAnalyzer : MediatorSubscriberBase, IDisposable
                 {
                     Logger.LogInformation("  Game Path: {path}", path);
                 }
-                if (entry.Value.FilePaths.Count > 1) Logger.LogInformation("  Multiple fitting files detected", entry.Key);
+                if (entry.Value.FilePaths.Count > 1) Logger.LogInformation("  Multiple fitting files detected for {key}", entry.Key);
                 foreach (var filePath in entry.Value.FilePaths)
                 {
                     Logger.LogInformation("  File Path: {path}", filePath);
@@ -156,11 +176,6 @@ public sealed class CharacterAnalyzer : MediatorSubscriberBase, IDisposable
         Logger.LogInformation("IMPORTANT NOTES:\n\r- For Mare up- and downloads only the compressed size is relevant.\n\r- An unusually high total files count beyond 200 and up will also increase your download time to others significantly.");
     }
 
-    public void Dispose()
-    {
-        _analysisCts.CancelDispose();
-    }
-
     internal sealed record FileDataEntry(string Hash, string FileType, List<string> GamePaths, List<string> FilePaths, long OriginalSize, long CompressedSize)
     {
         public bool IsComputed => OriginalSize > 0 && CompressedSize > 0;
@@ -168,7 +183,7 @@ public sealed class CharacterAnalyzer : MediatorSubscriberBase, IDisposable
         {
             var compressedsize = await fileCacheManager.GetCompressedFileData(Hash, token).ConfigureAwait(false);
             var normalSize = new FileInfo(FilePaths[0]).Length;
-            var entries = fileCacheManager.GetAllFileCachesByHash(Hash);
+            var entries = fileCacheManager.GetAllFileCachesByHash(Hash, ignoreCacheEntries: true, validate: false);
             foreach (var entry in entries)
             {
                 entry.Size = normalSize;
@@ -198,7 +213,6 @@ public sealed class CharacterAnalyzer : MediatorSubscriberBase, IDisposable
                         {
                             return "Unknown";
                         }
-
                     }
                 default:
                     return string.Empty;

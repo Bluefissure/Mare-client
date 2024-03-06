@@ -62,9 +62,11 @@ public sealed class FileCompactor
         MassCompactRunning = false;
     }
 
-    public long GetFileSizeOnDisk(string filePath)
+    public long GetFileSizeOnDisk(string filePath, bool? isNTFS = null)
     {
-        if (Dalamud.Utility.Util.IsLinux()) return new FileInfo(filePath).Length;
+        bool ntfs = isNTFS ?? string.Equals(new DriveInfo(new FileInfo(filePath).Directory!.Root.FullName).DriveFormat, "NTFS", StringComparison.OrdinalIgnoreCase);
+
+        if (Dalamud.Utility.Util.IsWine() || !ntfs) return new FileInfo(filePath).Length;
 
         var clusterSize = GetClusterSize(filePath);
         if (clusterSize == -1) return new FileInfo(filePath).Length;
@@ -75,9 +77,9 @@ public sealed class FileCompactor
 
     public async Task WriteAllBytesAsync(string filePath, byte[] decompressedFile, CancellationToken token)
     {
-        await File.WriteAllBytesAsync(filePath, decompressedFile, token);
+        await File.WriteAllBytesAsync(filePath, decompressedFile, token).ConfigureAwait(false);
 
-        if (Dalamud.Utility.Util.IsLinux() || !_mareConfigService.Current.UseCompactor)
+        if (Dalamud.Utility.Util.IsWine() || !_mareConfigService.Current.UseCompactor)
         {
             return;
         }
@@ -105,6 +107,14 @@ public sealed class FileCompactor
 
     private void CompactFile(string filePath)
     {
+        var fs = new DriveInfo(new FileInfo(filePath).Directory!.Root.FullName);
+        bool isNTFS = string.Equals(fs.DriveFormat, "NTFS", StringComparison.OrdinalIgnoreCase);
+        if (!isNTFS)
+        {
+            _logger.LogWarning("Drive for file {file} is not NTFS", filePath);
+            return;
+        }
+
         var oldSize = new FileInfo(filePath).Length;
         var clusterSize = GetClusterSize(filePath);
 
@@ -137,8 +147,10 @@ public sealed class FileCompactor
         {
             using (var fs = new FileStream(path, FileMode.Open))
             {
+#pragma warning disable S3869 // "SafeHandle.DangerousGetHandle" should not be called
                 var hDevice = fs.SafeFileHandle.DangerousGetHandle();
-                var ret = DeviceIoControl(hDevice, FSCTL_DELETE_EXTERNAL_BACKING, nint.Zero, 0, nint.Zero, 0, out _, out _);
+#pragma warning restore S3869 // "SafeHandle.DangerousGetHandle" should not be called
+                _ = DeviceIoControl(hDevice, FSCTL_DELETE_EXTERNAL_BACKING, nint.Zero, 0, nint.Zero, 0, out _, out _);
             }
         }
         catch (Exception ex)
@@ -153,7 +165,7 @@ public sealed class FileCompactor
         if (!fi.Exists) return -1;
         var root = fi.Directory?.Root.FullName.ToLower() ?? string.Empty;
         if (string.IsNullOrEmpty(root)) return -1;
-        if (_clusterSizes.ContainsKey(root)) return _clusterSizes[root];
+        if (_clusterSizes.TryGetValue(root, out int value)) return value;
         _logger.LogDebug("Getting Cluster Size for {path}, root {root}", filePath, root);
         int result = GetDiskFreeSpaceW(root, out uint sectorsPerCluster, out uint bytesPerSector, out _, out _);
         if (result == 0) return -1;
@@ -162,7 +174,7 @@ public sealed class FileCompactor
         return _clusterSizes[root];
     }
 
-    private bool IsCompactedFile(string filePath)
+    private static bool IsCompactedFile(string filePath)
     {
         uint buf = 8;
         _ = WofIsExternalFile(filePath, out int isExtFile, out uint _, out var info, ref buf);
@@ -173,13 +185,15 @@ public sealed class FileCompactor
     private void WOFCompressFile(string path)
     {
         var efInfoPtr = Marshal.AllocHGlobal(Marshal.SizeOf(_efInfo));
-        Marshal.StructureToPtr(_efInfo, efInfoPtr, true);
+        Marshal.StructureToPtr(_efInfo, efInfoPtr, fDeleteOld: true);
         ulong length = (ulong)Marshal.SizeOf(_efInfo);
         try
         {
             using (var fs = new FileStream(path, FileMode.Open))
             {
+#pragma warning disable S3869 // "SafeHandle.DangerousGetHandle" should not be called
                 var hFile = fs.SafeFileHandle.DangerousGetHandle();
+#pragma warning restore S3869 // "SafeHandle.DangerousGetHandle" should not be called
                 if (fs.SafeFileHandle.IsInvalid)
                 {
                     _logger.LogWarning("Invalid file handle to {file}", path);

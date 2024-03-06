@@ -1,9 +1,12 @@
 ﻿using Dalamud.Game.Command;
+using Dalamud.Plugin.Services;
 using MareSynchronos.FileCache;
+using MareSynchronos.MareConfiguration;
 using MareSynchronos.Services.Mediator;
 using MareSynchronos.Services.ServerConfiguration;
 using MareSynchronos.UI;
 using MareSynchronos.WebAPI;
+using System.Globalization;
 
 namespace MareSynchronos.Services;
 
@@ -12,24 +15,24 @@ public sealed class CommandManagerService : IDisposable
     private const string _commandName = "/mare";
 
     private readonly ApiController _apiController;
-    private readonly CommandManager _commandManager;
+    private readonly ICommandManager _commandManager;
     private readonly MareMediator _mediator;
+    private readonly MareConfigService _mareConfigService;
     private readonly PerformanceCollectorService _performanceCollectorService;
-    private readonly PeriodicFileScanner _periodicFileScanner;
+    private readonly CacheMonitor _cacheMonitor;
     private readonly ServerConfigurationManager _serverConfigurationManager;
-    private readonly UiService _uiService;
 
-    public CommandManagerService(CommandManager commandManager, PerformanceCollectorService performanceCollectorService,
-        UiService uiService, ServerConfigurationManager serverConfigurationManager, PeriodicFileScanner periodicFileScanner,
-        ApiController apiController, MareMediator mediator)
+    public CommandManagerService(ICommandManager commandManager, PerformanceCollectorService performanceCollectorService,
+        ServerConfigurationManager serverConfigurationManager, CacheMonitor periodicFileScanner,
+        ApiController apiController, MareMediator mediator, MareConfigService mareConfigService)
     {
         _commandManager = commandManager;
         _performanceCollectorService = performanceCollectorService;
-        _uiService = uiService;
         _serverConfigurationManager = serverConfigurationManager;
-        _periodicFileScanner = periodicFileScanner;
+        _cacheMonitor = periodicFileScanner;
         _apiController = apiController;
         _mediator = mediator;
+        _mareConfigService = mareConfigService;
         _commandManager.AddHandler(_commandName, new CommandInfo(OnCommand)
         {
             HelpMessage = "Opens the Mare Synchronos UI"
@@ -48,7 +51,10 @@ public sealed class CommandManagerService : IDisposable
         if (splitArgs == null || splitArgs.Length == 0)
         {
             // Interpret this as toggling the UI
-            _uiService.ToggleUi();
+            if (_mareConfigService.Current.HasValidSetup())
+                _mediator.Publish(new UiToggleMessage(typeof(CompactUi)));
+            else
+                _mediator.Publish(new UiToggleMessage(typeof(IntroUi)));
             return;
         }
 
@@ -81,11 +87,11 @@ public sealed class CommandManagerService : IDisposable
         }
         else if (string.Equals(splitArgs[0], "rescan", StringComparison.OrdinalIgnoreCase))
         {
-            _periodicFileScanner.InvokeScan(forced: true);
+            _cacheMonitor.InvokeScan();
         }
         else if (string.Equals(splitArgs[0], "perf", StringComparison.OrdinalIgnoreCase))
         {
-            if (splitArgs.Length > 1 && int.TryParse(splitArgs[1], out var limitBySeconds))
+            if (splitArgs.Length > 1 && int.TryParse(splitArgs[1], CultureInfo.InvariantCulture, out var limitBySeconds))
             {
                 _performanceCollectorService.PrintPerformanceStats(limitBySeconds);
             }
@@ -100,7 +106,7 @@ public sealed class CommandManagerService : IDisposable
         }
         else if (string.Equals(splitArgs[0], "analyze", StringComparison.OrdinalIgnoreCase))
         {
-            _mediator.Publish(new OpenDataAnalysisUiMessage());
+            _mediator.Publish(new UiToggleMessage(typeof(DataAnalysisUi)));
         }
     }
 }

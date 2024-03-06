@@ -5,22 +5,24 @@ using MareSynchronos.PlayerData.Handlers;
 using MareSynchronos.Services;
 using MareSynchronos.Services.Mediator;
 using Microsoft.Extensions.Logging;
-using System.Linq;
 
 namespace MareSynchronos.PlayerData.Services;
+
+#pragma warning disable MA0040
 
 public sealed class CacheCreationService : DisposableMediatorSubscriberBase
 {
     private readonly SemaphoreSlim _cacheCreateLock = new(1);
-    private readonly Dictionary<ObjectKind, GameObjectHandler> _cachesToCreate = new();
+    private readonly Dictionary<ObjectKind, GameObjectHandler> _cachesToCreate = [];
     private readonly PlayerDataFactory _characterDataFactory;
     private readonly CancellationTokenSource _cts = new();
     private readonly CharacterData _playerData = new();
-    private readonly Dictionary<ObjectKind, GameObjectHandler> _playerRelatedObjects = new();
+    private readonly Dictionary<ObjectKind, GameObjectHandler> _playerRelatedObjects = [];
     private Task? _cacheCreationTask;
     private CancellationTokenSource _honorificCts = new();
+    private CancellationTokenSource _moodlesCts = new();
     private bool _isZoning = false;
-    private CancellationTokenSource _palettePlusCts = new();
+    private readonly Dictionary<ObjectKind, CancellationTokenSource> _glamourerCts = new();
 
     public CacheCreationService(ILogger<CacheCreationService> logger, MareMediator mediator, GameObjectHandlerFactory gameObjectHandlerFactory,
         PlayerDataFactory characterDataFactory, DalamudUtilService dalamudUtil) : base(logger, mediator)
@@ -38,17 +40,30 @@ public sealed class CacheCreationService : DisposableMediatorSubscriberBase
         Mediator.Subscribe<ZoneSwitchStartMessage>(this, (msg) => _isZoning = true);
         Mediator.Subscribe<ZoneSwitchEndMessage>(this, (msg) => _isZoning = false);
 
-        _playerRelatedObjects[ObjectKind.Player] = gameObjectHandlerFactory.Create(ObjectKind.Player, dalamudUtil.GetPlayerPointer, true)
+        _playerRelatedObjects[ObjectKind.Player] = gameObjectHandlerFactory.Create(ObjectKind.Player, dalamudUtil.GetPlayerPointer, isWatched: true)
             .GetAwaiter().GetResult();
-        _playerRelatedObjects[ObjectKind.MinionOrMount] = gameObjectHandlerFactory.Create(ObjectKind.MinionOrMount, () => dalamudUtil.GetMinionOrMount(), true)
+        _playerRelatedObjects[ObjectKind.MinionOrMount] = gameObjectHandlerFactory.Create(ObjectKind.MinionOrMount, () => dalamudUtil.GetMinionOrMount(), isWatched: true)
             .GetAwaiter().GetResult();
-        _playerRelatedObjects[ObjectKind.Pet] = gameObjectHandlerFactory.Create(ObjectKind.Pet, () => dalamudUtil.GetPet(), true)
+        _playerRelatedObjects[ObjectKind.Pet] = gameObjectHandlerFactory.Create(ObjectKind.Pet, () => dalamudUtil.GetPet(), isWatched: true)
             .GetAwaiter().GetResult();
-        _playerRelatedObjects[ObjectKind.Companion] = gameObjectHandlerFactory.Create(ObjectKind.Companion, () => dalamudUtil.GetCompanion(), true)
+        _playerRelatedObjects[ObjectKind.Companion] = gameObjectHandlerFactory.Create(ObjectKind.Companion, () => dalamudUtil.GetCompanion(), isWatched: true)
             .GetAwaiter().GetResult();
+
+        Mediator.Subscribe<ClassJobChangedMessage>(this, (msg) =>
+        {
+            if (msg.GameObjectHandler != _playerRelatedObjects[ObjectKind.Player]) return;
+
+            Logger.LogTrace("Removing pet data for {obj}", msg.GameObjectHandler);
+            _playerData.FileReplacements.Remove(ObjectKind.Pet);
+            _playerData.GlamourerString.Remove(ObjectKind.Pet);
+            _playerData.CustomizePlusScale.Remove(ObjectKind.Pet);
+            Mediator.Publish(new CharacterDataCreatedMessage(_playerData.ToAPI()));
+        });
 
         Mediator.Subscribe<ClearCacheForObjectMessage>(this, (msg) =>
         {
+            // ignore pets
+            if (msg.ObjectToCreateFor == _playerRelatedObjects[ObjectKind.Pet]) return;
             _ = Task.Run(() =>
             {
                 Logger.LogTrace("Clearing cache for {obj}", msg.ObjectToCreateFor);
@@ -63,7 +78,7 @@ public sealed class CacheCreationService : DisposableMediatorSubscriberBase
         {
             if (_isZoning) return;
             foreach (var item in _playerRelatedObjects
-                .Where(item => string.IsNullOrEmpty(msg.ProfileName) 
+                .Where(item => string.IsNullOrEmpty(msg.ProfileName)
                 || string.Equals(item.Value.Name, msg.ProfileName, StringComparison.Ordinal)).Select(k => k.Key))
             {
                 Logger.LogDebug("Received CustomizePlus change, updating {obj}", item);
@@ -76,13 +91,13 @@ public sealed class CacheCreationService : DisposableMediatorSubscriberBase
             Logger.LogDebug("Received Heels Offset change, updating player");
             await AddPlayerCacheToCreate().ConfigureAwait(false);
         });
-        Mediator.Subscribe<PalettePlusMessage>(this, (msg) =>
+        Mediator.Subscribe<GlamourerChangedMessage>(this, async (msg) =>
         {
             if (_isZoning) return;
-            if (msg.Character.Address == _playerRelatedObjects[ObjectKind.Player].Address)
+            var changedType = _playerRelatedObjects.FirstOrDefault(f => f.Value.Address == msg.Address);
+            if (!default(KeyValuePair<ObjectKind, GameObjectHandler>).Equals(changedType))
             {
-                Logger.LogDebug("Received PalettePlus change, updating player");
-                PalettePlusChanged();
+                GlamourerChanged(changedType.Key);
             }
         });
         Mediator.Subscribe<HonorificMessage>(this, (msg) =>
@@ -92,6 +107,16 @@ public sealed class CacheCreationService : DisposableMediatorSubscriberBase
             {
                 Logger.LogDebug("Received Honorific change, updating player");
                 HonorificChanged();
+            }
+        });
+        Mediator.Subscribe<MoodlesMessage>(this, (msg) =>
+        {
+            if (_isZoning) return;
+            var changedType = _playerRelatedObjects.FirstOrDefault(f => f.Value.Address == msg.Address);
+            if (!default(KeyValuePair<ObjectKind, GameObjectHandler>).Equals(changedType) && changedType.Key == ObjectKind.Player)
+            {
+                Logger.LogDebug("Received Moodles change, updating player");
+                MoodlesChanged();
             }
         });
         Mediator.Subscribe<PenumbraModSettingChangedMessage>(this, async (msg) =>
@@ -118,6 +143,23 @@ public sealed class CacheCreationService : DisposableMediatorSubscriberBase
         _cacheCreateLock.Release();
     }
 
+    private void GlamourerChanged(ObjectKind kind)
+    {
+        if (_glamourerCts.TryGetValue(kind, out var cts))
+        {
+            _glamourerCts[kind]?.Cancel();
+            _glamourerCts[kind]?.Dispose();
+        }
+        _glamourerCts[kind] = new();
+        var token = _glamourerCts[kind].Token;
+
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(1), token).ConfigureAwait(false);
+            await AddPlayerCacheToCreate(kind).ConfigureAwait(false);
+        });
+    }
+
     private void HonorificChanged()
     {
         _honorificCts?.Cancel();
@@ -132,16 +174,16 @@ public sealed class CacheCreationService : DisposableMediatorSubscriberBase
         }, token);
     }
 
-    private void PalettePlusChanged()
+    private void MoodlesChanged()
     {
-        _palettePlusCts?.Cancel();
-        _palettePlusCts?.Dispose();
-        _palettePlusCts = new();
-        var token = _palettePlusCts.Token;
+        _moodlesCts?.Cancel();
+        _moodlesCts?.Dispose();
+        _moodlesCts = new();
+        var token = _moodlesCts.Token;
 
         _ = Task.Run(async () =>
         {
-            await Task.Delay(TimeSpan.FromSeconds(1), token).ConfigureAwait(false);
+            await Task.Delay(TimeSpan.FromSeconds(2), token).ConfigureAwait(false);
             await AddPlayerCacheToCreate().ConfigureAwait(false);
         }, token);
     }
@@ -166,14 +208,6 @@ public sealed class CacheCreationService : DisposableMediatorSubscriberBase
                         await _characterDataFactory.BuildCharacterData(_playerData, obj.Value, _cts.Token).ConfigureAwait(false);
                     }
 
-                    int maxWaitingTime = 10000;
-                    while (!_playerData.IsReady && maxWaitingTime > 0)
-                    {
-                        await Task.Delay(100).ConfigureAwait(false);
-                        maxWaitingTime -= 100;
-                        Logger.LogTrace("Waiting for Cache to be ready");
-                    }
-
                     Mediator.Publish(new CharacterDataCreatedMessage(_playerData.ToAPI()));
                 }
                 catch (Exception ex)
@@ -192,3 +226,4 @@ public sealed class CacheCreationService : DisposableMediatorSubscriberBase
         }
     }
 }
+#pragma warning restore MA0040

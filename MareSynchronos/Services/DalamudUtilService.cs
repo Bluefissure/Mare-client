@@ -1,9 +1,8 @@
-﻿using Dalamud.Game;
-using Dalamud.Game.ClientState;
-using Dalamud.Game.ClientState.Conditions;
+﻿using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects;
 using Dalamud.Game.ClientState.Objects.SubKinds;
-using Dalamud.Game.Gui;
+using Dalamud.Memory;
+using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
@@ -18,27 +17,28 @@ using GameObject = FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject;
 
 namespace MareSynchronos.Services;
 
-public class DalamudUtilService : IHostedService
+public class DalamudUtilService : IHostedService, IMediatorSubscriber
 {
-    private readonly List<uint> _classJobIdsIgnoredForPets = new() { 30 };
-    private readonly ClientState _clientState;
-    private readonly Condition _condition;
-    private readonly Framework _framework;
-    private readonly GameGui _gameGui;
+    private readonly List<uint> _classJobIdsIgnoredForPets = [30];
+    private readonly IClientState _clientState;
+    private readonly ICondition _condition;
+    private readonly IFramework _framework;
+    private readonly IGameGui _gameGui;
     private readonly ILogger<DalamudUtilService> _logger;
-    private readonly MareMediator _mediator;
-    private readonly ObjectTable _objectTable;
+    private readonly IObjectTable _objectTable;
     private readonly PerformanceCollectorService _performanceCollector;
     private uint? _classJobId = 0;
     private DateTime _delayedFrameworkUpdateCheck = DateTime.Now;
     private string _lastGlobalBlockPlayer = string.Empty;
     private string _lastGlobalBlockReason = string.Empty;
     private ushort _lastZone = 0;
-    private Dictionary<string, (string Name, nint Address)> _playerCharas = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (string Name, nint Address)> _playerCharas = new(StringComparer.Ordinal);
+    private readonly List<string> _notUpdatedCharas = [];
     private bool _sentBetweenAreas = false;
 
-    public DalamudUtilService(ILogger<DalamudUtilService> logger, ClientState clientState, ObjectTable objectTable, Framework framework,
-        GameGui gameGui, Condition condition, Dalamud.Data.DataManager gameData, MareMediator mediator, PerformanceCollectorService performanceCollector)
+    public DalamudUtilService(ILogger<DalamudUtilService> logger, IClientState clientState, IObjectTable objectTable, IFramework framework,
+        IGameGui gameGui, ICondition condition, IDataManager gameData, ITargetManager targetManager,
+        MareMediator mediator, PerformanceCollectorService performanceCollector)
     {
         _logger = logger;
         _clientState = clientState;
@@ -46,13 +46,25 @@ public class DalamudUtilService : IHostedService
         _framework = framework;
         _gameGui = gameGui;
         _condition = condition;
-        _mediator = mediator;
+        Mediator = mediator;
         _performanceCollector = performanceCollector;
         WorldData = new(() =>
         {
             return gameData.GetExcelSheet<Lumina.Excel.GeneratedSheets.World>(Dalamud.ClientLanguage.English)!
                 .Where(w => w.IsPublic && !w.Name.RawData.IsEmpty)
                 .ToDictionary(w => (ushort)w.RowId, w => w.Name.ToString());
+        });
+        mediator.Subscribe<TargetPairMessage>(this, async (msg) =>
+        {
+            if (clientState.IsPvP) return;
+            var name = msg.Pair.PlayerName;
+            if (string.IsNullOrEmpty(name)) return;
+            var addr = _playerCharas.FirstOrDefault(f => string.Equals(f.Value.Name, name, StringComparison.Ordinal)).Value.Address;
+            if (addr == nint.Zero) return;
+            await RunOnFrameworkThread(() =>
+            {
+                targetManager.Target = CreateGameObject(addr);
+            }).ConfigureAwait(false);
         });
     }
 
@@ -62,9 +74,13 @@ public class DalamudUtilService : IHostedService
     public bool IsInCutscene { get; private set; } = false;
     public bool IsInGpose { get; private set; } = false;
     public bool IsLoggedIn { get; private set; }
+    public bool IsOnFrameworkThread => _framework.IsInFrameworkUpdateThread;
     public bool IsZoning => _condition[ConditionFlag.BetweenAreas] || _condition[ConditionFlag.BetweenAreas51];
+    public bool IsInCombatOrPerforming { get; private set; } = false;
 
     public Lazy<Dictionary<ushort, string>> WorldData { get; private set; }
+
+    public MareMediator Mediator { get; }
 
     public Dalamud.Game.ClientState.Objects.Types.GameObject? CreateGameObject(IntPtr reference)
     {
@@ -76,8 +92,6 @@ public class DalamudUtilService : IHostedService
     {
         return await RunOnFrameworkThread(() => _objectTable.CreateObjectReference(reference)).ConfigureAwait(false);
     }
-
-    public bool IsOnFrameworkThread => _framework.IsInFrameworkUpdateThread;
 
     public void EnsureIsOnFramework()
     {
@@ -104,6 +118,13 @@ public class DalamudUtilService : IHostedService
     public async Task<IntPtr> GetCompanionAsync(IntPtr? playerPointer = null)
     {
         return await RunOnFrameworkThread(() => GetCompanion(playerPointer)).ConfigureAwait(false);
+    }
+
+    public Dalamud.Game.ClientState.Objects.Types.Character? GetGposeCharacterFromObjectTableByName(string name, bool onlyGposeCharacters = false)
+    {
+        EnsureIsOnFramework();
+        return (Dalamud.Game.ClientState.Objects.Types.Character?)_objectTable
+            .FirstOrDefault(i => (!onlyGposeCharacters || i.ObjectIndex >= 200) && string.Equals(i.Name.ToString(), name, StringComparison.Ordinal));
     }
 
     public bool GetIsPlayerPresent()
@@ -170,7 +191,7 @@ public class DalamudUtilService : IHostedService
 
     public async Task<string> GetPlayerNameHashedAsync()
     {
-        return await RunOnFrameworkThread(() => (GetPlayerName() + GetWorldId()).GetHash256()).ConfigureAwait(false);
+        return await RunOnFrameworkThread(() => (GetPlayerName() + GetHomeWorldId()).GetHash256()).ConfigureAwait(false);
     }
 
     public IntPtr GetPlayerPointer()
@@ -184,15 +205,26 @@ public class DalamudUtilService : IHostedService
         return await RunOnFrameworkThread(GetPlayerPointer).ConfigureAwait(false);
     }
 
-    public uint GetWorldId()
+    public uint GetHomeWorldId()
     {
         EnsureIsOnFramework();
         return _clientState.LocalPlayer!.HomeWorld.Id;
     }
 
+    public uint GetWorldId()
+    {
+        EnsureIsOnFramework();
+        return _clientState.LocalPlayer!.CurrentWorld.Id;
+    }
+
     public async Task<uint> GetWorldIdAsync()
     {
         return await RunOnFrameworkThread(GetWorldId).ConfigureAwait(false);
+    }
+
+    public async Task<uint> GetHomeWorldIdAsync()
+    {
+        return await RunOnFrameworkThread(GetHomeWorldId).ConfigureAwait(false);
     }
 
     public unsafe bool IsGameObjectPresent(IntPtr key)
@@ -252,12 +284,14 @@ public class DalamudUtilService : IHostedService
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
+        _logger.LogInformation("Starting DalamudUtilService");
         _framework.Update += FrameworkOnUpdate;
         if (IsLoggedIn)
         {
             _classJobId = _clientState.LocalPlayer!.ClassJob.Id;
         }
 
+        _logger.LogInformation("Started DalamudUtilService");
         return Task.CompletedTask;
     }
 
@@ -265,6 +299,7 @@ public class DalamudUtilService : IHostedService
     {
         _logger.LogTrace("Stopping {type}", GetType());
 
+        Mediator.UnsubscribeAll(this);
         _framework.Update -= FrameworkOnUpdate;
         return Task.CompletedTask;
     }
@@ -329,65 +364,62 @@ public class DalamudUtilService : IHostedService
         return result;
     }
 
-    private unsafe void CheckCharacterForDrawing(PlayerCharacter p)
+    private unsafe void CheckCharacterForDrawing(nint address, string characterName)
     {
-        if (!IsAnythingDrawing)
+        var gameObj = (GameObject*)address;
+        var drawObj = gameObj->DrawObject;
+        var playerName = characterName;
+        bool isDrawing = false;
+        bool isDrawingChanged = false;
+        if ((nint)drawObj != IntPtr.Zero)
         {
-            var gameObj = (GameObject*)p.Address;
-            var drawObj = gameObj->DrawObject;
-            var playerName = p.Name.ToString();
-            bool isDrawing = false;
-            bool isDrawingChanged = false;
-            if ((nint)drawObj != IntPtr.Zero)
+            isDrawing = gameObj->RenderFlags == 0b100000000000;
+            if (!isDrawing)
             {
-                isDrawing = gameObj->RenderFlags == 0b100000000000;
+                isDrawing = ((CharacterBase*)drawObj)->HasModelInSlotLoaded != 0;
                 if (!isDrawing)
                 {
-                    isDrawing = ((CharacterBase*)drawObj)->HasModelInSlotLoaded != 0;
-                    if (!isDrawing)
+                    isDrawing = ((CharacterBase*)drawObj)->HasModelFilesInSlotLoaded != 0;
+                    if (isDrawing && !string.Equals(_lastGlobalBlockPlayer, playerName, StringComparison.Ordinal)
+                        && !string.Equals(_lastGlobalBlockReason, "HasModelFilesInSlotLoaded", StringComparison.Ordinal))
                     {
-                        isDrawing = ((CharacterBase*)drawObj)->HasModelFilesInSlotLoaded != 0;
-                        if (isDrawing)
-                        {
-                            if (!string.Equals(_lastGlobalBlockPlayer, playerName, StringComparison.Ordinal) && !string.Equals(_lastGlobalBlockReason, "HasModelFilesInSlotLoaded"))
-                            {
-                                _lastGlobalBlockPlayer = playerName;
-                                _lastGlobalBlockReason = "HasModelFilesInSlotLoaded";
-                                isDrawingChanged = true;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (!string.Equals(_lastGlobalBlockPlayer, playerName, StringComparison.Ordinal) && !string.Equals(_lastGlobalBlockReason, "HasModelInSlotLoaded"))
-                        {
-                            _lastGlobalBlockPlayer = playerName;
-                            _lastGlobalBlockReason = "HasModelInSlotLoaded";
-                            isDrawingChanged = true;
-                        }
+                        _lastGlobalBlockPlayer = playerName;
+                        _lastGlobalBlockReason = "HasModelFilesInSlotLoaded";
+                        isDrawingChanged = true;
                     }
                 }
                 else
                 {
-                    if (!string.Equals(_lastGlobalBlockPlayer, playerName, StringComparison.Ordinal) && !string.Equals(_lastGlobalBlockReason, "RenderFlags"))
+                    if (!string.Equals(_lastGlobalBlockPlayer, playerName, StringComparison.Ordinal)
+                        && !string.Equals(_lastGlobalBlockReason, "HasModelInSlotLoaded", StringComparison.Ordinal))
                     {
                         _lastGlobalBlockPlayer = playerName;
-                        _lastGlobalBlockReason = "RenderFlags";
+                        _lastGlobalBlockReason = "HasModelInSlotLoaded";
                         isDrawingChanged = true;
                     }
                 }
             }
-
-            if (isDrawingChanged)
+            else
             {
-                _logger.LogTrace("Global draw block: START => {name} ({reason})", playerName, _lastGlobalBlockReason);
+                if (!string.Equals(_lastGlobalBlockPlayer, playerName, StringComparison.Ordinal)
+                    && !string.Equals(_lastGlobalBlockReason, "RenderFlags", StringComparison.Ordinal))
+                {
+                    _lastGlobalBlockPlayer = playerName;
+                    _lastGlobalBlockReason = "RenderFlags";
+                    isDrawingChanged = true;
+                }
             }
-
-            IsAnythingDrawing |= isDrawing;
         }
+
+        if (isDrawingChanged)
+        {
+            _logger.LogTrace("Global draw block: START => {name} ({reason})", playerName, _lastGlobalBlockReason);
+        }
+
+        IsAnythingDrawing |= isDrawing;
     }
 
-    private void FrameworkOnUpdate(Framework framework)
+    private void FrameworkOnUpdate(IFramework framework)
     {
         _performanceCollector.LogPerformance(this, "FrameworkOnUpdate", FrameworkOnUpdateInternal);
     }
@@ -399,111 +431,152 @@ public class DalamudUtilService : IHostedService
             return;
         }
 
-        IsAnythingDrawing = false;
-        _playerCharas = _performanceCollector.LogPerformance(this, "ObjTableToCharas",
-            () => _objectTable.OfType<PlayerCharacter>().Where(o => o.ObjectIndex < 200)
-                .ToDictionary(p => p.GetHash256(), p =>
+        bool isNormalFrameworkUpdate = DateTime.Now < _delayedFrameworkUpdateCheck.AddSeconds(1);
+
+        _performanceCollector.LogPerformance(this, "FrameworkOnUpdateInternal+" + (isNormalFrameworkUpdate ? "Regular" : "Delayed"), () =>
+        {
+            IsAnythingDrawing = false;
+            _performanceCollector.LogPerformance(this, "ObjTableToCharas",
+                () =>
                 {
-                    CheckCharacterForDrawing(p);
-                    return (p.Name.ToString(), p.Address);
-                }, StringComparer.Ordinal));
+                    _notUpdatedCharas.AddRange(_playerCharas.Keys);
 
-        if (!IsAnythingDrawing && !string.IsNullOrEmpty(_lastGlobalBlockPlayer))
-        {
-            _logger.LogTrace("Global draw block: END => {name}", _lastGlobalBlockPlayer);
-            _lastGlobalBlockPlayer = string.Empty;
-            _lastGlobalBlockReason = string.Empty;
-        }
+                    for (int i = 0; i < 200; i += 2)
+                    {
+                        var chara = _objectTable[i];
+                        if (chara == null || chara.ObjectKind != Dalamud.Game.ClientState.Objects.Enums.ObjectKind.Player)
+                            continue;
 
-        if (GposeTarget != null && !IsInGpose)
-        {
-            _logger.LogDebug("Gpose start");
-            IsInGpose = true;
-            _mediator.Publish(new GposeStartMessage());
-        }
-        else if (GposeTarget == null && IsInGpose)
-        {
-            _logger.LogDebug("Gpose end");
-            IsInGpose = false;
-            _mediator.Publish(new GposeEndMessage());
-        }
+                        MemoryHelper.ReadStringNullTerminated((nint)((GameObject*)chara.Address)->Name, out string charaName);
+                        string homeWorldId = ((BattleChara*)chara.Address)->Character.HomeWorld.ToString();
 
-        if (_condition[ConditionFlag.WatchingCutscene] && !IsInCutscene)
-        {
-            _logger.LogDebug("Cutscene start");
-            IsInCutscene = true;
-            _mediator.Publish(new CutsceneStartMessage());
-            _mediator.Publish(new HaltScanMessage("Cutscene"));
-        }
-        else if (!_condition[ConditionFlag.WatchingCutscene] && IsInCutscene)
-        {
-            _logger.LogDebug("Cutscene end");
-            IsInCutscene = false;
-            _mediator.Publish(new CutsceneEndMessage());
-            _mediator.Publish(new ResumeScanMessage("Cutscene"));
-        }
+                        var hash = (charaName + homeWorldId).GetHash256();
+                        if (!IsAnythingDrawing)
+                            CheckCharacterForDrawing(chara.Address, charaName);
+                        _notUpdatedCharas.Remove(hash);
+                        _playerCharas[hash] = (charaName, chara.Address);
+                    }
 
-        if (IsInCutscene) { _mediator.Publish(new CutsceneFrameworkUpdateMessage()); return; }
+                    foreach (var notUpdatedChara in _notUpdatedCharas)
+                    {
+                        _playerCharas.Remove(notUpdatedChara);
+                    }
 
-        if (_condition[ConditionFlag.BetweenAreas] || _condition[ConditionFlag.BetweenAreas51])
-        {
-            var zone = _clientState.TerritoryType;
-            if (_lastZone != zone)
+                    _notUpdatedCharas.Clear();
+                });
+
+            if (!IsAnythingDrawing && !string.IsNullOrEmpty(_lastGlobalBlockPlayer))
             {
-                _lastZone = zone;
-                if (!_sentBetweenAreas)
+                _logger.LogTrace("Global draw block: END => {name}", _lastGlobalBlockPlayer);
+                _lastGlobalBlockPlayer = string.Empty;
+                _lastGlobalBlockReason = string.Empty;
+            }
+
+            if (GposeTarget != null && !IsInGpose)
+            {
+                _logger.LogDebug("Gpose start");
+                IsInGpose = true;
+                Mediator.Publish(new GposeStartMessage());
+            }
+            else if (GposeTarget == null && IsInGpose)
+            {
+                _logger.LogDebug("Gpose end");
+                IsInGpose = false;
+                Mediator.Publish(new GposeEndMessage());
+            }
+
+            if ((_condition[ConditionFlag.Performing] || _condition[ConditionFlag.InCombat]) && !IsInCombatOrPerforming)
+            {
+                _logger.LogDebug("Combat/Performance start");
+                IsInCombatOrPerforming = true;
+                Mediator.Publish(new CombatOrPerformanceStartMessage());
+                Mediator.Publish(new HaltScanMessage(nameof(IsInCombatOrPerforming)));
+            }
+            else if ((!_condition[ConditionFlag.Performing] && !_condition[ConditionFlag.InCombat]) && IsInCombatOrPerforming)
+            {
+                _logger.LogDebug("Combat/Performance end");
+                IsInCombatOrPerforming = false;
+                Mediator.Publish(new CombatOrPerformanceEndMessage());
+                Mediator.Publish(new ResumeScanMessage(nameof(IsInCombatOrPerforming)));
+            }
+
+            if (_condition[ConditionFlag.WatchingCutscene] && !IsInCutscene)
+            {
+                _logger.LogDebug("Cutscene start");
+                IsInCutscene = true;
+                Mediator.Publish(new CutsceneStartMessage());
+                Mediator.Publish(new HaltScanMessage(nameof(IsInCutscene)));
+            }
+            else if (!_condition[ConditionFlag.WatchingCutscene] && IsInCutscene)
+            {
+                _logger.LogDebug("Cutscene end");
+                IsInCutscene = false;
+                Mediator.Publish(new CutsceneEndMessage());
+                Mediator.Publish(new ResumeScanMessage(nameof(IsInCutscene)));
+            }
+
+            if (IsInCutscene)
+            {
+                Mediator.Publish(new CutsceneFrameworkUpdateMessage());
+                return;
+            }
+
+            if (_condition[ConditionFlag.BetweenAreas] || _condition[ConditionFlag.BetweenAreas51])
+            {
+                var zone = _clientState.TerritoryType;
+                if (_lastZone != zone)
                 {
-                    _logger.LogDebug("Zone switch/Gpose start");
-                    _sentBetweenAreas = true;
-                    _mediator.Publish(new ZoneSwitchStartMessage());
-                    _mediator.Publish(new HaltScanMessage("Zone switch"));
+                    _lastZone = zone;
+                    if (!_sentBetweenAreas)
+                    {
+                        _logger.LogDebug("Zone switch/Gpose start");
+                        _sentBetweenAreas = true;
+                        Mediator.Publish(new ZoneSwitchStartMessage());
+                        Mediator.Publish(new HaltScanMessage(nameof(ConditionFlag.BetweenAreas)));
+                    }
                 }
+
+                return;
             }
 
-            return;
-        }
-
-        if (_sentBetweenAreas)
-        {
-            _logger.LogDebug("Zone switch/Gpose end");
-            _sentBetweenAreas = false;
-            _mediator.Publish(new ZoneSwitchEndMessage());
-            _mediator.Publish(new ResumeScanMessage("Zone switch"));
-        }
-
-        _mediator.Publish(new FrameworkUpdateMessage());
-
-        if (DateTime.Now < _delayedFrameworkUpdateCheck.AddSeconds(1)) return;
-
-        var localPlayer = _clientState.LocalPlayer;
-
-        if (localPlayer != null && !IsLoggedIn)
-        {
-            _logger.LogDebug("Logged in");
-            IsLoggedIn = true;
-            _lastZone = _clientState.TerritoryType;
-            _mediator.Publish(new DalamudLoginMessage());
-        }
-        else if (localPlayer == null && IsLoggedIn)
-        {
-            _logger.LogDebug("Logged out");
-            IsLoggedIn = false;
-            _mediator.Publish(new DalamudLogoutMessage());
-        }
-
-        if (_clientState.LocalPlayer != null && _clientState.LocalPlayer.IsValid())
-        {
-            var newclassJobId = _clientState.LocalPlayer.ClassJob.Id;
-
-            if (_classJobId != newclassJobId)
+            if (_sentBetweenAreas)
             {
-                _classJobId = newclassJobId;
-                _mediator.Publish(new ClassJobChangedMessage(_classJobId));
+                _logger.LogDebug("Zone switch/Gpose end");
+                _sentBetweenAreas = false;
+                Mediator.Publish(new ZoneSwitchEndMessage());
+                Mediator.Publish(new ResumeScanMessage(nameof(ConditionFlag.BetweenAreas)));
             }
-        }
 
-        _mediator.Publish(new DelayedFrameworkUpdateMessage());
+            if (!IsInCombatOrPerforming)
+                Mediator.Publish(new FrameworkUpdateMessage());
 
-        _delayedFrameworkUpdateCheck = DateTime.Now;
+            Mediator.Publish(new PriorityFrameworkUpdateMessage());
+
+            if (isNormalFrameworkUpdate)
+                return;
+
+            var localPlayer = _clientState.LocalPlayer;
+
+            if (localPlayer != null && !IsLoggedIn)
+            {
+                _logger.LogDebug("Logged in");
+                IsLoggedIn = true;
+                _lastZone = _clientState.TerritoryType;
+                Mediator.Publish(new DalamudLoginMessage());
+            }
+            else if (localPlayer == null && IsLoggedIn)
+            {
+                _logger.LogDebug("Logged out");
+                IsLoggedIn = false;
+                Mediator.Publish(new DalamudLogoutMessage());
+            }
+
+            if (IsInCombatOrPerforming)
+                Mediator.Publish(new FrameworkUpdateMessage());
+
+            Mediator.Publish(new DelayedFrameworkUpdateMessage());
+
+            _delayedFrameworkUpdateCheck = DateTime.Now;
+        });
     }
 }

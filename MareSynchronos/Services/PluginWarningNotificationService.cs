@@ -1,7 +1,7 @@
 ﻿using Dalamud.Interface.Internal.Notifications;
 using MareSynchronos.API.Data;
 using MareSynchronos.API.Data.Comparer;
-using MareSynchronos.Interop;
+using MareSynchronos.Interop.Ipc;
 using MareSynchronos.MareConfiguration;
 using MareSynchronos.Services.Mediator;
 using System.Collections.Concurrent;
@@ -30,33 +30,33 @@ public class PluginWarningNotificationService
             {
                 ShownCustomizePlusWarning = _mareConfigService.Current.DisableOptionalPluginWarnings,
                 ShownHeelsWarning = _mareConfigService.Current.DisableOptionalPluginWarnings,
-                ShownPalettePlusWarning = _mareConfigService.Current.DisableOptionalPluginWarnings,
                 ShownHonorificWarning = _mareConfigService.Current.DisableOptionalPluginWarnings,
+                ShownMoodlesWarning = _mareConfigService.Current.DisableOptionalPluginWarnings
             };
         }
 
-        List<string> missingPluginsForData = new();
-        if (changes.Contains(PlayerChanges.Heels) && !warning.ShownHeelsWarning && !_ipcManager.CheckHeelsApi())
+        List<string> missingPluginsForData = [];
+        if (changes.Contains(PlayerChanges.Heels) && !warning.ShownHeelsWarning && !_ipcManager.Heels.APIAvailable)
         {
             missingPluginsForData.Add("SimpleHeels");
             warning.ShownHeelsWarning = true;
         }
-        if (changes.Contains(PlayerChanges.Customize) && !warning.ShownCustomizePlusWarning && !_ipcManager.CheckCustomizePlusApi())
+        if (changes.Contains(PlayerChanges.Customize) && !warning.ShownCustomizePlusWarning && !_ipcManager.CustomizePlus.APIAvailable)
         {
             missingPluginsForData.Add("Customize+");
             warning.ShownCustomizePlusWarning = true;
         }
 
-        if (changes.Contains(PlayerChanges.Palette) && !warning.ShownPalettePlusWarning && !_ipcManager.CheckPalettePlusApi())
-        {
-            missingPluginsForData.Add("Palette+");
-            warning.ShownPalettePlusWarning = true;
-        }
-
-        if (changes.Contains(PlayerChanges.Honorific) && !warning.ShownHonorificWarning && !_ipcManager.CheckHonorificApi())
+        if (changes.Contains(PlayerChanges.Honorific) && !warning.ShownHonorificWarning && !_ipcManager.Honorific.APIAvailable)
         {
             missingPluginsForData.Add("Honorific");
             warning.ShownHonorificWarning = true;
+        }
+
+        if (changes.Contains(PlayerChanges.Moodles) && !warning.ShownMoodlesWarning && !_ipcManager.Moodles.APIAvailable)
+        {
+            missingPluginsForData.Add("Moodles");
+            warning.ShownMoodlesWarning = true;
         }
 
         if (missingPluginsForData.Any())

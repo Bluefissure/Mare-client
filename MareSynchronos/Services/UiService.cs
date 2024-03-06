@@ -1,38 +1,42 @@
-﻿using Dalamud.Plugin;
+﻿using Dalamud.Interface;
 using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Windowing;
-using MareSynchronos.UI;
 using MareSynchronos.MareConfiguration;
 using MareSynchronos.Services.Mediator;
+using MareSynchronos.UI;
+using MareSynchronos.UI.Components.Popup;
 using Microsoft.Extensions.Logging;
-using MareSynchronos.PlayerData.Pairs;
 
 namespace MareSynchronos.Services;
 
 public sealed class UiService : DisposableMediatorSubscriberBase
 {
-    private readonly List<WindowMediatorSubscriberBase> _createdWindows = new();
-    private readonly DalamudPluginInterface _dalamudPluginInterface;
+    private readonly List<WindowMediatorSubscriberBase> _createdWindows = [];
+    private readonly UiBuilder _uiBuilder;
     private readonly FileDialogManager _fileDialogManager;
     private readonly ILogger<UiService> _logger;
     private readonly MareConfigService _mareConfigService;
     private readonly WindowSystem _windowSystem;
+    private readonly UiFactory _uiFactory;
 
-    public UiService(ILogger<UiService> logger, DalamudPluginInterface dalamudPluginInterface,
+    public UiService(ILogger<UiService> logger, UiBuilder uiBuilder,
         MareConfigService mareConfigService, WindowSystem windowSystem,
-        IEnumerable<WindowMediatorSubscriberBase> windows, Func<Pair, StandaloneProfileUi> standaloneProfileUiFactory,
-        FileDialogManager fileDialogManager, MareMediator mareMediator) : base(logger, mareMediator)
+        IEnumerable<WindowMediatorSubscriberBase> windows,
+        UiFactory uiFactory, FileDialogManager fileDialogManager,
+        MareMediator mareMediator) : base(logger, mareMediator)
     {
         _logger = logger;
         _logger.LogTrace("Creating {type}", GetType().Name);
-        _dalamudPluginInterface = dalamudPluginInterface;
+        _uiBuilder = uiBuilder;
         _mareConfigService = mareConfigService;
         _windowSystem = windowSystem;
+        _uiFactory = uiFactory;
         _fileDialogManager = fileDialogManager;
 
-        _dalamudPluginInterface.UiBuilder.DisableGposeUiHide = true;
-        _dalamudPluginInterface.UiBuilder.Draw += Draw;
-        _dalamudPluginInterface.UiBuilder.OpenConfigUi += ToggleUi;
+        _uiBuilder.DisableGposeUiHide = true;
+        _uiBuilder.Draw += Draw;
+        _uiBuilder.OpenConfigUi += ToggleUi;
+        _uiBuilder.OpenMainUi += ToggleMainUi;
 
         foreach (var window in windows)
         {
@@ -41,10 +45,32 @@ public sealed class UiService : DisposableMediatorSubscriberBase
 
         Mediator.Subscribe<ProfileOpenStandaloneMessage>(this, (msg) =>
         {
-            if (!_createdWindows.Any(p => p is StandaloneProfileUi
-            && string.Equals(((StandaloneProfileUi)p).Pair.UserData.AliasOrUID, msg.Pair.UserData.AliasOrUID, StringComparison.Ordinal)))
+            if (!_createdWindows.Exists(p => p is StandaloneProfileUi ui
+                && string.Equals(ui.Pair.UserData.AliasOrUID, msg.Pair.UserData.AliasOrUID, StringComparison.Ordinal)))
             {
-                var window = standaloneProfileUiFactory(msg.Pair);
+                var window = _uiFactory.CreateStandaloneProfileUi(msg.Pair);
+                _createdWindows.Add(window);
+                _windowSystem.AddWindow(window);
+            }
+        });
+
+        Mediator.Subscribe<OpenSyncshellAdminPanel>(this, (msg) =>
+        {
+            if (!_createdWindows.Exists(p => p is SyncshellAdminUI ui
+                && string.Equals(ui.GroupFullInfo.GID, msg.GroupInfo.GID, StringComparison.Ordinal)))
+            {
+                var window = _uiFactory.CreateSyncshellAdminUi(msg.GroupInfo);
+                _createdWindows.Add(window);
+                _windowSystem.AddWindow(window);
+            }
+        });
+
+        Mediator.Subscribe<OpenPermissionWindow>(this, (msg) =>
+        {
+            if (!_createdWindows.Exists(p => p is PermissionWindowUI ui
+                && msg.Pair == ui.Pair))
+            {
+                var window = _uiFactory.CreatePermissionPopupUi(msg.Pair);
                 _createdWindows.Add(window);
                 _windowSystem.AddWindow(window);
             }
@@ -58,10 +84,18 @@ public sealed class UiService : DisposableMediatorSubscriberBase
         });
     }
 
-    public void ToggleUi()
+    public void ToggleMainUi()
     {
         if (_mareConfigService.Current.HasValidSetup())
             Mediator.Publish(new UiToggleMessage(typeof(CompactUi)));
+        else
+            Mediator.Publish(new UiToggleMessage(typeof(IntroUi)));
+    }
+
+    public void ToggleUi()
+    {
+        if (_mareConfigService.Current.HasValidSetup())
+            Mediator.Publish(new UiToggleMessage(typeof(SettingsUi)));
         else
             Mediator.Publish(new UiToggleMessage(typeof(IntroUi)));
     }
@@ -79,8 +113,9 @@ public sealed class UiService : DisposableMediatorSubscriberBase
             window.Dispose();
         }
 
-        _dalamudPluginInterface.UiBuilder.Draw -= Draw;
-        _dalamudPluginInterface.UiBuilder.OpenConfigUi -= ToggleUi;
+        _uiBuilder.Draw -= Draw;
+        _uiBuilder.OpenConfigUi -= ToggleUi;
+        _uiBuilder.OpenMainUi -= ToggleMainUi;
     }
 
     private void Draw()
