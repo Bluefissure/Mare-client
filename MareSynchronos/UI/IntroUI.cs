@@ -18,7 +18,7 @@ public class IntroUi : WindowMediatorSubscriberBase
 {
     private readonly MareConfigService _configService;
     private readonly CacheMonitor _cacheMonitor;
-    private readonly Dictionary<string, string> _languages = new(StringComparer.Ordinal) { { "English", "en" }, { "Deutsch", "de" }, { "Français", "fr" }, { "中文", "zh"  };
+    private readonly Dictionary<string, string> _languages = new(StringComparer.Ordinal) { { "English", "en" }, { "Deutsch", "de" }, { "Français", "fr" }, { "中文", "zh"  }};
     private readonly ServerConfigurationManager _serverConfigurationManager;
     private readonly UiSharedService _uiShared;
     private int _currentLanguage;

@@ -23,6 +23,7 @@ using MareSynchronos.WebAPI.SignalR.Utils;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Net;
 using System.Numerics;
 using System.Text.Json;
 
@@ -857,7 +858,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
         }
 
-        if (ImGui.Checkbox("显示单独的“可见”组"", ref showVisibleSeparate))
+        if (ImGui.Checkbox("显示单独的“可见”组", ref showVisibleSeparate))
         {
             _configService.Current.ShowVisibleUsersSeparately = showVisibleSeparate;
             _configService.Save();
