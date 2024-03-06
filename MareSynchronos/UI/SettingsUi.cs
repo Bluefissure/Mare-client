@@ -1,37 +1,44 @@
 ﻿using Dalamud.Interface;
 using Dalamud.Interface.Colors;
-using ImGuiNET;
-using MareSynchronos.WebAPI;
-using System.Numerics;
+using Dalamud.Interface.Utility;
+using Dalamud.Interface.Utility.Raii;
 using Dalamud.Utility;
+using ImGuiNET;
 using MareSynchronos.API.Data;
 using MareSynchronos.API.Data.Comparer;
+using MareSynchronos.FileCache;
+using MareSynchronos.Interop.Ipc;
 using MareSynchronos.MareConfiguration;
 using MareSynchronos.MareConfiguration.Models;
-using Microsoft.Extensions.Logging;
-using MareSynchronos.WebAPI.SignalR.Utils;
-using MareSynchronos.PlayerData.Pairs;
-using System.Text.Json;
 using MareSynchronos.PlayerData.Export;
+using MareSynchronos.PlayerData.Handlers;
+using MareSynchronos.PlayerData.Pairs;
+using MareSynchronos.Services;
 using MareSynchronos.Services.Mediator;
 using MareSynchronos.Services.ServerConfiguration;
-using MareSynchronos.Services;
+using MareSynchronos.WebAPI;
 using MareSynchronos.WebAPI.Files;
 using MareSynchronos.WebAPI.Files.Models;
-using MareSynchronos.PlayerData.Handlers;
+using MareSynchronos.WebAPI.SignalR.Utils;
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
-using MareSynchronos.FileCache;
-using System.Net;
+using System.Globalization;
+using System.Numerics;
+using System.Text.Json;
 
 namespace MareSynchronos.UI;
 
 public class SettingsUi : WindowMediatorSubscriberBase
 {
+    private readonly ApiController _apiController;
+    private readonly IpcManager _ipcManager;
+    private readonly CacheMonitor _cacheMonitor;
     private readonly MareConfigService _configService;
     private readonly ConcurrentDictionary<GameObjectHandler, Dictionary<string, FileDownloadStatus>> _currentDownloads = new();
+    private readonly FileCompactor _fileCompactor;
     private readonly FileUploadManager _fileTransferManager;
     private readonly FileTransferOrchestrator _fileTransferOrchestrator;
-    private readonly FileCompactor _fileCompactor;
+    private readonly FileCacheManager _fileCacheManager;
     private readonly MareCharaFileManager _mareCharaFileManager;
     private readonly PairManager _pairManager;
     private readonly PerformanceCollectorService _performanceCollector;
@@ -46,6 +53,11 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private bool _readClearCache = false;
     private bool _readExport = false;
     private bool _wasOpen = false;
+    private readonly IProgress<(int, int, FileCacheEntity)> _validationProgress;
+    private Task<List<FileCacheEntity>>? _validationTask;
+    private CancellationTokenSource? _validationCts;
+    private (int, int, FileCacheEntity) _currentProgress;
+    private Task? _exportTask;
 
     private bool useManualProxy;
     private string proxyProtocol = string.Empty;
@@ -62,7 +74,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
         MareMediator mediator, PerformanceCollectorService performanceCollector,
         FileUploadManager fileTransferManager,
         FileTransferOrchestrator fileTransferOrchestrator,
-        FileCompactor fileCompactor) : base(logger, mediator, "Mare Synchronos 设置")
+        FileCacheManager fileCacheManager,
+        FileCompactor fileCompactor, ApiController apiController,
+        IpcManager ipcManager, CacheMonitor cacheMonitor) : base(logger, mediator, "Mare Synchronos设置", performanceCollector)
     {
         _configService = configService;
         _mareCharaFileManager = mareCharaFileManager;
@@ -71,8 +85,15 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _performanceCollector = performanceCollector;
         _fileTransferManager = fileTransferManager;
         _fileTransferOrchestrator = fileTransferOrchestrator;
+        _fileCacheManager = fileCacheManager;
+        _apiController = apiController;
+        _ipcManager = ipcManager;
+        _cacheMonitor = cacheMonitor;
         _fileCompactor = fileCompactor;
         _uiShared = uiShared;
+        AllowClickthrough = false;
+        AllowPinning = false;
+        _validationProgress = new Progress<(int, int, FileCacheEntity)>(v => _currentProgress = v);
 
         SizeConstraints = new WindowSizeConstraints()
         {
@@ -92,7 +113,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     public CharacterData? LastCreatedCharacterData { private get; set; }
     private ApiController ApiController => _uiShared.ApiController;
 
-    public override void Draw()
+    protected override void DrawInternal()
     {
         _ = _uiShared.DrawOtherPluginState();
 
@@ -126,14 +147,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 ImGui.TableNextColumn();
                 if (item is UploadFileTransfer transfer)
                 {
-                    ImGui.Text(transfer.LocalFile);
+                    ImGui.TextUnformatted(transfer.LocalFile);
                 }
                 else
                 {
-                    ImGui.Text(item.Hash);
+                    ImGui.TextUnformatted(item.Hash);
                 }
                 ImGui.TableNextColumn();
-                ImGui.Text(item.ForbiddenBy);
+                ImGui.TextUnformatted(item.ForbiddenBy);
             }
             ImGui.EndTable();
         }
@@ -239,7 +260,38 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         int maxParallelDownloads = _configService.Current.ParallelDownloads;
         bool useAlternativeUpload = _configService.Current.UseAlternativeFileUpload;
-        if (ImGui.SliderInt("最大并行下载量", ref maxParallelDownloads, 1, 10))
+        int downloadSpeedLimit = _configService.Current.DownloadSpeedLimitInBytes;
+
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted("全局下载限速");
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(100);
+        if (ImGui.InputInt("###speedlimit", ref downloadSpeedLimit))
+        {
+            _configService.Current.DownloadSpeedLimitInBytes = downloadSpeedLimit;
+            _configService.Save();
+            Mediator.Publish(new DownloadLimitChangedMessage());
+        }
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(100);
+        _uiShared.DrawCombo("###speed", new[] { DownloadSpeeds.Bps, DownloadSpeeds.KBps, DownloadSpeeds.MBps },
+            (s) => s switch
+            {
+                DownloadSpeeds.Bps => "Byte/s",
+                DownloadSpeeds.KBps => "KB/s",
+                DownloadSpeeds.MBps => "MB/s",
+                _ => throw new NotSupportedException()
+            }, (s) =>
+            {
+                _configService.Current.DownloadSpeedType = s;
+                _configService.Save();
+                Mediator.Publish(new DownloadLimitChangedMessage());
+            }, _configService.Current.DownloadSpeedType);
+        ImGui.SameLine();
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted("0 = 无限制");
+
+        if (ImGui.SliderInt("最大并行下载数", ref maxParallelDownloads, 1, 10))
         {
             _configService.Current.ParallelDownloads = maxParallelDownloads;
             _configService.Save();
@@ -348,14 +400,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     foreach (var transfer in _fileTransferManager.CurrentUploads.ToArray())
                     {
                         var color = UiSharedService.UploadColor((transfer.Transferred, transfer.Total));
-                        ImGui.PushStyleColor(ImGuiCol.Text, color);
+                        var col = ImRaii.PushColor(ImGuiCol.Text, color);
                         ImGui.TableNextColumn();
-                        ImGui.Text(transfer.Hash);
+                        ImGui.TextUnformatted(transfer.Hash);
                         ImGui.TableNextColumn();
-                        ImGui.Text(UiSharedService.ByteToString(transfer.Transferred));
+                        ImGui.TextUnformatted(UiSharedService.ByteToString(transfer.Transferred));
                         ImGui.TableNextColumn();
-                        ImGui.Text(UiSharedService.ByteToString(transfer.Total));
-                        ImGui.PopStyleColor();
+                        ImGui.TextUnformatted(UiSharedService.ByteToString(transfer.Total));
+                        col.Dispose();
                         ImGui.TableNextRow();
                     }
 
@@ -378,16 +430,16 @@ public class SettingsUi : WindowMediatorSubscriberBase
                         {
                             var color = UiSharedService.UploadColor((entry.Value.TransferredBytes, entry.Value.TotalBytes));
                             ImGui.TableNextColumn();
-                            ImGui.Text(userName);
+                            ImGui.TextUnformatted(userName);
                             ImGui.TableNextColumn();
-                            ImGui.Text(entry.Key);
-                            ImGui.PushStyleColor(ImGuiCol.Text, color);
+                            ImGui.TextUnformatted(entry.Key);
+                            var col = ImRaii.PushColor(ImGuiCol.Text, color);
                             ImGui.TableNextColumn();
-                            ImGui.Text(entry.Value.TransferredFiles + "/" + entry.Value.TotalFiles);
+                            ImGui.TextUnformatted(entry.Value.TransferredFiles + "/" + entry.Value.TotalFiles);
                             ImGui.TableNextColumn();
-                            ImGui.Text(UiSharedService.ByteToString(entry.Value.TransferredBytes) + "/" + UiSharedService.ByteToString(entry.Value.TotalBytes));
+                            ImGui.TextUnformatted(UiSharedService.ByteToString(entry.Value.TransferredBytes) + "/" + UiSharedService.ByteToString(entry.Value.TotalBytes));
                             ImGui.TableNextColumn();
-                            ImGui.PopStyleColor();
+                            col.Dispose();
                             ImGui.TableNextRow();
                         }
                     }
@@ -418,13 +470,13 @@ public class SettingsUi : WindowMediatorSubscriberBase
         {
             foreach (var l in JsonSerializer.Serialize(LastCreatedCharacterData, new JsonSerializerOptions() { WriteIndented = true }).Split('\n'))
             {
-                ImGui.Text($"{l}");
+                ImGui.TextUnformatted($"{l}");
             }
 
             ImGui.TreePop();
         }
 #endif
-        if (UiSharedService.IconTextButton(FontAwesomeIcon.Copy, "[DEBUG] 将上次创建的角色数据复制到剪贴板"))
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Copy, "[DEBUG] 将上次创建的角色数据复制到剪贴板"))
         {
             if (LastCreatedCharacterData != null)
             {
@@ -451,17 +503,16 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         UiSharedService.DrawHelpText("启用此功能可能会对性能产生（轻微）影响。不建议长时间启用此功能。");
 
-        if (!logPerformance) ImGui.BeginDisabled();
-        if (UiSharedService.IconTextButton(FontAwesomeIcon.StickyNote, "将性能统计信息打印到 /xllog"))
+        using var disabled = ImRaii.Disabled(!logPerformance);
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.StickyNote, "将性能统计信息打印到 /xllog"))
         {
             _performanceCollector.PrintPerformanceStats();
         }
         ImGui.SameLine();
-        if (UiSharedService.IconTextButton(FontAwesomeIcon.StickyNote, "将性能统计信息（最近60秒）打印到 /xllog"))
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.StickyNote, "将性能统计信息（最近60秒）打印到 /xllog"))
         {
             _performanceCollector.PrintPerformanceStats(60);
         }
-        if (!logPerformance) ImGui.EndDisabled();
     }
 
     private void DrawFileStorageSettings()
@@ -484,7 +535,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             if (!_mareCharaFileManager.CurrentlyWorking)
             {
                 ImGui.InputTextWithHint("导出描述器", "此描述将在加载数据时显示", ref _exportDescription, 255);
-                if (UiSharedService.IconTextButton(FontAwesomeIcon.Save, "导出角色为MCDF文件"))
+                if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Save, "导出角色为MCDF文件"))
                 {
                     string defaultFileName = string.IsNullOrEmpty(_exportDescription)
                         ? "export.mcdf"
@@ -496,17 +547,11 @@ public class SettingsUi : WindowMediatorSubscriberBase
                         _configService.Current.ExportFolder = Path.GetDirectoryName(path) ?? string.Empty;
                         _configService.Save();
 
-                        _ = Task.Run(() =>
+                        _exportTask = Task.Run(() =>
                         {
-                            try
-                            {
-                                _mareCharaFileManager.SaveMareCharaFile(LastCreatedCharacterData, _exportDescription, path);
-                                _exportDescription = string.Empty;
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogCritical(ex, "保存数据时出错");
-                            }
+                            var desc = _exportDescription;
+                            _exportDescription = string.Empty;
+                            _mareCharaFileManager.SaveMareCharaFile(LastCreatedCharacterData, desc, path);
                         });
                     }, Directory.Exists(_configService.Current.ExportFolder) ? _configService.Current.ExportFolder : null);
                 }
@@ -516,6 +561,11 @@ public class SettingsUi : WindowMediatorSubscriberBase
             else
             {
                 UiSharedService.ColorTextWrapped("正在导出", ImGuiColors.DalamudYellow);
+            }
+
+            if (_exportTask?.IsFaulted ?? false)
+            {
+                UiSharedService.ColorTextWrapped("Export failed, check /xllog for more details.", ImGuiColors.DalamudRed);
             }
 
             ImGui.Unindent();
@@ -536,12 +586,70 @@ public class SettingsUi : WindowMediatorSubscriberBase
             "是否清除文件将通过设置的最大存储大小数值进行自我管理。请酌情地设置存储大小。无需手动清除存储文件。");
 
         _uiShared.DrawFileScanState();
-        _uiShared.DrawTimeSpanBetweenScansSetting();
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted("Monitoring Penumbra Folder: " + (_cacheMonitor.PenumbraWatcher?.Path ?? "Not monitoring"));
+        if (string.IsNullOrEmpty(_cacheMonitor.PenumbraWatcher?.Path))
+        {
+            ImGui.SameLine();
+            using var id = ImRaii.PushId("penumbraMonitor");
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.ArrowsToCircle, "Try to reinitialize Monitor"))
+            {
+                _cacheMonitor.StartPenumbraWatcher(_ipcManager.Penumbra.ModDirectory);
+            }
+        }
+
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted("Monitoring Mare Storage Folder: " + (_cacheMonitor.MareWatcher?.Path ?? "Not monitoring"));
+        if (string.IsNullOrEmpty(_cacheMonitor.MareWatcher?.Path))
+        {
+            ImGui.SameLine();
+            using var id = ImRaii.PushId("mareMonitor");
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.ArrowsToCircle, "Try to reinitialize Monitor"))
+            {
+                _cacheMonitor.StartMareWatcher(_configService.Current.CacheFolder);
+            }
+        }
+        if (_cacheMonitor.MareWatcher == null || _cacheMonitor.PenumbraWatcher == null)
+        {
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Play, "Resume Monitoring"))
+            {
+                _cacheMonitor.StartMareWatcher(_configService.Current.CacheFolder);
+                _cacheMonitor.StartPenumbraWatcher(_ipcManager.Penumbra.ModDirectory);
+                _cacheMonitor.InvokeScan();
+            }
+            UiSharedService.AttachToolTip("Attempts to resume monitoring for both Penumbra and Mare Storage. "
+                + "Resuming the monitoring will also force a full scan to run." + Environment.NewLine
+                + "If the button remains present after clicking it, consult /xllog for errors");
+        }
+        else
+        {
+            using (ImRaii.Disabled(!UiSharedService.CtrlPressed()))
+            {
+                if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Stop, "Stop Monitoring"))
+                {
+                    _cacheMonitor.StopMonitoring();
+                }
+            }
+            UiSharedService.AttachToolTip("Stops the monitoring for both Penumbra and Mare Storage. "
+                + "Do not stop the monitoring, unless you plan to move the Penumbra and Mare Storage folders, to ensure correct functionality of Mare." + Environment.NewLine
+                + "If you stop the monitoring to move folders around, resume it after you are finished moving the files."
+                + UiSharedService.TooltipSeparator + "Hold CTRL to enable this button");
+        }
+
         _uiShared.DrawCacheDirectorySetting();
-        ImGui.Text($"当前使用的本地存储： {UiSharedService.ByteToString(_uiShared.FileCacheSize)}");
-        bool isLinux = Util.IsLinux();
-        if (isLinux) ImGui.BeginDisabled();
+        ImGui.AlignTextToFramePadding();
+        if (_cacheMonitor.FileCacheSize >= 0)
+            ImGui.TextUnformatted($"当前使用的本地存储： {UiSharedService.ByteToString(_cacheMonitor.FileCacheSize)}");
+        else
+            ImGui.TextUnformatted($"当前使用的本地存储： 计算中...");
+        ImGui.TextUnformatted($"剩余可用空间: {UiSharedService.ByteToString(_cacheMonitor.FileCacheDriveFree)}");
         bool useFileCompactor = _configService.Current.UseCompactor;
+        bool isLinux = Util.IsWine();
+        if (!useFileCompactor && !isLinux)
+        {
+            UiSharedService.ColorTextWrapped("Hint: To free up space when using Mare consider enabling the File Compactor", ImGuiColors.DalamudYellow);
+        }
+        if (isLinux || !_cacheMonitor.StorageisNTFS) ImGui.BeginDisabled();
         if (ImGui.Checkbox("使用文件系统压缩", ref useFileCompactor))
         {
             _configService.Current.UseCompactor = useFileCompactor;
@@ -552,16 +660,26 @@ public class SettingsUi : WindowMediatorSubscriberBase
         ImGui.SameLine();
         if (!_fileCompactor.MassCompactRunning)
         {
-            if (UiSharedService.IconTextButton(FontAwesomeIcon.FileArchive, "压缩存储中的所有文件"))
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.FileArchive, "压缩存储中的所有文件"))
             {
-                _ = Task.Run(() => _fileCompactor.CompactStorage(true));
+                _ = Task.Run(() =>
+                {
+                    _fileCompactor.CompactStorage(compress: true);
+                    CancellationTokenSource cts = new();
+                    _cacheMonitor.RecalculateFileCacheSize(cts.Token);
+                });
             }
             UiSharedService.AttachToolTip("这将对您当前本地存储的所有月海同步文件进行压缩。" + Environment.NewLine
                 + "如果您保持启用文件系统压缩，则不需要手动运行此操作。");
             ImGui.SameLine();
-            if (UiSharedService.IconTextButton(FontAwesomeIcon.File, "解压缩存储中的所有文件"))
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.File, "解压缩存储中的所有文件"))
             {
-                _ = Task.Run(() => _fileCompactor.CompactStorage(false));
+                _ = Task.Run(() =>
+                {
+                    _fileCompactor.CompactStorage(compress: false);
+                    CancellationTokenSource cts = new();
+                    _cacheMonitor.RecalculateFileCacheSize(cts.Token);
+                });
             }
             UiSharedService.AttachToolTip("这将对当前本地存储的所有月海同步文件进行解压缩。");
         }
@@ -569,14 +687,57 @@ public class SettingsUi : WindowMediatorSubscriberBase
         {
             UiSharedService.ColorText($"文件压缩程序当前正在运行 ({_fileCompactor.Progress})", ImGuiColors.DalamudYellow);
         }
-        if (isLinux)
+        if (isLinux || !_cacheMonitor.StorageisNTFS)
         {
             ImGui.EndDisabled();
-            ImGui.Text("文件系统压缩仅在Windows系统上可用。");
+            ImGui.TextUnformatted("文件系统压缩仅在NTFS硬盘上可用.");
+        }
+        ImGuiHelpers.ScaledDummy(new Vector2(10, 10));
+
+        ImGui.Separator();
+        UiSharedService.TextWrapped("File Storage validation can make sure that all files in your local Mare Storage are valid. " +
+            "Run the validation before you clear the Storage for no reason. " + Environment.NewLine +
+            "This operation, depending on how many files you have in your storage, can take a while and will be CPU and drive intensive.");
+        using (ImRaii.Disabled(_validationTask != null && !_validationTask.IsCompleted))
+        {
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Check, "Start File Storage Validation"))
+            {
+                _validationCts?.Cancel();
+                _validationCts?.Dispose();
+                _validationCts = new();
+                var token = _validationCts.Token;
+                _validationTask = Task.Run(() => _fileCacheManager.ValidateLocalIntegrity(_validationProgress, token));
+            }
+        }
+        if (_validationTask != null && !_validationTask.IsCompleted)
+        {
+            ImGui.SameLine();
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Times, "Cancel"))
+            {
+                _validationCts?.Cancel();
+            }
         }
 
-        ImGui.Dummy(new Vector2(10, 10));
-        ImGui.Text("要清除本地存储，请接受以下免责声明：");
+        if (_validationTask != null)
+        {
+            using (ImRaii.PushIndent(20f))
+            {
+                if (_validationTask.IsCompleted)
+                {
+                    UiSharedService.TextWrapped($"The storage validation has completed and removed {_validationTask.Result.Count} invalid files from storage.");
+                }
+                else
+                {
+
+                    UiSharedService.TextWrapped($"Storage validation is running: {_currentProgress.Item1}/{_currentProgress.Item2}");
+                    UiSharedService.TextWrapped($"Current item: {_currentProgress.Item3.ResolvedFilepath}");
+                }
+            }
+        }
+        ImGui.Separator();
+
+        ImGuiHelpers.ScaledDummy(new Vector2(10, 10));
+        ImGui.TextUnformatted("To clear the local storage accept the following disclaimer");
         ImGui.Indent();
         ImGui.Checkbox("##readClearCache", ref _readClearCache);
         ImGui.SameLine();
@@ -585,7 +746,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             + Environment.NewLine + "- 在文件服务器负载繁重的情况下，这可能会使无法获取其他玩家数据的情况变得更糟。");
         if (!_readClearCache)
             ImGui.BeginDisabled();
-        if (UiSharedService.IconTextButton(FontAwesomeIcon.Trash, "清除本地存储") && UiSharedService.CtrlPressed() && _readClearCache)
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "清除本地存储") && UiSharedService.CtrlPressed() && _readClearCache)
         {
             _ = Task.Run(() =>
             {
@@ -593,8 +754,6 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 {
                     File.Delete(file);
                 }
-
-                _uiShared.RecalculateFileCacheSize();
             });
         }
         UiSharedService.AttachToolTip("您通常不需要这样做。为了解决同步问题，您也不应该这样做。" + Environment.NewLine
@@ -614,12 +773,15 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
 
         _lastTab = "General";
+        //UiSharedService.FontText("Experimental", _uiShared.UidFont);
+        //ImGui.Separator();
+
         UiSharedService.FontText("备注", _uiShared.UidFont);
-        if (UiSharedService.IconTextButton(FontAwesomeIcon.StickyNote, "将所有用户备注导出到剪贴板"))
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.StickyNote, "将所有用户备注导出到剪贴板"))
         {
             ImGui.SetClipboardText(UiSharedService.GetNotes(_pairManager.DirectPairs.UnionBy(_pairManager.GroupPairs.SelectMany(p => p.Value), p => p.UserData, UserDataComparer.Instance).ToList()));
         }
-        if (UiSharedService.IconTextButton(FontAwesomeIcon.FileImport, "从剪贴板导入备注"))
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.FileImport, "从剪贴板导入备注"))
         {
             _notesSuccessfullyApplied = null;
             var notes = ImGui.GetClipboardText();
@@ -658,7 +820,12 @@ public class SettingsUi : WindowMediatorSubscriberBase
         var profileOnRight = _configService.Current.ProfilePopoutRight;
         var enableRightClickMenu = _configService.Current.EnableRightClickMenus;
         var enableDtrEntry = _configService.Current.EnableDtrEntry;
+        var showUidInDtrTooltip = _configService.Current.ShowUidInDtrTooltip;
+        var preferNoteInDtrTooltip = _configService.Current.PreferNoteInDtrTooltip;
         var preferNotesInsteadOfName = _configService.Current.PreferNotesOverNamesForVisible;
+        var groupUpSyncshells = _configService.Current.GroupUpSyncshells;
+        var groupInVisible = _configService.Current.ShowSyncshellUsersInVisible;
+        var syncshellOfflineSeparate = _configService.Current.ShowSyncshellOfflineUsersSeparately;
 
         if (ImGui.Checkbox("启用游戏右键菜单", ref enableRightClickMenu))
         {
@@ -674,24 +841,73 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         UiSharedService.DrawHelpText("这将在服务器信息栏中添加月海连接状态和可见配对角色数。\n您可以通过Dalamud设置对此进行进一步配置。");
 
-        if (ImGui.Checkbox("显示单独的“可见”组", ref showVisibleSeparate))
+        using (ImRaii.Disabled(!enableDtrEntry))
+        {
+            using var indent = ImRaii.PushIndent();
+            if (ImGui.Checkbox("Show visible character's UID in tooltip", ref showUidInDtrTooltip))
+            {
+                _configService.Current.ShowUidInDtrTooltip = showUidInDtrTooltip;
+                _configService.Save();
+            }
+
+            if (ImGui.Checkbox("Prefer notes over player names in tooltip", ref preferNoteInDtrTooltip))
+            {
+                _configService.Current.PreferNoteInDtrTooltip = preferNoteInDtrTooltip;
+                _configService.Save();
+            }
+        }
+
+        if (ImGui.Checkbox("显示单独的“可见”组"", ref showVisibleSeparate))
         {
             _configService.Current.ShowVisibleUsersSeparately = showVisibleSeparate;
             _configService.Save();
+            Mediator.Publish(new RefreshUiMessage());
         }
         UiSharedService.DrawHelpText("这将在主界面一个特殊“可见”组中显示所有当前可见的用户。");
+
+        using (ImRaii.Disabled(!showVisibleSeparate))
+        {
+            using var indent = ImRaii.PushIndent();
+            if (ImGui.Checkbox("Show Syncshell Users in Visible Group", ref groupInVisible))
+            {
+                _configService.Current.ShowSyncshellUsersInVisible = groupInVisible;
+                _configService.Save();
+                Mediator.Publish(new RefreshUiMessage());
+            }
+        }
 
         if (ImGui.Checkbox("显示单独的离线组", ref showOfflineSeparate))
         {
             _configService.Current.ShowOfflineUsersSeparately = showOfflineSeparate;
             _configService.Save();
+            Mediator.Publish(new RefreshUiMessage());
         }
         UiSharedService.DrawHelpText("这将在主界面中一个特殊“离线”组中显示所有当前离线的用户。");
+
+        using (ImRaii.Disabled(!showOfflineSeparate))
+        {
+            using var indent = ImRaii.PushIndent();
+            if (ImGui.Checkbox("Show separate Offline group for Syncshell users", ref syncshellOfflineSeparate))
+            {
+                _configService.Current.ShowSyncshellOfflineUsersSeparately = syncshellOfflineSeparate;
+                _configService.Save();
+                Mediator.Publish(new RefreshUiMessage());
+            }
+        }
+
+        if (ImGui.Checkbox("Group up all syncshells in one folder", ref groupUpSyncshells))
+        {
+            _configService.Current.GroupUpSyncshells = groupUpSyncshells;
+            _configService.Save();
+            Mediator.Publish(new RefreshUiMessage());
+        }
+        UiSharedService.DrawHelpText("This will group up all Syncshells in a special 'All Syncshells' folder in the main UI.");
 
         if (ImGui.Checkbox("显示可见玩家的玩家名称", ref showNameInsteadOfNotes))
         {
             _configService.Current.ShowCharacterNameInsteadOfNotesForVisible = showNameInsteadOfNotes;
             _configService.Save();
+            Mediator.Publish(new RefreshUiMessage());
         }
         UiSharedService.DrawHelpText("当角色可见时，这将显示角色名称，而不是自定义备注");
 
@@ -701,6 +917,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         {
             _configService.Current.PreferNotesOverNamesForVisible = preferNotesInsteadOfName;
             _configService.Save();
+            Mediator.Publish(new RefreshUiMessage());
         }
         UiSharedService.DrawHelpText("如果你为玩家设置了一个备注，它将显示出来，而不是玩家的名字");
         if (!_configService.Current.ShowCharacterNameInsteadOfNotesForVisible) ImGui.EndDisabled();
@@ -722,13 +939,6 @@ public class SettingsUi : WindowMediatorSubscriberBase
             Mediator.Publish(new CompactUiChange(Vector2.Zero, Vector2.Zero));
         }
         UiSharedService.DrawHelpText("将在主界面的右侧显示档案");
-        if (ImGui.Checkbox("显示标记为NSFW的档案", ref showNsfwProfiles))
-        {
-            Mediator.Publish(new ClearProfileDataMessage());
-            _configService.Current.ProfilesAllowNsfw = showNsfwProfiles;
-            _configService.Save();
-        }
-        UiSharedService.DrawHelpText("将显示启用NSFW标记的档案文件");
         if (ImGui.SliderFloat("悬停延迟", ref profileDelay, 1, 10))
         {
             _configService.Current.ProfileDelay = profileDelay;
@@ -737,6 +947,13 @@ public class SettingsUi : WindowMediatorSubscriberBase
         UiSharedService.DrawHelpText("鼠标悬停多久才显示档案（秒）");
         if (!showProfiles) ImGui.EndDisabled();
         ImGui.Unindent();
+        if (ImGui.Checkbox("显示标记为NSFW的档案", ref showNsfwProfiles))
+        {
+            Mediator.Publish(new ClearProfileDataMessage());
+            _configService.Current.ProfilesAllowNsfw = showNsfwProfiles;
+            _configService.Save();
+        }
+        UiSharedService.DrawHelpText("将显示启用NSFW标记的档案文件");
 
         ImGui.Separator();
 
@@ -795,7 +1012,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         UiSharedService.DrawHelpText("启用此选项将在配对用户上线时在右下角显示一个小通知（类型：信息）。");
 
-        if (!onlineNotifs) ImGui.BeginDisabled();
+        using var disabled = ImRaii.Disabled(!onlineNotifs);
         if (ImGui.Checkbox("仅针对独立配对通知", ref onlineNotifsPairsOnly))
         {
             _configService.Current.ShowOnlineNotificationsOnlyForIndividualPairs = onlineNotifsPairsOnly;
@@ -807,8 +1024,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             _configService.Current.ShowOnlineNotificationsOnlyForNamedPairs = onlineNotifsNamedOnly;
             _configService.Save();
         }
-        UiSharedService.DrawHelpText("启用此选项将仅显示您设置了单独备注配对用户的上线通知（类型：信息）。");
-        if (!onlineNotifs) ImGui.EndDisabled();
+        UiSharedService.DrawHelpText("启用此选项将仅显示您设置了单独备注配对用户的上线通知（类型：信息）.");
     }
 
     private void DrawServerConfiguration()
@@ -817,7 +1033,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         if (ApiController.ServerAlive)
         {
             UiSharedService.FontText("服务操作", _uiShared.UidFont);
-
+            ImGuiHelpers.ScaledDummy(new Vector2(5, 5));
             if (ImGui.Button("删除我的所有文件"))
             {
                 _deleteFilesPopupModalShown = true;
@@ -830,7 +1046,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             {
                 UiSharedService.TextWrapped(
                     "您上传到该服务上的所有文件都将被删除。\n此操作无法撤消。");
-                ImGui.Text("确定要继续吗？");
+                ImGui.TextUnformatted("确定要继续吗?");
                 ImGui.Separator();
                 ImGui.Spacing();
 
@@ -839,7 +1055,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
                 if (ImGui.Button("删除所有内容", new Vector2(buttonSize, 0)))
                 {
-                    Task.Run(_fileTransferManager.DeleteAllFiles);
+                    _ = Task.Run(_fileTransferManager.DeleteAllFiles);
                     _deleteFilesPopupModalShown = false;
                 }
 
@@ -865,9 +1081,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
             if (ImGui.BeginPopupModal("删除您的帐户？", ref _deleteAccountPopupModalShown, UiSharedService.PopupWindowFlags))
             {
                 UiSharedService.TextWrapped(
-                    "您的帐户以及服务上的所有相关文件和数据都将被删除。");
-                UiSharedService.TextWrapped("您的UID将从所有配对列表中删除。");
-                ImGui.Text("确定要继续吗？");
+                    "您的帐户以及服务上的所有相关文件和数据都将被删除.");
+                UiSharedService.TextWrapped("您的UID将从所有配对列表中删除.");
+                ImGui.TextUnformatted("确定要继续吗?");
                 ImGui.Separator();
                 ImGui.Spacing();
 
@@ -876,7 +1092,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
                 if (ImGui.Button("删除帐户", new Vector2(buttonSize, 0)))
                 {
-                    Task.Run(ApiController.UserDelete);
+                    _ = Task.Run(ApiController.UserDelete);
                     _deleteAccountPopupModalShown = false;
                     Mediator.Publish(new SwitchToIntroUiMessage());
                 }
@@ -895,10 +1111,25 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
 
         UiSharedService.FontText("服务和角色设置", _uiShared.UidFont);
+        ImGuiHelpers.ScaledDummy(new Vector2(5, 5));
+        var sendCensus = _serverConfigurationManager.SendCensusData;
+        if (ImGui.Checkbox("Send Statistical Census Data", ref sendCensus))
+        {
+            _serverConfigurationManager.SendCensusData = sendCensus;
+        }
+        UiSharedService.DrawHelpText("This will allow sending census data to the currently connected service." + UiSharedService.TooltipSeparator
+            + "Census data contains:" + Environment.NewLine
+            + "- Current World" + Environment.NewLine
+            + "- Current Gender" + Environment.NewLine
+            + "- Current Race" + Environment.NewLine
+            + "- Current Clan (this is not your Free Company, this is e.g. Keeper or Seeker for Miqo'te)" + UiSharedService.TooltipSeparator
+            + "The census data is only saved temporarily and will be removed from the server on disconnect. It is stored temporarily associated with your UID while you are connected." + UiSharedService.TooltipSeparator
+            + "If you do not wish to participate in the statistical census, untick this box and reconnect to the server.");
+        ImGuiHelpers.ScaledDummy(new Vector2(10, 10));
 
         var idx = _uiShared.DrawServiceSelection();
 
-        ImGui.Dummy(new Vector2(10, 10));
+        ImGuiHelpers.ScaledDummy(new Vector2(10, 10));
 
         var selectedServer = _serverConfigurationManager.GetServerByIndex(idx);
         if (selectedServer == _serverConfigurationManager.CurrentServer)
@@ -917,75 +1148,74 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     int i = 0;
                     foreach (var item in selectedServer.Authentications.ToList())
                     {
-                        UiSharedService.DrawWithID("selectedChara" + i, () =>
+                        using var charaId = ImRaii.PushId("selectedChara" + i);
+
+                        var worldIdx = (ushort)item.WorldId;
+                        var data = _uiShared.WorldData.OrderBy(u => u.Value, StringComparer.Ordinal).ToDictionary(k => k.Key, k => k.Value);
+                        if (!data.TryGetValue(worldIdx, out string? worldPreview))
                         {
-                            var worldIdx = (ushort)item.WorldId;
-                            var data = _uiShared.WorldData.OrderBy(u => u.Value, StringComparer.Ordinal).ToDictionary(k => k.Key, k => k.Value);
-                            if (!data.TryGetValue(worldIdx, out string? worldPreview))
+                            worldPreview = data.First().Value;
+                        }
+
+                        var secretKeyIdx = item.SecretKeyIdx;
+                        var keys = selectedServer.SecretKeys;
+                        if (!keys.TryGetValue(secretKeyIdx, out var secretKey))
+                        {
+                            secretKey = new();
+                        }
+                        var friendlyName = secretKey.FriendlyName;
+
+                        if (ImGui.TreeNode($"chara", $"Character: {item.CharacterName}, World: {worldPreview}, Secret Key: {friendlyName}"))
+                        {
+                            var charaName = item.CharacterName;
+                            if (ImGui.InputText("Character Name", ref charaName, 64))
                             {
-                                worldPreview = data.First().Value;
+                                item.CharacterName = charaName;
+                                _serverConfigurationManager.Save();
                             }
 
-                            var secretKeyIdx = item.SecretKeyIdx;
-                            var keys = selectedServer.SecretKeys;
-                            if (!keys.TryGetValue(secretKeyIdx, out var secretKey))
-                            {
-                                secretKey = new();
-                            }
-                            var friendlyName = secretKey.FriendlyName;
-
-                            if (ImGui.TreeNode($"chara", $"角色：{item.CharacterName}, 世界：{worldPreview}，密钥：{friendlyName}"))
-                            {
-                                var charaName = item.CharacterName;
-                                if (ImGui.InputText("角色名称", ref charaName, 64))
+                            _uiShared.DrawCombo("服务器##" + item.CharacterName + i, data, (w) => w.Value,
+                                (w) =>
                                 {
-                                    item.CharacterName = charaName;
-                                    _serverConfigurationManager.Save();
-                                }
-
-                                _uiShared.DrawCombo("世界##" + item.CharacterName + i, data, (w) => w.Value,
-                                    (w) =>
+                                    if (item.WorldId != w.Key)
                                     {
-                                        if (item.WorldId != w.Key)
-                                        {
-                                            item.WorldId = w.Key;
-                                            _serverConfigurationManager.Save();
-                                        }
-                                    }, EqualityComparer<KeyValuePair<ushort, string>>.Default.Equals(data.FirstOrDefault(f => f.Key == worldIdx), default) ? data.First() : data.First(f => f.Key == worldIdx));
+                                        item.WorldId = w.Key;
+                                        _serverConfigurationManager.Save();
+                                    }
+                                }, EqualityComparer<KeyValuePair<ushort, string>>.Default.Equals(data.FirstOrDefault(f => f.Key == worldIdx), default) ? data.First() : data.First(f => f.Key == worldIdx));
 
-                                _uiShared.DrawCombo("密钥##" + item.CharacterName + i, keys, (w) => w.Value.FriendlyName,
-                                    (w) =>
+                            _uiShared.DrawCombo("密钥##" + item.CharacterName + i, keys, (w) => w.Value.FriendlyName,
+                                (w) =>
+                                {
+                                    if (w.Key != item.SecretKeyIdx)
                                     {
-                                        if (w.Key != item.SecretKeyIdx)
-                                        {
-                                            item.SecretKeyIdx = w.Key;
-                                            _serverConfigurationManager.Save();
-                                        }
-                                    }, EqualityComparer<KeyValuePair<int, SecretKey>>.Default.Equals(keys.FirstOrDefault(f => f.Key == item.SecretKeyIdx), default) ? keys.First() : keys.First(f => f.Key == item.SecretKeyIdx));
+                                        item.SecretKeyIdx = w.Key;
+                                        _serverConfigurationManager.Save();
+                                    }
+                                }, EqualityComparer<KeyValuePair<int, SecretKey>>.Default.Equals(keys.FirstOrDefault(f => f.Key == item.SecretKeyIdx), default) ? keys.First() : keys.First(f => f.Key == item.SecretKeyIdx));
 
-                                if (UiSharedService.IconTextButton(FontAwesomeIcon.Trash, "删除角色") && UiSharedService.CtrlPressed())
-                                    _serverConfigurationManager.RemoveCharacterFromServer(idx, item);
-                                UiSharedService.AttachToolTip("按住CTRL键可删除此条目。");
+                            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "删除角色") && UiSharedService.CtrlPressed())
+                                _serverConfigurationManager.RemoveCharacterFromServer(idx, item);
+                            UiSharedService.AttachToolTip("按住CTRL键可删除此条目。");
 
-                                ImGui.TreePop();
-                            }
-                        });
+                            ImGui.TreePop();
+                        }
 
                         i++;
                     }
 
                     ImGui.Separator();
-                    if (!selectedServer.Authentications.Any(c => string.Equals(c.CharacterName, _uiShared.PlayerName, StringComparison.Ordinal)
+                    if (!selectedServer.Authentications.Exists(c => string.Equals(c.CharacterName, _uiShared.PlayerName, StringComparison.Ordinal)
                         && c.WorldId == _uiShared.WorldId))
                     {
-                        if (UiSharedService.IconTextButton(FontAwesomeIcon.User, "添加当前角色"))
+                        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.User, "添加当前角色"))
                         {
                             _serverConfigurationManager.AddCurrentCharacterToServer(idx);
                         }
                         ImGui.SameLine();
                     }
 
-                    if (UiSharedService.IconTextButton(FontAwesomeIcon.Plus, "添加新角色"))
+                    if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Plus, "添加新角色"))
                     {
                         _serverConfigurationManager.AddEmptyCharacterToServer(idx);
                     }
@@ -1002,41 +1232,39 @@ public class SettingsUi : WindowMediatorSubscriberBase
             {
                 foreach (var item in selectedServer.SecretKeys.ToList())
                 {
-                    UiSharedService.DrawWithID("key" + item.Key, () =>
+                    using var id = ImRaii.PushId("key" + item.Key);
+                    var friendlyName = item.Value.FriendlyName;
+                    if (ImGui.InputText("密钥显示名称", ref friendlyName, 255))
                     {
-                        var friendlyName = item.Value.FriendlyName;
-                        if (ImGui.InputText("密钥显示名称", ref friendlyName, 255))
+                        item.Value.FriendlyName = friendlyName;
+                        _serverConfigurationManager.Save();
+                    }
+                    var key = item.Value.Key;
+                    if (ImGui.InputText("密钥", ref key, 64))
+                    {
+                        item.Value.Key = key;
+                        _serverConfigurationManager.Save();
+                    }
+                    if (!selectedServer.Authentications.Exists(p => p.SecretKeyIdx == item.Key))
+                    {
+                        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "删除密钥") && UiSharedService.CtrlPressed())
                         {
-                            item.Value.FriendlyName = friendlyName;
+                            selectedServer.SecretKeys.Remove(item.Key);
                             _serverConfigurationManager.Save();
                         }
-                        var key = item.Value.Key;
-                        if (ImGui.InputText("Secret Key", ref key, 64))
-                        {
-                            item.Value.Key = key;
-                            _serverConfigurationManager.Save();
-                        }
-                        if (!selectedServer.Authentications.Any(p => p.SecretKeyIdx == item.Key))
-                        {
-                            if (UiSharedService.IconTextButton(FontAwesomeIcon.Trash, "删除密钥") && UiSharedService.CtrlPressed())
-                            {
-                                selectedServer.SecretKeys.Remove(item.Key);
-                                _serverConfigurationManager.Save();
-                            }
-                            UiSharedService.AttachToolTip("按住CTRL键可删除此密钥项");
-                        }
-                        else
-                        {
-                            UiSharedService.ColorTextWrapped("此密钥正在使用，无法删除", ImGuiColors.DalamudYellow);
-                        }
-                    });
+                        UiSharedService.AttachToolTip("按住CTRL键可删除此密钥项");
+                    }
+                    else
+                    {
+                        UiSharedService.ColorTextWrapped("此密钥正在使用，无法删除", ImGuiColors.DalamudYellow);
+                    }
 
                     if (item.Key != selectedServer.SecretKeys.Keys.LastOrDefault())
                         ImGui.Separator();
                 }
 
                 ImGui.Separator();
-                if (UiSharedService.IconTextButton(FontAwesomeIcon.Plus, "添加新密钥"))
+                if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Plus, "添加新密钥"))
                 {
                     selectedServer.SecretKeys.Add(selectedServer.SecretKeys.Any() ? selectedServer.SecretKeys.Max(p => p.Key) + 1 : 0, new SecretKey()
                     {
@@ -1076,12 +1304,90 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
                 if (!isMain && selectedServer != _serverConfigurationManager.CurrentServer)
                 {
-                    if (UiSharedService.IconTextButton(FontAwesomeIcon.Trash, "删除服务") && UiSharedService.CtrlPressed())
+                    if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "删除服务") && UiSharedService.CtrlPressed())
                     {
                         _serverConfigurationManager.DeleteServer(selectedServer);
                     }
                     UiSharedService.DrawHelpText("按住CTRL键可删除此服务");
                 }
+                ImGui.EndTabItem();
+            }
+
+            if (ImGui.BeginTabItem("Permission Settings"))
+            {
+                UiSharedService.FontText("Default Permission Settings", _uiShared.UidFont);
+                if (selectedServer == _serverConfigurationManager.CurrentServer && _apiController.IsConnected)
+                {
+                    UiSharedService.TextWrapped("Note: The default permissions settings here are not applied retroactively to existing pairs or joined Syncshells.");
+                    UiSharedService.TextWrapped("Note: The default permissions settings here are sent and stored on the connected service.");
+                    ImGuiHelpers.ScaledDummy(5f);
+                    var perms = _apiController.DefaultPermissions!;
+                    bool individualIsSticky = perms.IndividualIsSticky;
+                    bool disableIndividualSounds = perms.DisableIndividualSounds;
+                    bool disableIndividualAnimations = perms.DisableIndividualAnimations;
+                    bool disableIndividualVFX = perms.DisableIndividualVFX;
+                    if (ImGui.Checkbox("Individually set permissions become preferred permissions", ref individualIsSticky))
+                    {
+                        perms.IndividualIsSticky = individualIsSticky;
+                        _ = _apiController.UserUpdateDefaultPermissions(perms);
+                    }
+                    UiSharedService.DrawHelpText("The preferred attribute means that the permissions to that user will never change through any of your permission changes to Syncshells " +
+                        "(i.e. if you have paused one specific user in a Syncshell and they become preferred permissions, then pause and unpause the same Syncshell, the user will remain paused - " +
+                        "if a user does not have preferred permissions, it will follow the permissions of the Syncshell and be unpaused)." + Environment.NewLine + Environment.NewLine +
+                        "This setting means:" + Environment.NewLine +
+                        "  - All new individual pairs get their permissions defaulted to preferred permissions." + Environment.NewLine +
+                        "  - All individually set permissions for any pair will also automatically become preferred permissions. This includes pairs in Syncshells." + Environment.NewLine + Environment.NewLine +
+                        "It is possible to remove or set the preferred permission state for any pair at any time." + Environment.NewLine + Environment.NewLine +
+                        "If unsure, leave this setting off.");
+                    ImGuiHelpers.ScaledDummy(3f);
+
+                    if (ImGui.Checkbox("Disable individual pair sounds", ref disableIndividualSounds))
+                    {
+                        perms.DisableIndividualSounds = disableIndividualSounds;
+                        _ = _apiController.UserUpdateDefaultPermissions(perms);
+                    }
+                    UiSharedService.DrawHelpText("This setting will disable sound sync for all new individual pairs.");
+                    if (ImGui.Checkbox("Disable individual pair animations", ref disableIndividualAnimations))
+                    {
+                        perms.DisableIndividualAnimations = disableIndividualAnimations;
+                        _ = _apiController.UserUpdateDefaultPermissions(perms);
+                    }
+                    UiSharedService.DrawHelpText("This setting will disable animation sync for all new individual pairs.");
+                    if (ImGui.Checkbox("Disable individual pair VFX", ref disableIndividualVFX))
+                    {
+                        perms.DisableIndividualVFX = disableIndividualVFX;
+                        _ = _apiController.UserUpdateDefaultPermissions(perms);
+                    }
+                    UiSharedService.DrawHelpText("This setting will disable VFX sync for all new individual pairs.");
+                    ImGuiHelpers.ScaledDummy(5f);
+                    bool disableGroundSounds = perms.DisableGroupSounds;
+                    bool disableGroupAnimations = perms.DisableGroupAnimations;
+                    bool disableGroupVFX = perms.DisableGroupVFX;
+                    if (ImGui.Checkbox("Disable Syncshell pair sounds", ref disableGroundSounds))
+                    {
+                        perms.DisableGroupSounds = disableGroundSounds;
+                        _ = _apiController.UserUpdateDefaultPermissions(perms);
+                    }
+                    UiSharedService.DrawHelpText("This setting will disable sound sync for all non-sticky pairs in newly joined syncshells.");
+                    if (ImGui.Checkbox("Disable Syncshell pair animations", ref disableGroupAnimations))
+                    {
+                        perms.DisableGroupAnimations = disableGroupAnimations;
+                        _ = _apiController.UserUpdateDefaultPermissions(perms);
+                    }
+                    UiSharedService.DrawHelpText("This setting will disable animation sync for all non-sticky pairs in newly joined syncshells.");
+                    if (ImGui.Checkbox("Disable Syncshell pair VFX", ref disableGroupVFX))
+                    {
+                        perms.DisableGroupVFX = disableGroupVFX;
+                        _ = _apiController.UserUpdateDefaultPermissions(perms);
+                    }
+                    UiSharedService.DrawHelpText("This setting will disable VFX sync for all non-sticky pairs in newly joined syncshells.");
+                }
+                else
+                {
+                    UiSharedService.ColorTextWrapped("Default Permission Settings unavailable for this service. " +
+                        "You need to connect to this service to change the default permissions since they are stored on the service.", ImGuiColors.DalamudYellow);
+                }
+
                 ImGui.EndTabItem();
             }
             ImGui.EndTabBar();
@@ -1090,9 +1396,23 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
     private void DrawSettingsContent()
     {
-        _uiShared.PrintServerState();
+        if (_apiController.ServerState is ServerState.Connected)
+        {
+            ImGui.TextUnformatted("Service " + _serverConfigurationManager.CurrentServer!.ServerName + ":");
+            ImGui.SameLine();
+            ImGui.TextColored(ImGuiColors.ParsedGreen, "Available");
+            ImGui.SameLine();
+            ImGui.TextUnformatted("(");
+            ImGui.SameLine();
+            ImGui.TextColored(ImGuiColors.ParsedGreen, _apiController.OnlineUsers.ToString(CultureInfo.InvariantCulture));
+            ImGui.SameLine();
+            ImGui.TextUnformatted("Users Online");
+            ImGui.SameLine();
+            ImGui.TextUnformatted(")");
+        }
+
         ImGui.AlignTextToFramePadding();
-        ImGui.Text("社区和支持（国服的）：");
+        ImGui.TextUnformatted("社区和支持（国服的）:");
         ImGui.SameLine();
         if (ImGui.Button("月海同步器/Mare Synchronos Discord"))
         {

@@ -1,24 +1,18 @@
-﻿using System.Diagnostics;
-using FFXIVClientStructs.FFXIV.Client.Game.Character;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
-using FFXIVClientStructs.FFXIV.Client.System.Resource;
+﻿using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using MareSynchronos.API.Data.Enum;
-using MareSynchronos.Interop;
-using Object = FFXIVClientStructs.FFXIV.Client.Graphics.Scene.Object;
-using Penumbra.String;
-using Weapon = MareSynchronos.Interop.FFXIV.Weapon;
 using MareSynchronos.FileCache;
-using Microsoft.Extensions.Logging;
-using System.Globalization;
+using MareSynchronos.Interop.Ipc;
 using MareSynchronos.PlayerData.Data;
 using MareSynchronos.PlayerData.Handlers;
-using MareSynchronos.Interop.FFXIV;
 using MareSynchronos.Services;
+using Microsoft.Extensions.Logging;
+using CharacterData = MareSynchronos.PlayerData.Data.CharacterData;
 
 namespace MareSynchronos.PlayerData.Factories;
 
 public class PlayerDataFactory
 {
+    private static readonly string[] _allowedExtensionsForGamePaths = [".mdl", ".tex", ".mtrl", ".tmb", ".pap", ".avfx", ".atex", ".sklb", ".eid", ".phyb", ".scd", ".skp", ".shpk"];
     private readonly DalamudUtilService _dalamudUtil;
     private readonly FileCacheManager _fileCacheManager;
     private readonly IpcManager _ipcManager;
@@ -36,7 +30,6 @@ public class PlayerDataFactory
         _transientResourceManager = transientResourceManager;
         _fileCacheManager = fileReplacementFactory;
         _performanceCollector = performanceCollector;
-
         _logger.LogTrace("Creating " + nameof(PlayerDataFactory));
     }
 
@@ -104,190 +97,6 @@ public class PlayerDataFactory
         previousData.CustomizePlusScale = previousCustomize;
     }
 
-    private unsafe void AddPlayerSpecificReplacements(Human* human, HashSet<string> forwardResolve, HashSet<string> reverseResolve)
-    {
-        var weaponObject = (Weapon*)((Object*)human)->ChildObject;
-
-        if ((IntPtr)weaponObject != IntPtr.Zero)
-        {
-            var mainHandWeapon = weaponObject->WeaponRenderModel->RenderModel;
-
-            AddReplacementsFromRenderModel(mainHandWeapon, forwardResolve, reverseResolve);
-
-            foreach (var item in _transientResourceManager.GetTransientResources((IntPtr)weaponObject))
-            {
-                _logger.LogTrace("Found transient weapon resource: {item}", item);
-                forwardResolve.Add(item);
-            }
-
-            if (weaponObject->NextSibling != (IntPtr)weaponObject)
-            {
-                var offHandWeapon = ((Weapon*)weaponObject->NextSibling)->WeaponRenderModel->RenderModel;
-
-                AddReplacementsFromRenderModel(offHandWeapon, forwardResolve, reverseResolve);
-
-                foreach (var item in _transientResourceManager.GetTransientResources((IntPtr)offHandWeapon))
-                {
-                    _logger.LogTrace("Found transient offhand weapon resource: {item}", item);
-                    forwardResolve.Add(item);
-                }
-            }
-        }
-
-        AddReplacementSkeleton(((HumanExt*)human)->Human.RaceSexId, forwardResolve);
-        try
-        {
-            AddReplacementsFromTexture(new ByteString(((HumanExt*)human)->Decal->FileName()).ToString(), forwardResolve, reverseResolve, doNotReverseResolve: false);
-        }
-        catch
-        {
-            _logger.LogWarning("Could not get Decal data");
-        }
-        try
-        {
-            AddReplacementsFromTexture(new ByteString(((HumanExt*)human)->LegacyBodyDecal->FileName()).ToString(), forwardResolve, reverseResolve, doNotReverseResolve: false);
-        }
-        catch
-        {
-            _logger.LogWarning("Could not get Legacy Body Decal Data");
-        }
-    }
-
-    private unsafe void AddReplacementsFromMaterial(Material* mtrl, HashSet<string> forwardResolve, HashSet<string> reverseResolve)
-    {
-        string fileName;
-        try
-        {
-            fileName = new ByteString(mtrl->ResourceHandle->FileName()).ToString();
-        }
-        catch
-        {
-            _logger.LogWarning("Could not get material data");
-            return;
-        }
-
-        _logger.LogTrace("Checking File Replacement for Material {file}", fileName);
-        var mtrlPath = fileName.Split("|")[2];
-
-        reverseResolve.Add(mtrlPath);
-
-        var mtrlResourceHandle = (MtrlResource*)mtrl->ResourceHandle;
-        for (var resIdx = 0; resIdx < mtrlResourceHandle->NumTex; resIdx++)
-        {
-            string? texPath = null;
-            try
-            {
-                texPath = new ByteString(mtrlResourceHandle->TexString(resIdx)).ToString();
-            }
-            catch (Exception e)
-            {
-                _logger.LogWarning(e, "Could not get Texture data for Material {file}", fileName);
-            }
-
-            if (string.IsNullOrEmpty(texPath)) continue;
-
-            AddReplacementsFromTexture(texPath, forwardResolve, reverseResolve);
-        }
-
-        try
-        {
-            var shpkPath = "shader/sm5/shpk/" + new ByteString(mtrlResourceHandle->ShpkString).ToString();
-            _logger.LogTrace("Checking File Replacement for Shader {path}", shpkPath);
-            forwardResolve.Add(shpkPath);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Could not find shpk for Material {path}", fileName);
-        }
-    }
-
-    private unsafe void AddReplacementsFromRenderModel(RenderModel* mdl, HashSet<string> forwardResolve, HashSet<string> reverseResolve)
-    {
-        if (mdl == null || mdl->ResourceHandle == null || mdl->ResourceHandle->Category != ResourceCategory.Chara)
-        {
-            return;
-        }
-
-        string mdlPath;
-        try
-        {
-            mdlPath = new ByteString(mdl->ResourceHandle->FileName()).ToString();
-        }
-        catch
-        {
-            _logger.LogWarning("Could not get model data");
-            return;
-        }
-        _logger.LogTrace("Checking File Replacement for Model {path}", mdlPath);
-
-        reverseResolve.Add(mdlPath);
-
-        for (var mtrlIdx = 0; mtrlIdx < mdl->MaterialCount; mtrlIdx++)
-        {
-            var mtrl = (Material*)mdl->Materials[mtrlIdx];
-            if (mtrl == null) continue;
-
-            AddReplacementsFromMaterial(mtrl, forwardResolve, reverseResolve);
-        }
-    }
-
-    private void AddReplacementsFromTexture(string texPath, HashSet<string> forwardResolve, HashSet<string> reverseResolve, bool doNotReverseResolve = true)
-    {
-        if (string.IsNullOrEmpty(texPath)) return;
-
-        _logger.LogTrace("Checking File Replacement for Texture {path}", texPath);
-
-        if (doNotReverseResolve)
-            forwardResolve.Add(texPath);
-        else
-            reverseResolve.Add(texPath);
-
-        if (texPath.Contains("/--", StringComparison.Ordinal)) return;
-
-        var dx11Path = texPath.Insert(texPath.LastIndexOf('/') + 1, "--");
-        if (doNotReverseResolve)
-            forwardResolve.Add(dx11Path);
-        else
-            reverseResolve.Add(dx11Path);
-    }
-
-    private void AddReplacementSkeleton(ushort raceSexId, HashSet<string> forwardResolve)
-    {
-        string raceSexIdString = raceSexId.ToString("0000", CultureInfo.InvariantCulture);
-
-        string skeletonPath = $"chara/human/c{raceSexIdString}/skeleton/base/b0001/skl_c{raceSexIdString}b0001.sklb";
-
-        _logger.LogTrace("Checking skeleton {path}", skeletonPath);
-
-        forwardResolve.Add(skeletonPath);
-    }
-
-    private unsafe (HashSet<string> forwardResolve, HashSet<string> reverseResolve) BuildDataFromModel(ObjectKind objectKind, nint charaPointer, CancellationToken token)
-    {
-        HashSet<string> forwardResolve = new(StringComparer.Ordinal);
-        HashSet<string> reverseResolve = new(StringComparer.Ordinal);
-        var human = (Human*)((Character*)charaPointer)->GameObject.GetDrawObject();
-        for (var mdlIdx = 0; mdlIdx < human->CharacterBase.SlotCount; ++mdlIdx)
-        {
-            var mdl = (RenderModel*)human->CharacterBase.ModelArray[mdlIdx];
-            if (mdl == null || mdl->ResourceHandle == null || mdl->ResourceHandle->Category != ResourceCategory.Chara)
-            {
-                continue;
-            }
-
-            token.ThrowIfCancellationRequested();
-
-            AddReplacementsFromRenderModel(mdl, forwardResolve, reverseResolve);
-        }
-
-        if (objectKind == ObjectKind.Player)
-        {
-            AddPlayerSpecificReplacements(human, forwardResolve, reverseResolve);
-        }
-
-        return (forwardResolve, reverseResolve);
-    }
-
     private async Task<bool> CheckForNullDrawObject(IntPtr playerPointer)
     {
         return await _dalamudUtil.RunOnFrameworkThread(() => CheckForNullDrawObjectUnsafe(playerPointer)).ConfigureAwait(false);
@@ -305,19 +114,16 @@ public class PlayerDataFactory
 
         _logger.LogDebug("Building character data for {obj}", playerRelatedObject);
 
-        if (!previousData.FileReplacements.ContainsKey(objectKind))
+        if (!previousData.FileReplacements.TryGetValue(objectKind, out HashSet<FileReplacement>? value))
         {
             previousData.FileReplacements[objectKind] = new(FileReplacementComparer.Instance);
         }
         else
         {
-            previousData.FileReplacements[objectKind].Clear();
+            value.Clear();
         }
 
-        if (previousData.CustomizePlusScale.ContainsKey(objectKind))
-        {
-            previousData.CustomizePlusScale.Remove(objectKind);
-        }
+        previousData.CustomizePlusScale.Remove(objectKind);
 
         // wait until chara is not drawing and present so nothing spontaneously explodes
         await _dalamudUtil.WaitWhileCharacterIsDrawing(_logger, playerRelatedObject, Guid.NewGuid(), 30000, ct: token).ConfigureAwait(false);
@@ -329,14 +135,18 @@ public class PlayerDataFactory
             totalWaitTime -= 50;
         }
 
-        Stopwatch st = Stopwatch.StartNew();
+        DateTime start = DateTime.UtcNow;
 
-        // gather static replacements from render model
-        var (forwardResolve, reverseResolve) = await _dalamudUtil.RunOnFrameworkThread(() => BuildDataFromModel(objectKind, charaPointer, token)).ConfigureAwait(false);
-        Dictionary<string, List<string>> resolvedPaths = await GetFileReplacementsFromPaths(forwardResolve, reverseResolve).ConfigureAwait(false);
+        // penumbra call, it's currently broken
+        IReadOnlyDictionary<string, string[]>? resolvedPaths;
+
+        resolvedPaths = (await _ipcManager.Penumbra.GetCharacterData(_logger, playerRelatedObject).ConfigureAwait(false))![0];
+        if (resolvedPaths == null) throw new InvalidOperationException("Penumbra returned null data");
+
         previousData.FileReplacements[objectKind] =
-                new HashSet<FileReplacement>(resolvedPaths.Select(c => new FileReplacement(c.Value, c.Key, _fileCacheManager)), FileReplacementComparer.Instance)
+                new HashSet<FileReplacement>(resolvedPaths.Select(c => new FileReplacement([.. c.Value], c.Key)), FileReplacementComparer.Instance)
                 .Where(p => p.HasFileReplacement).ToHashSet();
+        previousData.FileReplacements[objectKind].RemoveWhere(c => c.GamePaths.Any(g => !_allowedExtensionsForGamePaths.Any(e => g.EndsWith(e, StringComparison.OrdinalIgnoreCase))));
 
         _logger.LogDebug("== Static Replacements ==");
         foreach (var replacement in previousData.FileReplacements[objectKind].Where(i => i.HasFileReplacement).OrderBy(i => i.GamePaths.First(), StringComparer.OrdinalIgnoreCase))
@@ -350,6 +160,7 @@ public class PlayerDataFactory
         {
             foreach (var item in previousData.FileReplacements[objectKind].Where(i => i.HasFileReplacement).SelectMany(p => p.GamePaths))
             {
+                _logger.LogDebug("Persisting {item}", item);
                 _transientResourceManager.AddSemiTransientResource(objectKind, item);
             }
         }
@@ -364,14 +175,14 @@ public class PlayerDataFactory
         var resolvedTransientPaths = await GetFileReplacementsFromPaths(transientPaths, new HashSet<string>(StringComparer.Ordinal)).ConfigureAwait(false);
 
         _logger.LogDebug("== Transient Replacements ==");
-        foreach (var replacement in resolvedTransientPaths.Select(c => new FileReplacement(c.Value, c.Key, _fileCacheManager)).OrderBy(f => f.ResolvedPath, StringComparer.Ordinal))
+        foreach (var replacement in resolvedTransientPaths.Select(c => new FileReplacement([.. c.Value], c.Key)).OrderBy(f => f.ResolvedPath, StringComparer.Ordinal))
         {
             _logger.LogDebug("=> {repl}", replacement);
             previousData.FileReplacements[objectKind].Add(replacement);
         }
 
         // clean up all semi transient resources that don't have any file replacement (aka null resolve)
-        _transientResourceManager.CleanUpSemiTransientResources(objectKind, previousData.FileReplacements[objectKind].ToList());
+        _transientResourceManager.CleanUpSemiTransientResources(objectKind, [.. previousData.FileReplacements[objectKind]]);
 
         // make sure we only return data that actually has file replacements
         foreach (var item in previousData.FileReplacements)
@@ -380,11 +191,10 @@ public class PlayerDataFactory
         }
 
         // gather up data from ipc
-        previousData.ManipulationString = _ipcManager.PenumbraGetMetaManipulations();
-        Task<string> getHeelsOffset = _ipcManager.GetHeelsOffsetAsync();
-        Task<string> getGlamourerData = _ipcManager.GlamourerGetCharacterCustomizationAsync(playerRelatedObject.Address);
-        Task<string?> getCustomizeData = _ipcManager.GetCustomizePlusScaleAsync(playerRelatedObject.Address);
-        Task<string> getPalettePlusData = _ipcManager.PalettePlusBuildPaletteAsync();
+        previousData.ManipulationString = _ipcManager.Penumbra.GetMetaManipulations();
+        Task<string> getHeelsOffset = _ipcManager.Heels.GetOffsetAsync();
+        Task<string> getGlamourerData = _ipcManager.Glamourer.GetCharacterCustomizationAsync(playerRelatedObject.Address);
+        Task<string?> getCustomizeData = _ipcManager.CustomizePlus.GetScaleAsync(playerRelatedObject.Address);
         previousData.GlamourerString[playerRelatedObject.ObjectKind] = await getGlamourerData.ConfigureAwait(false);
         _logger.LogDebug("Glamourer is now: {data}", previousData.GlamourerString[playerRelatedObject.ObjectKind]);
         var customizeScale = await getCustomizeData.ConfigureAwait(false);
@@ -393,25 +203,43 @@ public class PlayerDataFactory
             previousData.CustomizePlusScale[playerRelatedObject.ObjectKind] = customizeScale;
             _logger.LogDebug("Customize is now: {data}", previousData.CustomizePlusScale[playerRelatedObject.ObjectKind]);
         }
-        previousData.PalettePlusPalette = await getPalettePlusData.ConfigureAwait(false);
-        _logger.LogDebug("Palette is now: {data}", previousData.PalettePlusPalette);
-        previousData.HonorificData = _ipcManager.HonorificGetTitle();
+        previousData.HonorificData = _ipcManager.Honorific.GetTitle();
         _logger.LogDebug("Honorific is now: {data}", previousData.HonorificData);
         previousData.HeelsData = await getHeelsOffset.ConfigureAwait(false);
         _logger.LogDebug("Heels is now: {heels}", previousData.HeelsData);
+        if (objectKind == ObjectKind.Player)
+        {
+            previousData.MoodlesData = await _ipcManager.Moodles.GetStatusAsync(playerRelatedObject.Address).ConfigureAwait(false) ?? string.Empty;
+            _logger.LogDebug("Moodles is now: {moodles}", previousData.MoodlesData);
+        }
 
-        st.Stop();
-        _logger.LogInformation("Building character data for {obj} took {time}ms", objectKind, TimeSpan.FromTicks(st.ElapsedTicks).TotalMilliseconds);
+        if (previousData.FileReplacements.TryGetValue(objectKind, out HashSet<FileReplacement>? fileReplacements))
+        {
+            var toCompute = fileReplacements.Where(f => !f.IsFileSwap).ToArray();
+            _logger.LogDebug("Getting Hashes for {amount} Files", toCompute.Length);
+            var computedPaths = _fileCacheManager.GetFileCachesByPaths(toCompute.Select(c => c.ResolvedPath).ToArray());
+            foreach (var file in toCompute)
+            {
+                file.Hash = computedPaths[file.ResolvedPath]?.Hash ?? string.Empty;
+            }
+            var removed = fileReplacements.RemoveWhere(f => !f.IsFileSwap && string.IsNullOrEmpty(f.Hash));
+            if (removed > 0)
+            {
+                _logger.LogDebug("Removed {amount} of invalid files", removed);
+            }
+        }
+
+        _logger.LogInformation("Building character data for {obj} took {time}ms", objectKind, TimeSpan.FromTicks(DateTime.UtcNow.Ticks - start.Ticks).TotalMilliseconds);
 
         return previousData;
     }
 
-    private async Task<Dictionary<string, List<string>>> GetFileReplacementsFromPaths(HashSet<string> forwardResolve, HashSet<string> reverseResolve)
+    private async Task<IReadOnlyDictionary<string, string[]>> GetFileReplacementsFromPaths(HashSet<string> forwardResolve, HashSet<string> reverseResolve)
     {
         var forwardPaths = forwardResolve.ToArray();
         var reversePaths = reverseResolve.ToArray();
         Dictionary<string, List<string>> resolvedPaths = new(StringComparer.Ordinal);
-        var (forward, reverse) = await _ipcManager.PenumbraResolvePathsAsync(forwardPaths, reversePaths).ConfigureAwait(false);
+        var (forward, reverse) = await _ipcManager.Penumbra.ResolvePathsAsync(forwardPaths, reversePaths).ConfigureAwait(false);
         for (int i = 0; i < forwardPaths.Length; i++)
         {
             var filePath = forward[i].ToLowerInvariant();
@@ -421,7 +249,7 @@ public class PlayerDataFactory
             }
             else
             {
-                resolvedPaths[filePath] = new List<string> { forwardPaths[i].ToLowerInvariant() };
+                resolvedPaths[filePath] = [forwardPaths[i].ToLowerInvariant()];
             }
         }
 
@@ -438,7 +266,7 @@ public class PlayerDataFactory
             }
         }
 
-        return resolvedPaths;
+        return resolvedPaths.ToDictionary(k => k.Key, k => k.Value.ToArray(), StringComparer.OrdinalIgnoreCase).AsReadOnly();
     }
 
     private HashSet<string> ManageSemiTransientData(ObjectKind objectKind, IntPtr charaPointer)

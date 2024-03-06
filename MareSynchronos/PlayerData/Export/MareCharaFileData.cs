@@ -11,10 +11,9 @@ public record MareCharaFileData
     public string Description { get; set; } = string.Empty;
     public string GlamourerData { get; set; } = string.Empty;
     public string CustomizePlusData { get; set; } = string.Empty;
-    public string PalettePlusData { get; set; } = string.Empty;
     public string ManipulationData { get; set; } = string.Empty;
-    public List<FileData> Files { get; set; } = new();
-    public List<FileSwap> FileSwaps { get; set; } = new();
+    public List<FileData> Files { get; set; } = [];
+    public List<FileSwap> FileSwaps { get; set; } = [];
 
     public MareCharaFileData() { }
     public MareCharaFileData(FileCacheManager manager, string description, CharacterData dto)
@@ -28,23 +27,27 @@ public record MareCharaFileData
 
         dto.CustomizePlusData.TryGetValue(ObjectKind.Player, out var customizePlusData);
         CustomizePlusData = customizePlusData ?? string.Empty;
-        PalettePlusData = dto.PalettePlusData;
         ManipulationData = dto.ManipulationData;
 
         if (dto.FileReplacements.TryGetValue(ObjectKind.Player, out var fileReplacements))
         {
-            foreach (var file in fileReplacements)
+            var grouped = fileReplacements.GroupBy(f => f.Hash, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var file in grouped)
             {
-                if (!string.IsNullOrEmpty(file.FileSwapPath))
+                if (string.IsNullOrEmpty(file.Key))
                 {
-                    FileSwaps.Add(new FileSwap(file.GamePaths, file.FileSwapPath));
+                    foreach (var item in file)
+                    {
+                        FileSwaps.Add(new FileSwap(item.GamePaths, item.FileSwapPath));
+                    }
                 }
                 else
                 {
-                    var filePath = manager.GetFileCacheByHash(file.Hash)?.ResolvedFilepath;
+                    var filePath = manager.GetFileCacheByHash(file.First().Hash)?.ResolvedFilepath;
                     if (filePath != null)
                     {
-                        Files.Add(new FileData(file.GamePaths, new FileInfo(filePath).Length));
+                        Files.Add(new FileData(file.SelectMany(f => f.GamePaths), (int)new FileInfo(filePath).Length, file.First().Hash));
                     }
                 }
             }
@@ -63,5 +66,5 @@ public record MareCharaFileData
 
     public record FileSwap(IEnumerable<string> GamePaths, string FileSwapPath);
 
-    public record FileData(IEnumerable<string> GamePaths, long Length);
+    public record FileData(IEnumerable<string> GamePaths, int Length, string Hash);
 }

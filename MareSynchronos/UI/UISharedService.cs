@@ -2,12 +2,14 @@
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.GameFonts;
 using Dalamud.Interface.ImGuiFileDialog;
+using Dalamud.Interface.Internal;
+using Dalamud.Interface.Utility;
+using Dalamud.Interface.Utility.Raii;
 using Dalamud.Plugin;
 using Dalamud.Utility;
 using ImGuiNET;
-using ImGuiScene;
 using MareSynchronos.FileCache;
-using MareSynchronos.Interop;
+using MareSynchronos.Interop.Ipc;
 using MareSynchronos.Localization;
 using MareSynchronos.MareConfiguration;
 using MareSynchronos.MareConfiguration.Models;
@@ -16,9 +18,7 @@ using MareSynchronos.Services;
 using MareSynchronos.Services.Mediator;
 using MareSynchronos.Services.ServerConfiguration;
 using MareSynchronos.WebAPI;
-using MareSynchronos.WebAPI.SignalR.Utils;
 using Microsoft.Extensions.Logging;
-using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -40,7 +40,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     private readonly ApiController _apiController;
 
-    private readonly PeriodicFileScanner _cacheScanner;
+    private readonly CacheMonitor _cacheMonitor;
 
     private readonly MareConfigService _configService;
 
@@ -65,23 +65,24 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     private bool _heelsExists = false;
 
     private bool _honorificExists = false;
+    private bool _moodlesExists = false;
     private bool _isDirectoryWritable = false;
 
     private bool _isPenumbraDirectory = false;
+    private bool _isOneDrive = false;
 
-    private bool _palettePlusExists = false;
     private bool _penumbraExists = false;
 
     private int _serverSelectionIndex = -1;
 
     public UiSharedService(ILogger<UiSharedService> logger, IpcManager ipcManager, ApiController apiController,
-        PeriodicFileScanner cacheScanner, FileDialogManager fileDialogManager,
+        CacheMonitor cacheMonitor, FileDialogManager fileDialogManager,
         MareConfigService configService, DalamudUtilService dalamudUtil, DalamudPluginInterface pluginInterface, Dalamud.Localization localization,
         ServerConfigurationManager serverManager, MareMediator mediator) : base(logger, mediator)
     {
         _ipcManager = ipcManager;
         _apiController = apiController;
-        _cacheScanner = cacheScanner;
+        _cacheMonitor = cacheMonitor;
         FileDialogManager = fileDialogManager;
         _configService = configService;
         _dalamudUtil = dalamudUtil;
@@ -98,12 +99,12 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
         Mediator.Subscribe<DelayedFrameworkUpdateMessage>(this, (_) =>
         {
-            _penumbraExists = _ipcManager.CheckPenumbraApi();
-            _glamourerExists = _ipcManager.CheckGlamourerApi();
-            _customizePlusExists = _ipcManager.CheckCustomizePlusApi();
-            _heelsExists = _ipcManager.CheckHeelsApi();
-            _palettePlusExists = _ipcManager.CheckPalettePlusApi();
-            _honorificExists = _ipcManager.CheckHonorificApi();
+            _penumbraExists = _ipcManager.Penumbra.APIAvailable;
+            _glamourerExists = _ipcManager.Glamourer.APIAvailable;
+            _customizePlusExists = _ipcManager.CustomizePlus.APIAvailable;
+            _heelsExists = _ipcManager.Heels.APIAvailable;
+            _honorificExists = _ipcManager.Honorific.APIAvailable;
+            _moodlesExists = _ipcManager.Moodles.APIAvailable;
         });
     }
 
@@ -111,9 +112,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     public bool EditTrackerPosition { get; set; }
 
-    public long FileCacheSize => _cacheScanner.FileCacheSize;
-
-    public bool HasValidPenumbraModPath => !(_ipcManager.PenumbraModDirectory ?? string.Empty).IsNullOrEmpty() && Directory.Exists(_ipcManager.PenumbraModDirectory);
+    public bool HasValidPenumbraModPath => !(_ipcManager.Penumbra.ModDirectory ?? string.Empty).IsNullOrEmpty() && Directory.Exists(_ipcManager.Penumbra.ModDirectory);
 
     public bool IsInGpose => _dalamudUtil.IsInCutscene;
 
@@ -125,19 +124,54 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     public Dictionary<ushort, string> WorldData => _dalamudUtil.WorldData.Value;
 
-    public uint WorldId => _dalamudUtil.GetWorldId();
+    public uint WorldId => _dalamudUtil.GetHomeWorldId();
+
+    public const string TooltipSeparator = "--SEP--";
 
     public static void AttachToolTip(string text)
     {
-        if (ImGui.IsItemHovered())
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
         {
-            ImGui.SetTooltip(text);
+            ImGui.BeginTooltip();
+            ImGui.PushTextWrapPos(ImGui.GetFontSize() * 35f);
+            if (text.Contains(TooltipSeparator, StringComparison.Ordinal))
+            {
+                var splitText = text.Split(TooltipSeparator, StringSplitOptions.RemoveEmptyEntries);
+                for (int i = 0; i < splitText.Length; i++)
+                {
+                    ImGui.TextUnformatted(splitText[i]);
+                    if (i != splitText.Length - 1) ImGui.Separator();
+                }
+            }
+            else
+            {
+                ImGui.TextUnformatted(text);
+            }
+            ImGui.PopTextWrapPos();
+            ImGui.EndTooltip();
+        }
+    }
+
+    public static void BooleanToColoredIcon(bool value, bool inline = true)
+    {
+        using var colorgreen = ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.HealerGreen, value);
+        using var colorred = ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudRed, !value);
+
+        if (inline) ImGui.SameLine();
+
+        if (value)
+        {
+            NormalizedIcon(FontAwesomeIcon.Check);
+        }
+        else
+        {
+            NormalizedIcon(FontAwesomeIcon.Times);
         }
     }
 
     public static string ByteToString(long bytes, bool addSuffix = true)
     {
-        string[] suffix = { "B", "KiB", "MiB", "GiB", "TiB" };
+        string[] suffix = ["B", "KiB", "MiB", "GiB", "TiB"];
         int i;
         double dblSByte = bytes;
         for (i = 0; i < suffix.Length && bytes >= 1024; i++, bytes /= 1024)
@@ -171,16 +205,14 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     public static void ColorText(string text, Vector4 color)
     {
-        ImGui.PushStyleColor(ImGuiCol.Text, color);
+        using var raiicolor = ImRaii.PushColor(ImGuiCol.Text, color);
         ImGui.TextUnformatted(text);
-        ImGui.PopStyleColor();
     }
 
     public static void ColorTextWrapped(string text, Vector4 color)
     {
-        ImGui.PushStyleColor(ImGuiCol.Text, color);
+        using var raiicolor = ImRaii.PushColor(ImGuiCol.Text, color);
         TextWrapped(text);
-        ImGui.PopStyleColor();
     }
 
     public static bool CtrlPressed() => (GetKeyState(0xA2) & 0x8000) != 0 || (GetKeyState(0xA3) & 0x8000) != 0;
@@ -188,50 +220,41 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     public static void DrawHelpText(string helpText)
     {
         ImGui.SameLine();
-        ImGui.PushFont(UiBuilder.IconFont);
-        ImGui.SetWindowFontScale(0.8f);
-        ImGui.TextDisabled(FontAwesomeIcon.Question.ToIconString());
-        ImGui.SetWindowFontScale(1.0f);
-        ImGui.PopFont();
-        if (ImGui.IsItemHovered())
-        {
-            ImGui.BeginTooltip();
-            ImGui.PushTextWrapPos(ImGui.GetFontSize() * 35.0f);
-            ImGui.TextUnformatted(helpText);
-            ImGui.PopTextWrapPos();
-            ImGui.EndTooltip();
-        }
+        NormalizedIcon(FontAwesomeIcon.QuestionCircle, ImGui.GetColorU32(ImGuiCol.TextDisabled));
+        AttachToolTip(helpText);
     }
 
     public static void DrawOutlinedFont(string text, Vector4 fontColor, Vector4 outlineColor, int thickness)
     {
         var original = ImGui.GetCursorPos();
 
-        ImGui.PushStyleColor(ImGuiCol.Text, outlineColor);
-        ImGui.SetCursorPos(original with { Y = original.Y - thickness });
-        ImGui.TextUnformatted(text);
-        ImGui.SetCursorPos(original with { X = original.X - thickness });
-        ImGui.TextUnformatted(text);
-        ImGui.SetCursorPos(original with { Y = original.Y + thickness });
-        ImGui.TextUnformatted(text);
-        ImGui.SetCursorPos(original with { X = original.X + thickness });
-        ImGui.TextUnformatted(text);
-        ImGui.SetCursorPos(original with { X = original.X - thickness, Y = original.Y - thickness });
-        ImGui.TextUnformatted(text);
-        ImGui.SetCursorPos(original with { X = original.X + thickness, Y = original.Y + thickness });
-        ImGui.TextUnformatted(text);
-        ImGui.SetCursorPos(original with { X = original.X - thickness, Y = original.Y + thickness });
-        ImGui.TextUnformatted(text);
-        ImGui.SetCursorPos(original with { X = original.X + thickness, Y = original.Y - thickness });
-        ImGui.TextUnformatted(text);
-        ImGui.PopStyleColor();
+        using (ImRaii.PushColor(ImGuiCol.Text, outlineColor))
+        {
+            ImGui.SetCursorPos(original with { Y = original.Y - thickness });
+            ImGui.TextUnformatted(text);
+            ImGui.SetCursorPos(original with { X = original.X - thickness });
+            ImGui.TextUnformatted(text);
+            ImGui.SetCursorPos(original with { Y = original.Y + thickness });
+            ImGui.TextUnformatted(text);
+            ImGui.SetCursorPos(original with { X = original.X + thickness });
+            ImGui.TextUnformatted(text);
+            ImGui.SetCursorPos(original with { X = original.X - thickness, Y = original.Y - thickness });
+            ImGui.TextUnformatted(text);
+            ImGui.SetCursorPos(original with { X = original.X + thickness, Y = original.Y + thickness });
+            ImGui.TextUnformatted(text);
+            ImGui.SetCursorPos(original with { X = original.X - thickness, Y = original.Y + thickness });
+            ImGui.TextUnformatted(text);
+            ImGui.SetCursorPos(original with { X = original.X + thickness, Y = original.Y - thickness });
+            ImGui.TextUnformatted(text);
+        }
 
-        ImGui.PushStyleColor(ImGuiCol.Text, fontColor);
-        ImGui.SetCursorPos(original);
-        ImGui.TextUnformatted(text);
-        ImGui.SetCursorPos(original);
-        ImGui.TextUnformatted(text);
-        ImGui.PopStyleColor();
+        using (ImRaii.PushColor(ImGuiCol.Text, fontColor))
+        {
+            ImGui.SetCursorPos(original);
+            ImGui.TextUnformatted(text);
+            ImGui.SetCursorPos(original);
+            ImGui.TextUnformatted(text);
+        }
     }
 
     public static void DrawOutlinedFont(ImDrawListPtr drawList, string text, Vector2 textPos, uint fontColor, uint outlineColor, int thickness)
@@ -257,39 +280,20 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         drawList.AddText(textPos, fontColor, text);
     }
 
-    public static void DrawWithID(string id, Action drawSubSection)
+    public static void FontText(string text, ImFontPtr font, Vector4? color = null)
     {
-        ImGui.PushID(id);
-        drawSubSection.Invoke();
-        ImGui.PopID();
-    }
-
-    public static void FontText(string text, ImFontPtr font)
-    {
-        ImGui.PushFont(font);
+        using var pushedFont = ImRaii.PushFont(font);
+        using var pushedColor = ImRaii.PushColor(ImGuiCol.Text, Color(color ?? new Vector4(1, 1, 1, 1)), color != null);
         ImGui.TextUnformatted(text);
-        ImGui.PopFont();
     }
 
     public static Vector4 GetBoolColor(bool input) => input ? ImGuiColors.ParsedGreen : ImGuiColors.DalamudRed;
 
-    public static Vector4 GetCpuLoadColor(double input) => input < 50 ? ImGuiColors.ParsedGreen :
-        input < 90 ? ImGuiColors.DalamudYellow : ImGuiColors.DalamudRed;
-
     public static Vector2 GetIconButtonSize(FontAwesomeIcon icon)
     {
-        ImGui.PushFont(UiBuilder.IconFont);
+        using var font = ImRaii.PushFont(UiBuilder.IconFont);
         var buttonSize = ImGuiHelpers.GetButtonSize(icon.ToIconString());
-        ImGui.PopFont();
         return buttonSize;
-    }
-
-    public static Vector2 GetIconSize(FontAwesomeIcon icon)
-    {
-        ImGui.PushFont(UiBuilder.IconFont);
-        var iconSize = ImGui.CalcTextSize(icon.ToIconString());
-        ImGui.PopFont();
-        return iconSize;
     }
 
     public static string GetNotes(List<Pair> pairs)
@@ -313,43 +317,146 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         return ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X;
     }
 
-    public static bool IconTextButton(FontAwesomeIcon icon, string text, float? width = null)
+    public static Vector2 GetNormalizedIconTextButtonSize(FontAwesomeIcon icon, string text, float? width = null, bool isInPopup = false)
     {
-        var buttonClicked = false;
-
-        var iconSize = GetIconSize(icon);
+        var iconData = GetIconData(icon);
         var textSize = ImGui.CalcTextSize(text);
         var padding = ImGui.GetStyle().FramePadding;
-        var spacing = ImGui.GetStyle().ItemSpacing;
+        var buttonSizeY = ImGui.GetFrameHeight();
+        var iconExtraSpacing = isInPopup ? padding.X * 2 : 0;
 
-        Vector2 buttonSize;
-        var buttonSizeY = (iconSize.Y > textSize.Y ? iconSize.Y : textSize.Y) + padding.Y * 2;
-
-        if (width == null)
+        if (width == null || width <= 0)
         {
-            var buttonSizeX = iconSize.X + textSize.X + padding.X * 2 + spacing.X;
-            buttonSize = new Vector2(buttonSizeX, buttonSizeY);
+            var buttonSizeX = iconData.NormalizedIconScale.X + (padding.X * 3) + iconExtraSpacing + textSize.X;
+            return new Vector2(buttonSizeX, buttonSizeY);
         }
         else
         {
-            buttonSize = new Vector2(width.Value, buttonSizeY);
+            return new Vector2(width.Value, buttonSizeY);
         }
-
-        if (ImGui.Button("###" + icon.ToIconString() + text, buttonSize))
-        {
-            buttonClicked = true;
-        }
-
-        ImGui.SameLine();
-        ImGui.SetCursorPosX(ImGui.GetCursorPosX() - buttonSize.X - padding.X);
-        ImGui.PushFont(UiBuilder.IconFont);
-        ImGui.Text(icon.ToIconString());
-        ImGui.PopFont();
-        ImGui.SameLine();
-        ImGui.Text(text);
-
-        return buttonClicked;
     }
+
+    public static Vector2 NormalizedIconButtonSize(FontAwesomeIcon icon)
+    {
+        var iconData = GetIconData(icon);
+        var padding = ImGui.GetStyle().FramePadding;
+
+        return iconData.NormalizedIconScale with { X = iconData.NormalizedIconScale.X + padding.X * 2, Y = iconData.NormalizedIconScale.Y + padding.Y * 2 };
+    }
+
+    public static bool NormalizedIconButton(FontAwesomeIcon icon)
+    {
+        bool wasClicked = false;
+        var iconData = GetIconData(icon);
+        var padding = ImGui.GetStyle().FramePadding;
+        var cursor = ImGui.GetCursorPos();
+        var drawList = ImGui.GetWindowDrawList();
+        var pos = ImGui.GetWindowPos();
+        var scrollPosY = ImGui.GetScrollY();
+        var scrollPosX = ImGui.GetScrollX();
+
+        var buttonSize = NormalizedIconButtonSize(icon);
+
+        if (ImGui.Button("###" + icon.ToIconString(), buttonSize))
+        {
+            wasClicked = true;
+        }
+
+        drawList.AddText(UiBuilder.IconFont, ImGui.GetFontSize() * iconData.IconScaling,
+            new(pos.X - scrollPosX + cursor.X + iconData.OffsetX + padding.X,
+                pos.Y - scrollPosY + cursor.Y + (buttonSize.Y - (iconData.IconSize.Y * iconData.IconScaling)) / 2f),
+            ImGui.GetColorU32(ImGuiCol.Text), icon.ToIconString());
+
+        return wasClicked;
+    }
+
+    public static bool NormalizedIconTextButton(FontAwesomeIcon icon, string text, float? width = null, bool isInPopup = false)
+    {
+        var wasClicked = false;
+
+        var iconData = GetIconData(icon);
+        var textSize = ImGui.CalcTextSize(text);
+        var padding = ImGui.GetStyle().FramePadding;
+        var cursor = ImGui.GetCursorPos();
+        var drawList = ImGui.GetWindowDrawList();
+        var pos = ImGui.GetWindowPos();
+        var scrollPosY = ImGui.GetScrollY();
+        var scrollPosX = ImGui.GetScrollX();
+
+        Vector2 buttonSize = GetNormalizedIconTextButtonSize(icon, text, width, isInPopup);
+        var iconExtraSpacing = isInPopup ? padding.X * 2 : 0;
+
+        using (ImRaii.PushColor(ImGuiCol.Button, ImGui.GetColorU32(ImGuiCol.PopupBg), isInPopup))
+        {
+            if (ImGui.Button("###" + icon.ToIconString() + text, buttonSize))
+            {
+                wasClicked = true;
+            }
+        }
+
+        drawList.AddText(UiBuilder.DefaultFont, ImGui.GetFontSize(),
+            new(pos.X - scrollPosX + cursor.X + iconData.NormalizedIconScale.X + (padding.X * 2) + iconExtraSpacing,
+               pos.Y - scrollPosY + cursor.Y + ((buttonSize.Y - textSize.Y) / 2f)),
+            ImGui.GetColorU32(ImGuiCol.Text), text);
+
+        drawList.AddText(UiBuilder.IconFont, ImGui.GetFontSize() * iconData.IconScaling,
+            new(pos.X - scrollPosX + cursor.X + iconData.OffsetX + padding.X,
+                pos.Y - scrollPosY + cursor.Y + (buttonSize.Y - (iconData.IconSize.Y * iconData.IconScaling)) / 2f),
+            ImGui.GetColorU32(ImGuiCol.Text), icon.ToIconString());
+
+        return wasClicked;
+    }
+
+    public static void NormalizedIcon(FontAwesomeIcon icon, uint color)
+    {
+        var cursorPos = ImGui.GetCursorPos();
+        var iconData = GetIconData(icon);
+        var drawList = ImGui.GetWindowDrawList();
+        var windowPos = ImGui.GetWindowPos();
+        var scrollPosX = ImGui.GetScrollX();
+        var scrollPosY = ImGui.GetScrollY();
+        var frameHeight = ImGui.GetFrameHeight();
+
+        var frameOffsetY = ((frameHeight - iconData.IconSize.Y * iconData.IconScaling) / 2f);
+
+        drawList.AddText(UiBuilder.IconFont, UiBuilder.IconFont.FontSize * iconData.IconScaling,
+            new(windowPos.X - scrollPosX + cursorPos.X + iconData.OffsetX,
+            windowPos.Y - scrollPosY + cursorPos.Y + frameOffsetY),
+            color, icon.ToIconString());
+
+        ImGui.Dummy(new(iconData.NormalizedIconScale.X, ImGui.GetFrameHeight()));
+    }
+
+    public static void NormalizedIcon(FontAwesomeIcon icon, Vector4? color = null)
+    {
+        NormalizedIcon(icon, color == null ? ImGui.GetColorU32(ImGuiCol.Text) : ImGui.GetColorU32(color.Value));
+    }
+
+    private static IconScaleData CalcIconScaleData(FontAwesomeIcon icon)
+    {
+        using var font = ImRaii.PushFont(UiBuilder.IconFont);
+        var iconSize = ImGui.CalcTextSize(icon.ToIconString());
+        var iconscaling = (iconSize.X < iconSize.Y ? (iconSize.Y - iconSize.X) / 2f : 0f, iconSize.X > iconSize.Y ? 1f / (iconSize.X / iconSize.Y) : 1f);
+        var normalized = iconscaling.Item2 == 1f ?
+            new Vector2(iconSize.Y, iconSize.Y)
+            : new((iconSize.X * iconscaling.Item2) + (iconscaling.Item1 * 2), (iconSize.X * iconscaling.Item2) + (iconscaling.Item1 * 2));
+        return new(iconSize, normalized, iconscaling.Item1, iconscaling.Item2);
+    }
+
+    public static IconScaleData GetIconData(FontAwesomeIcon icon)
+    {
+        if (_iconData.TryGetValue(ImGuiHelpers.GlobalScale, out var iconCache))
+        {
+            if (iconCache.TryGetValue(icon, out var iconData)) return iconData;
+            return iconCache[icon] = CalcIconScaleData(icon);
+        }
+
+        _iconData.Add(ImGuiHelpers.GlobalScale, new());
+        return _iconData[ImGuiHelpers.GlobalScale][icon] = CalcIconScaleData(icon);
+    }
+
+    public sealed record IconScaleData(Vector2 IconSize, Vector2 NormalizedIconScale, float OffsetX, float IconScaling);
+    private static Dictionary<float, Dictionary<FontAwesomeIcon, IconScaleData>> _iconData = new();
 
     public static bool IsDirectoryWritable(string dirPath, bool throwIfFails = false)
     {
@@ -371,23 +478,6 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
             return false;
         }
-    }
-
-    public static void OutlineTextWrapped(string text, Vector4 textcolor, Vector4 outlineColor, float dist = 3)
-    {
-        var cursorPos = ImGui.GetCursorPos();
-        ColorTextWrapped(text, outlineColor);
-        ImGui.SetCursorPos(new(cursorPos.X, cursorPos.Y + dist));
-        ColorTextWrapped(text, outlineColor);
-        ImGui.SetCursorPos(new(cursorPos.X + dist, cursorPos.Y));
-        ColorTextWrapped(text, outlineColor);
-        ImGui.SetCursorPos(new(cursorPos.X + dist, cursorPos.Y + dist));
-        ColorTextWrapped(text, outlineColor);
-
-        ImGui.SetCursorPos(new(cursorPos.X + dist / 2, cursorPos.Y + dist / 2));
-        ColorTextWrapped(text, textcolor);
-        ImGui.SetCursorPos(new(cursorPos.X + dist / 2, cursorPos.Y + dist / 2));
-        ColorTextWrapped(text, textcolor);
     }
 
     public static void SetScaledWindowSize(float width, bool centerWindow = true)
@@ -461,9 +551,8 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     public void BigText(string text)
     {
-        if (UidFontBuilt) ImGui.PushFont(UidFont);
+        using var font = ImRaii.PushFont(UidFont, UidFontBuilt);
         ImGui.TextUnformatted(text);
-        if (UidFontBuilt) ImGui.PopFont();
     }
 
     public void DrawCacheDirectorySetting()
@@ -473,37 +562,49 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         ImGui.InputText("存储文件夹##cache", ref cacheDirectory, 255, ImGuiInputTextFlags.ReadOnly);
 
         ImGui.SameLine();
-        ImGui.PushFont(UiBuilder.IconFont);
-        string folderIcon = FontAwesomeIcon.Folder.ToIconString();
-        if (ImGui.Button(folderIcon + "##chooseCacheFolder"))
+        using (ImRaii.Disabled(_cacheMonitor.MareWatcher != null))
         {
-            FileDialogManager.OpenFolderDialog("选择星海同步器存储文件夹", (success, path) =>
+            if (NormalizedIconButton(FontAwesomeIcon.Folder))
             {
-                if (!success) return;
-
-                _isPenumbraDirectory = string.Equals(path.ToLowerInvariant(), _ipcManager.PenumbraModDirectory?.ToLowerInvariant(), StringComparison.Ordinal);
-                _isDirectoryWritable = IsDirectoryWritable(path);
-                _cacheDirectoryHasOtherFilesThanCache = Directory.GetFiles(path, "*", SearchOption.AllDirectories).Any(f => Path.GetFileNameWithoutExtension(f).Length != 40);
-                _cacheDirectoryIsValidPath = PathRegex().IsMatch(path);
-
-                if (!string.IsNullOrEmpty(path)
-                    && Directory.Exists(path)
-                    && _isDirectoryWritable
-                    && !_isPenumbraDirectory
-                    && !_cacheDirectoryHasOtherFilesThanCache
-                    && _cacheDirectoryIsValidPath)
+                FileDialogManager.OpenFolderDialog("选择星海同步器存储文件夹", (success, path) =>
                 {
-                    _configService.Current.CacheFolder = path;
-                    _configService.Save();
-                    _cacheScanner.StartScan();
-                }
-            });
+                    if (!success) return;
+
+                    _isOneDrive = path.Contains("onedrive", StringComparison.OrdinalIgnoreCase);
+                    _isPenumbraDirectory = string.Equals(path.ToLowerInvariant(), _ipcManager.Penumbra.ModDirectory?.ToLowerInvariant(), StringComparison.Ordinal);
+                    _isDirectoryWritable = IsDirectoryWritable(path);
+                    _cacheDirectoryHasOtherFilesThanCache = Directory.GetFiles(path, "*", SearchOption.AllDirectories).Any(f => Path.GetFileNameWithoutExtension(f).Length != 40)
+                        || Directory.GetDirectories(path).Any();
+                    _cacheDirectoryIsValidPath = PathRegex().IsMatch(path);
+
+                    if (!string.IsNullOrEmpty(path)
+                        && Directory.Exists(path)
+                        && _isDirectoryWritable
+                        && !_isPenumbraDirectory
+                        && !_isOneDrive
+                        && !_cacheDirectoryHasOtherFilesThanCache
+                        && _cacheDirectoryIsValidPath)
+                    {
+                        _configService.Current.CacheFolder = path;
+                        _configService.Save();
+                        _cacheMonitor.StartMareWatcher(path);
+                        _cacheMonitor.InvokeScan();
+                    }
+                });
+            }
         }
-        ImGui.PopFont();
+        if (_cacheMonitor.MareWatcher != null)
+        {
+            AttachToolTip("Stop the Monitoring before changing the Storage folder. As long as monitoring is active, you cannot change the Storage folder location.");
+        }
 
         if (_isPenumbraDirectory)
         {
             ColorTextWrapped("不要将存储路径直接指向Penumbra文件夹。如果一定要指向这里，在其中创建一个子文件夹。", ImGuiColors.DalamudRed);
+        }
+        else if (_isOneDrive)
+        {
+            ColorTextWrapped("Do not point the storage path to a folder in OneDrive. Do not use OneDrive folders for any Mod related functionality.", ImGuiColors.DalamudRed);
         }
         else if (!_isDirectoryWritable)
         {
@@ -511,7 +612,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         }
         else if (_cacheDirectoryHasOtherFilesThanCache)
         {
-            ColorTextWrapped("您选择的文件夹中有与月海同步器无关的文件。仅使用空目录或以前的Mare存储目录。", ImGuiColors.DalamudRed);
+            ColorTextWrapped("您选择的文件夹中有与月海同步器无关的文件。仅使用空目录或以前的Mare存储目录.", ImGuiColors.DalamudRed);
         }
         else if (!_cacheDirectoryIsValidPath)
         {
@@ -569,79 +670,105 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     public void DrawFileScanState()
     {
-        ImGui.Text("文件扫描状态");
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted("文件扫描状态");
         ImGui.SameLine();
-        if (_cacheScanner.IsScanRunning)
+        if (_cacheMonitor.IsScanRunning)
         {
-            ImGui.Text("扫描进行中");
-            ImGui.Text("当前进度：");
+            ImGui.AlignTextToFramePadding();
+
+            ImGui.TextUnformatted("扫描进行中");
+            ImGui.TextUnformatted("当前进度:");
             ImGui.SameLine();
-            ImGui.Text(_cacheScanner.TotalFiles == 1
+            ImGui.TextUnformatted(_cacheMonitor.TotalFiles == 1
                 ? "正在计算文件数量"
-                : $"从存储中处理 {_cacheScanner.CurrentFileProgress}/{_cacheScanner.TotalFilesStorage}(已扫描{_cacheScanner.TotalFiles})");
+                : $"从存储中处理 {_cacheMonitor.CurrentFileProgress}/{_cacheMonitor.TotalFilesStorage} (已扫描{_cacheMonitor.TotalFiles})");
             AttachToolTip("注意：存储的文件可能比扫描的文件多，这是因为扫描器通常会忽略这些文件，" +
                 "但游戏会加载这些文件并在你的角色上使用它们，所以它们会被添加到本地存储中。");
         }
-        else if (_configService.Current.FileScanPaused)
+        else if (_cacheMonitor.HaltScanLocks.Any(f => f.Value > 0))
         {
-            ImGui.Text("文件扫描已暂停");
-            ImGui.SameLine();
-            if (ImGui.Button("强制重新扫描##forcedrescan"))
-            {
-                _cacheScanner.InvokeScan(forced: true);
-            }
-        }
-        else if (_cacheScanner.HaltScanLocks.Any(f => f.Value > 0))
-        {
-            ImGui.Text("Halted (" + string.Join(", ", _cacheScanner.HaltScanLocks.Where(f => f.Value > 0).Select(locker => locker.Key + ": " + locker.Value + " halt requests")) + ")");
+            ImGui.AlignTextToFramePadding();
+
+            ImGui.TextUnformatted("Halted (" + string.Join(", ", _cacheMonitor.HaltScanLocks.Where(f => f.Value > 0).Select(locker => locker.Key + ": " + locker.Value + " halt requests")) + ")");
             ImGui.SameLine();
             if (ImGui.Button("重置暂停需求##clearlocks"))
             {
-                _cacheScanner.ResetLocks();
+                _cacheMonitor.ResetLocks();
             }
         }
         else
         {
-            ImGui.Text("下一次扫描于 " + _cacheScanner.TimeUntilNextScan);
+            ImGui.TextUnformatted("空闲");
+            if (_configService.Current.InitialScanComplete)
+            {
+                ImGui.SameLine();
+                if (NormalizedIconTextButton(FontAwesomeIcon.Play, "强制扫描"))
+                {
+                    _cacheMonitor.InvokeScan();
+                }
+            }
         }
     }
 
     public bool DrawOtherPluginState()
     {
-        var penumbraColor = _penumbraExists ? ImGuiColors.ParsedGreen : ImGuiColors.DalamudRed;
-        var glamourerColor = _glamourerExists ? ImGuiColors.ParsedGreen : ImGuiColors.DalamudRed;
-        var heelsColor = _heelsExists ? ImGuiColors.ParsedGreen : ImGuiColors.DalamudRed;
-        var customizeColor = _customizePlusExists ? ImGuiColors.ParsedGreen : ImGuiColors.DalamudRed;
-        var paletteColor = _palettePlusExists ? ImGuiColors.ParsedGreen : ImGuiColors.DalamudRed;
-        var honorificColor = _honorificExists ? ImGuiColors.ParsedGreen : ImGuiColors.DalamudRed;
-        ImGui.Text("Penumbra:");
+        var check = FontAwesomeIcon.Check.ToIconString();
+        var cross = FontAwesomeIcon.SquareXmark.ToIconString();
+        ImGui.TextUnformatted("Mandatory Plugins:");
+
         ImGui.SameLine();
-        ImGui.TextColored(penumbraColor, _penumbraExists ? "可用" : "不可用");
+        ImGui.TextUnformatted("Penumbra");
         ImGui.SameLine();
-        ImGui.Text("Glamourer:");
+        FontText(_penumbraExists ? check : cross, UiBuilder.IconFont, GetBoolColor(_penumbraExists));
         ImGui.SameLine();
-        ImGui.TextColored(glamourerColor, _glamourerExists ? "可用" : "不可用");
-        ImGui.Text("可选插件");
+        AttachToolTip($"Penumbra " + (_penumbraExists ? "可用." : "不可用或需要更新."));
+        ImGui.Spacing();
+
         ImGui.SameLine();
-        ImGui.Text("SimpleHeels:");
+        ImGui.TextUnformatted("Glamourer");
         ImGui.SameLine();
-        ImGui.TextColored(heelsColor, _heelsExists ? "可用" : "不可用");
+        FontText(_glamourerExists ? check : cross, UiBuilder.IconFont, GetBoolColor(_glamourerExists));
         ImGui.SameLine();
-        ImGui.Text("Customize+:");
+        AttachToolTip($"Glamourer " + (_glamourerExists ? "可用." : "不可用或需要更新."));
+        ImGui.Spacing();
+
+        ImGui.TextUnformatted("可选插件:");
         ImGui.SameLine();
-        ImGui.TextColored(customizeColor, _customizePlusExists ? "可用" : "不可用");
+        ImGui.TextUnformatted("SimpleHeels");
         ImGui.SameLine();
-        ImGui.Text("Palette+:");
+        FontText(_heelsExists ? check : cross, UiBuilder.IconFont, GetBoolColor(_heelsExists));
         ImGui.SameLine();
-        ImGui.TextColored(paletteColor, _palettePlusExists ? "可用" : "不可用");
+        AttachToolTip($"SimpleHeels " + (_heelsExists ? "可用." : "不可用或需要更新."));
+        ImGui.Spacing();
+
         ImGui.SameLine();
-        ImGui.Text("Honorific:");
+        ImGui.TextUnformatted("Customize+");
         ImGui.SameLine();
-        ImGui.TextColored(honorificColor, _honorificExists ? "可用" : "不可用");
+        FontText(_customizePlusExists ? check : cross, UiBuilder.IconFont, GetBoolColor(_customizePlusExists));
+        ImGui.SameLine();
+        AttachToolTip($"Customize+ " + (_customizePlusExists ? "可用." : "不可用或需要更新."));
+        ImGui.Spacing();
+
+        ImGui.SameLine();
+        ImGui.TextUnformatted("Honorific");
+        ImGui.SameLine();
+        FontText(_honorificExists ? check : cross, UiBuilder.IconFont, GetBoolColor(_honorificExists));
+        ImGui.SameLine();
+        AttachToolTip($"Honorific " + (_honorificExists ? "可用." : "不可用或需要更新."));
+        ImGui.Spacing();
+
+        ImGui.SameLine();
+        ImGui.TextUnformatted("Moodles");
+        ImGui.SameLine();
+        FontText(_moodlesExists ? check : cross, UiBuilder.IconFont, GetBoolColor(_moodlesExists));
+        ImGui.SameLine();
+        AttachToolTip($"Moodles " + (_moodlesExists ? "可用." : "不可用或需要更新."));
+        ImGui.Spacing();
 
         if (!_penumbraExists || !_glamourerExists)
         {
-            ImGui.TextColored(ImGuiColors.DalamudRed, "您需要同时安装Penumbra和Glamourer，并更新到它们的最新版本才能使用月海同步器。");
+            ImGui.TextColored(ImGuiColors.DalamudRed, "您至少需要同时安装Penumbra和Glamourer，并更新到它们的最新版本才能使用月海同步器。");
             return false;
         }
 
@@ -691,9 +818,9 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         if (_serverConfigurationManager.GetSecretKey(_serverSelectionIndex) != null)
         {
             ImGui.SameLine();
-            var text = "Connect";
-            if (_serverSelectionIndex == _serverConfigurationManager.CurrentServerIndex) text = "重新连接";
-            if (IconTextButton(FontAwesomeIcon.Link, text))
+            var text = "已连接";
+            if (_serverSelectionIndex == _serverConfigurationManager.CurrentServerIndex) text = "重新连接...";
+            if (NormalizedIconTextButton(FontAwesomeIcon.Link, text))
             {
                 _serverConfigurationManager.SelectServer(_serverSelectionIndex);
                 _ = _apiController.CreateConnections();
@@ -706,7 +833,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             ImGui.InputText("自定义服务URI", ref _customServerUri, 255);
             ImGui.SetNextItemWidth(250);
             ImGui.InputText("自定义服务名称", ref _customServerName, 255);
-            if (UiSharedService.IconTextButton(FontAwesomeIcon.Plus, "添加自定义服务")
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Plus, "添加自定义服务")
                 && !string.IsNullOrEmpty(_customServerUri)
                 && !string.IsNullOrEmpty(_customServerName))
             {
@@ -725,51 +852,10 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         return _serverSelectionIndex;
     }
 
-    public void DrawTimeSpanBetweenScansSetting()
-    {
-        var timeSpan = _configService.Current.TimeSpanBetweenScansInSeconds;
-        if (ImGui.SliderInt("定期扫描间隔秒数##timespan", ref timeSpan, 20, 60))
-        {
-            _configService.Current.TimeSpanBetweenScansInSeconds = timeSpan;
-            _configService.Save();
-        }
-        DrawHelpText("这是两次文件扫描之间的间隔时间（以秒为单位）。增加它以减少系统负载。\n但在缓存或Penumbra模组文件夹中慢慢摸索文件也太过笨拙，因此设置过高可能会导致问题。");
-        var isPaused = _configService.Current.FileScanPaused;
-        if (ImGui.Checkbox("暂停定期文件扫描##filescanpause", ref isPaused))
-        {
-            _configService.Current.FileScanPaused = isPaused;
-            _configService.Save();
-        }
-        DrawHelpText("这允许您停止对Penumbra和月海缓存目录的定期扫描。建议在打算移动月海缓存和Penumbra模组文件夹时启用。如果您永久启用此功能，请在将模组添加到Penumbra后运行强制重新扫描。");
-    }
-
     public void LoadLocalization(string languageCode)
     {
         _localization.SetupWithLangCode(languageCode);
         Strings.ToS = new Strings.ToSStrings();
-    }
-
-    public void PrintServerState()
-    {
-        if (_apiController.ServerState is ServerState.Connected)
-        {
-            ImGui.TextUnformatted("服务 " + _serverConfigurationManager.CurrentServer!.ServerName + ":");
-            ImGui.SameLine();
-            ImGui.TextColored(ImGuiColors.ParsedGreen, "可用");
-            ImGui.SameLine();
-            ImGui.TextUnformatted("(");
-            ImGui.SameLine();
-            ImGui.TextColored(ImGuiColors.ParsedGreen, _apiController.OnlineUsers.ToString(CultureInfo.InvariantCulture));
-            ImGui.SameLine();
-            ImGui.Text("用户在线");
-            ImGui.SameLine();
-            ImGui.Text(")");
-        }
-    }
-
-    public void RecalculateFileCacheSize()
-    {
-        _cacheScanner.InvokeScan(forced: true);
     }
 
     [LibraryImport("user32")]
@@ -780,7 +866,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         return _pluginInterface.UiBuilder.GetGameFontHandle(new GameFontStyle(GameFontFamilyAndSize.ChnAxis120)).ImFont;
     }
 
-    internal TextureWrap LoadImage(byte[] imageData)
+    internal IDalamudTextureWrap LoadImage(byte[] imageData)
     {
         return _pluginInterface.UiBuilder.LoadImage(imageData);
     }
@@ -798,7 +884,9 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         ImGui.SetWindowPos(new Vector2(center.X - width / 2, center.Y - height / 2), cond);
     }
 
+#pragma warning disable MA0009 // Add regex evaluation timeout
     [GeneratedRegex(@"^(?:[a-zA-Z]:\\[\w\s\-\\]+?|\/(?:[\w\s\-\/])+?)$", RegexOptions.ECMAScript)]
+#pragma warning restore MA0009 // Add regex evaluation timeout
     private static partial Regex PathRegex();
 
     private void BuildFont()

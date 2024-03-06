@@ -15,10 +15,13 @@ public class GposeUi : WindowMediatorSubscriberBase
     private readonly DalamudUtilService _dalamudUtil;
     private readonly FileDialogManager _fileDialogManager;
     private readonly MareCharaFileManager _mareCharaFileManager;
+    private Task<long>? _expectedLength;
+    private Task? _applicationTask;
 
     public GposeUi(ILogger<GposeUi> logger, MareCharaFileManager mareCharaFileManager,
         DalamudUtilService dalamudUtil, FileDialogManager fileDialogManager, MareConfigService configService,
-        MareMediator mediator) : base(logger, mediator, "月海同步器集体动作导入窗口###MareSynchronosGposeUI")
+        MareMediator mediator, PerformanceCollectorService performanceCollectorService) 
+        : base(logger, mediator, "月海同步器集体动作导入窗口###MareSynchronosGposeUI", performanceCollectorService)
     {
         _mareCharaFileManager = mareCharaFileManager;
         _dalamudUtil = dalamudUtil;
@@ -35,13 +38,13 @@ public class GposeUi : WindowMediatorSubscriberBase
         };
     }
 
-    public override void Draw()
+    protected override void DrawInternal()
     {
         if (!_dalamudUtil.IsInGpose) IsOpen = false;
 
         if (!_mareCharaFileManager.CurrentlyWorking)
         {
-            if (UiSharedService.IconTextButton(FontAwesomeIcon.FolderOpen, "加载MCDF"))
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.FolderOpen, "加载MCDF"))
             {
                 _fileDialogManager.OpenFileDialog("选择MCDF文件", ".mcdf", (success, paths) =>
                 {
@@ -51,20 +54,27 @@ public class GposeUi : WindowMediatorSubscriberBase
                     _configService.Current.ExportFolder = Path.GetDirectoryName(path) ?? string.Empty;
                     _configService.Save();
 
-                    Task.Run(() => _mareCharaFileManager.LoadMareCharaFile(path));
+                    _expectedLength = Task.Run(() => _mareCharaFileManager.LoadMareCharaFile(path));
                 }, 1, Directory.Exists(_configService.Current.ExportFolder) ? _configService.Current.ExportFolder : null);
             }
             UiSharedService.AttachToolTip("将其应用于当前选定的集体动作角色");
-            if (_mareCharaFileManager.LoadedCharaFile != null)
+            if (_mareCharaFileManager.LoadedCharaFile != null && _expectedLength != null)
             {
                 UiSharedService.TextWrapped("已加载文件：" + _mareCharaFileManager.LoadedCharaFile.FilePath);
-                UiSharedService.TextWrapped("文件描述：" + _mareCharaFileManager.LoadedCharaFile.CharaFileData.Description);
-                if (UiSharedService.IconTextButton(FontAwesomeIcon.Check, "应用加载的MCDF"))
+                UiSharedService.TextWrapped("文件描述： " + _mareCharaFileManager.LoadedCharaFile.CharaFileData.Description);
+                if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Check, "应用加载的MCDF"))
                 {
-                    Task.Run(async () => await _mareCharaFileManager.ApplyMareCharaFile(_dalamudUtil.GposeTargetGameObject).ConfigureAwait(false));
+                    _applicationTask = Task.Run(async () => await _mareCharaFileManager.ApplyMareCharaFile(_dalamudUtil.GposeTargetGameObject, _expectedLength!.GetAwaiter().GetResult()).ConfigureAwait(false));
                 }
                 UiSharedService.AttachToolTip("将其应用于当前选定的集体动作角色");
                 UiSharedService.ColorTextWrapped("警告：重新绘制或更改角色将恢复所有应用的mod。", ImGuiColors.DalamudYellow);
+            }
+            if (_applicationTask?.IsFaulted ?? false)
+            {
+                UiSharedService.ColorTextWrapped("Failure to read MCDF file. MCDF file is possibly corrupt. Re-export the MCDF file and try again.",
+                    ImGuiColors.DalamudRed);
+                UiSharedService.ColorTextWrapped("Note: if this is your MCDF, try redrawing yourself, wait and re-export the file. " +
+                    "If you received it from someone else have them do the same.", ImGuiColors.DalamudYellow);
             }
         }
         else
@@ -77,6 +87,8 @@ public class GposeUi : WindowMediatorSubscriberBase
     private void EndGpose()
     {
         IsOpen = false;
+        _applicationTask = null;
+        _expectedLength = null;
         _mareCharaFileManager.ClearMareCharaFile();
     }
 

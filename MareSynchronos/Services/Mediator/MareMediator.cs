@@ -8,12 +8,13 @@ namespace MareSynchronos.Services.Mediator;
 public sealed class MareMediator : IHostedService
 {
     private readonly object _addRemoveLock = new();
-    private readonly Dictionary<object, DateTime> _lastErrorTime = new();
+    private readonly Dictionary<object, DateTime> _lastErrorTime = [];
     private readonly ILogger<MareMediator> _logger;
     private readonly CancellationTokenSource _loopCts = new();
     private readonly ConcurrentQueue<MessageBase> _messageQueue = new();
     private readonly PerformanceCollectorService _performanceCollector;
-    private readonly Dictionary<Type, HashSet<SubscriberAction>> _subscriberDict = new();
+    private readonly Dictionary<Type, HashSet<SubscriberAction>> _subscriberDict = [];
+    private bool _processQueue = false;
 
     public MareMediator(ILogger<MareMediator> logger, PerformanceCollectorService performanceCollector)
     {
@@ -23,13 +24,13 @@ public sealed class MareMediator : IHostedService
 
     public void PrintSubscriberInfo()
     {
-        foreach (var kvp in _subscriberDict.SelectMany(c => c.Value.Select(v => v))
-            .DistinctBy(p => p.Subscriber).OrderBy(p => p.Subscriber.GetType().FullName, StringComparer.Ordinal).ToList())
+        foreach (var subscriber in _subscriberDict.SelectMany(c => c.Value.Select(v => v.Subscriber))
+            .DistinctBy(p => p).OrderBy(p => p.GetType().FullName, StringComparer.Ordinal).ToList())
         {
-            _logger.LogInformation("Subscriber {type}: {sub}", kvp.Subscriber.GetType().Name, kvp.Subscriber.ToString());
+            _logger.LogInformation("Subscriber {type}: {sub}", subscriber.GetType().Name, subscriber.ToString());
             StringBuilder sb = new();
             sb.Append("=> ");
-            foreach (var item in _subscriberDict.Where(item => item.Value.Any(v => v.Subscriber == kvp.Subscriber)).ToList())
+            foreach (var item in _subscriberDict.Where(item => item.Value.Any(v => v.Subscriber == subscriber)).ToList())
             {
                 sb.Append(item.Key.Name).Append(", ");
             }
@@ -54,15 +55,20 @@ public sealed class MareMediator : IHostedService
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        _logger.LogTrace("Starting MareMediator");
+        _logger.LogInformation("Starting MareMediator");
 
         _ = Task.Run(async () =>
         {
             while (!_loopCts.Token.IsCancellationRequested)
             {
+                while (!_processQueue)
+                {
+                    await Task.Delay(100, _loopCts.Token).ConfigureAwait(false);
+                }
+
                 await Task.Delay(100, _loopCts.Token).ConfigureAwait(false);
 
-                HashSet<MessageBase> processedMessages = new();
+                HashSet<MessageBase> processedMessages = [];
                 while (_messageQueue.TryDequeue(out var message))
                 {
                     if (processedMessages.Contains(message)) { continue; }
@@ -73,7 +79,7 @@ public sealed class MareMediator : IHostedService
             }
         });
 
-        _logger.LogTrace("Started MareMediator");
+        _logger.LogInformation("Started MareMediator");
 
         return Task.CompletedTask;
     }
@@ -89,7 +95,7 @@ public sealed class MareMediator : IHostedService
     {
         lock (_addRemoveLock)
         {
-            _subscriberDict.TryAdd(typeof(T), new HashSet<SubscriberAction>());
+            _subscriberDict.TryAdd(typeof(T), []);
 
             if (!_subscriberDict[typeof(T)].Add(new(subscriber, action)))
             {
@@ -130,36 +136,47 @@ public sealed class MareMediator : IHostedService
     {
         if (!_subscriberDict.TryGetValue(message.GetType(), out HashSet<SubscriberAction>? subscribers) || subscribers == null || !subscribers.Any()) return;
 
-        HashSet<SubscriberAction> subscribersCopy = new HashSet<SubscriberAction>();
+        List<SubscriberAction> subscribersCopy = [];
         lock (_addRemoveLock)
         {
-            subscribersCopy = subscribers?.Where(s => s.Subscriber != null).ToHashSet() ?? new HashSet<SubscriberAction>();
+            subscribersCopy = subscribers?.Where(s => s.Subscriber != null).ToList() ?? [];
         }
 
-        foreach (SubscriberAction subscriber in subscribersCopy)
+#pragma warning disable S3011 // Reflection should not be used to increase accessibility of classes, methods, or fields
+        GetType()
+           .GetMethod(nameof(ExecuteReflected), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?
+           .MakeGenericMethod(message.GetType())?
+           .Invoke(this, [subscribersCopy, message]);
+#pragma warning restore S3011 // Reflection should not be used to increase accessibility of classes, methods, or fields
+    }
+
+    private void ExecuteReflected<T>(List<SubscriberAction> subscribers, T message) where T : MessageBase
+    {
+        var msgTypeName = message.GetType().Name;
+        foreach (SubscriberAction subscriber in subscribers)
         {
             try
             {
-                typeof(MareMediator)
-                    .GetMethod(nameof(ExecuteSubscriber), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?
-                    .MakeGenericMethod(message.GetType())
-                    .Invoke(this, new object[] { subscriber, message });
+                var isSameThread = message.KeepThreadContext ? "$" : string.Empty;
+                _performanceCollector.LogPerformance(this, $"{isSameThread}Execute>{msgTypeName}+{subscriber.Subscriber.GetType().Name}>{subscriber.Subscriber}",
+                    () => ((Action<T>)subscriber.Action).Invoke(message));
             }
             catch (Exception ex)
             {
                 if (_lastErrorTime.TryGetValue(subscriber, out var lastErrorTime) && lastErrorTime.Add(TimeSpan.FromSeconds(10)) > DateTime.UtcNow)
                     continue;
 
-                _logger.LogCritical(ex, "Error executing {type} for subscriber {subscriber}", message.GetType().Name, subscriber.Subscriber.GetType().Name);
+                _logger.LogError(ex.InnerException ?? ex, "Error executing {type} for subscriber {subscriber}",
+                    message.GetType().Name, subscriber.Subscriber.GetType().Name);
                 _lastErrorTime[subscriber] = DateTime.UtcNow;
             }
         }
     }
 
-    private void ExecuteSubscriber<T>(SubscriberAction subscriber, T message) where T : MessageBase
+    public void StartQueueProcessing()
     {
-        var isSameThread = message.KeepThreadContext ? "$" : string.Empty;
-        _performanceCollector.LogPerformance(this, $"{isSameThread}Execute>{message.GetType().Name}+{subscriber.Subscriber.GetType().Name}>{subscriber.Subscriber}", () => ((Action<T>)subscriber.Action).Invoke(message));
+        _logger.LogInformation("Starting Message Queue Processing");
+        _processQueue = true;
     }
 
     private sealed class SubscriberAction

@@ -2,8 +2,9 @@
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.GameFonts;
 using Dalamud.Interface.ImGuiFileDialog;
+using Dalamud.Interface.Internal;
+using Dalamud.Interface.Utility;
 using ImGuiNET;
-using ImGuiScene;
 using MareSynchronos.API.Data;
 using MareSynchronos.API.Dto.User;
 using MareSynchronos.Services;
@@ -23,15 +24,17 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private bool _adjustedForScollBarsLocalProfile = false;
     private bool _adjustedForScollBarsOnlineProfile = false;
     private string _descriptionText = string.Empty;
-    private TextureWrap? _pfpTextureWrap;
+    private IDalamudTextureWrap? _pfpTextureWrap;
     private string _profileDescription = string.Empty;
-    private byte[] _profileImage = Array.Empty<byte>();
+    private byte[] _profileImage = [];
     private bool _showFileDialogError = false;
     private bool _wasOpen;
 
     public EditProfileUi(ILogger<EditProfileUi> logger, MareMediator mediator,
         ApiController apiController, UiBuilder uiBuilder, UiSharedService uiSharedService,
-        FileDialogManager fileDialogManager, MareProfileManager mareProfileManager) : base(logger, mediator, "Mare Synchronos Edit Profile###MareSynchronosEditProfileUI")
+        FileDialogManager fileDialogManager, MareProfileManager mareProfileManager,
+        PerformanceCollectorService performanceCollectorService)
+        : base(logger, mediator, "Mare Synchronos Edit Profile###MareSynchronosEditProfileUI", performanceCollectorService)
     {
         IsOpen = false;
         this.SizeConstraints = new()
@@ -58,7 +61,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         });
     }
 
-    public override void Draw()
+    protected override void DrawInternal()
     {
         _uiSharedService.BigText("当前档案（保存在服务器上）");
 
@@ -130,12 +133,12 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         ImGui.Separator();
         _uiSharedService.BigText("档案设置");
 
-        if (UiSharedService.IconTextButton(FontAwesomeIcon.FileUpload, "上传新的个人档案图片"))
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.FileUpload, "上传新的个人档案图片"))
         {
             _fileDialogManager.OpenFileDialog("选择新的个人档案图片", ".png", (success, file) =>
             {
                 if (!success) return;
-                Task.Run(async () =>
+                _ = Task.Run(async () =>
                 {
                     var fileContent = File.ReadAllBytes(file);
                     using MemoryStream ms = new(fileContent);
@@ -154,16 +157,16 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     }
 
                     _showFileDialogError = false;
-                    await _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), false, null, Convert.ToBase64String(fileContent), null))
+                    await _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false, IsNSFW: null, Convert.ToBase64String(fileContent), Description: null))
                         .ConfigureAwait(false);
                 });
             });
         }
         UiSharedService.AttachToolTip("选择并上传新的个人档案图片");
         ImGui.SameLine();
-        if (UiSharedService.IconTextButton(FontAwesomeIcon.Trash, "清除上传的个人档案图片"))
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "清除上传的个人档案图片"))
         {
-            _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), false, null, "", null));
+            _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false, IsNSFW: null, "", Description: null));
         }
         UiSharedService.AttachToolTip("清除您当前上传的个人档案图片");
         if (_showFileDialogError)
@@ -173,7 +176,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         var isNsfw = profile.IsNSFW;
         if (ImGui.Checkbox("档案是NSFW", ref isNsfw))
         {
-            _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), false, isNsfw, null, null));
+            _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false, isNsfw, ProfilePictureBase64: null, Description: null));
         }
         UiSharedService.DrawHelpText("如果您的个人档案描述或图片为NSFW，请勾选");
         var widthTextBox = 400;
@@ -210,15 +213,15 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         ImGui.EndChildFrame();
         ImGui.PopFont();
 
-        if (UiSharedService.IconTextButton(FontAwesomeIcon.Save, "保存描述"))
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Save, "保存描述"))
         {
-            _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), false, null, null, _descriptionText));
+            _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false, IsNSFW: null, ProfilePictureBase64: null, _descriptionText));
         }
         UiSharedService.AttachToolTip("设置档案描述文本");
         ImGui.SameLine();
-        if (UiSharedService.IconTextButton(FontAwesomeIcon.Trash, "清除描述"))
+        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "清除描述"))
         {
-            _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), false, null, null, ""));
+            _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false, IsNSFW: null, ProfilePictureBase64: null, ""));
         }
         UiSharedService.AttachToolTip("清除档案件描述文本");
     }

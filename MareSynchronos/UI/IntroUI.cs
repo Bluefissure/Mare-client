@@ -1,11 +1,12 @@
-﻿using Dalamud.Interface;
-using Dalamud.Interface.Colors;
+﻿using Dalamud.Interface.Colors;
+using Dalamud.Interface.Utility;
 using Dalamud.Utility;
 using ImGuiNET;
 using MareSynchronos.FileCache;
 using MareSynchronos.Localization;
 using MareSynchronos.MareConfiguration;
 using MareSynchronos.MareConfiguration.Models;
+using MareSynchronos.Services;
 using MareSynchronos.Services.Mediator;
 using MareSynchronos.Services.ServerConfiguration;
 using Microsoft.Extensions.Logging;
@@ -16,8 +17,8 @@ namespace MareSynchronos.UI;
 public class IntroUi : WindowMediatorSubscriberBase
 {
     private readonly MareConfigService _configService;
-    private readonly PeriodicFileScanner _fileCacheManager;
-    private readonly Dictionary<string, string> _languages = new(StringComparer.Ordinal) { { "English", "en" }, { "Deutsch", "de" }, { "Français", "fr" }, { "中文", "zh" }};
+    private readonly CacheMonitor _cacheMonitor;
+    private readonly Dictionary<string, string> _languages = new(StringComparer.Ordinal) { { "English", "en" }, { "Deutsch", "de" }, { "Français", "fr" }, { "中文", "zh"  };
     private readonly ServerConfigurationManager _serverConfigurationManager;
     private readonly UiSharedService _uiShared;
     private int _currentLanguage;
@@ -29,14 +30,17 @@ public class IntroUi : WindowMediatorSubscriberBase
     private string[]? _tosParagraphs;
 
     public IntroUi(ILogger<IntroUi> logger, UiSharedService uiShared, MareConfigService configService,
-        PeriodicFileScanner fileCacheManager, ServerConfigurationManager serverConfigurationManager, MareMediator mareMediator) : base(logger, mareMediator, "Mare Synchronos/月海同步器设置")
+        CacheMonitor fileCacheManager, ServerConfigurationManager serverConfigurationManager, MareMediator mareMediator,
+        PerformanceCollectorService performanceCollectorService) : base(logger, mareMediator, "Mare Synchronos/月海同步器设置", performanceCollectorService)
     {
         _uiShared = uiShared;
         _configService = configService;
-        _fileCacheManager = fileCacheManager;
+        _cacheMonitor = fileCacheManager;
         _serverConfigurationManager = serverConfigurationManager;
 
         IsOpen = false;
+        ShowCloseButton = false;
+        RespectCloseHotkey = false;
 
         SizeConstraints = new WindowSizeConstraints()
         {
@@ -49,20 +53,18 @@ public class IntroUi : WindowMediatorSubscriberBase
         Mediator.Subscribe<SwitchToMainUiMessage>(this, (_) => IsOpen = false);
         Mediator.Subscribe<SwitchToIntroUiMessage>(this, (_) =>
         {
-            _configService.Current.UseCompactor = !Util.IsLinux();
+            _configService.Current.UseCompactor = !Util.IsWine();
             IsOpen = true;
         });
     }
 
-    public override void Draw()
+    protected override void DrawInternal()
     {
         if (_uiShared.IsInGpose) return;
 
         if (!_configService.Current.AcceptedAgreement && !_readFirstPage)
         {
-            if (_uiShared.UidFontBuilt) ImGui.PushFont(_uiShared.UidFont);
-            ImGui.TextUnformatted("欢迎使用月海同步器。");
-            if (_uiShared.UidFontBuilt) ImGui.PopFont();
+            _uiShared.BigText("欢迎使用月海同步器");
             ImGui.Separator();
             UiSharedService.TextWrapped("月海同步器可以将您的角色当前的完整状态同步给与您配对的其他用户，包括Penumbra的模组。" +
                               "请注意，您必须安装Penumbra和Glamourer才能使用此插件。");
@@ -163,18 +165,18 @@ public class IntroUi : WindowMediatorSubscriberBase
                 _uiShared.DrawCacheDirectorySetting();
             }
 
-            if (!_fileCacheManager.IsScanRunning && !string.IsNullOrEmpty(_configService.Current.CacheFolder) && _uiShared.HasValidPenumbraModPath && Directory.Exists(_configService.Current.CacheFolder))
+            if (!_cacheMonitor.IsScanRunning && !string.IsNullOrEmpty(_configService.Current.CacheFolder) && _uiShared.HasValidPenumbraModPath && Directory.Exists(_configService.Current.CacheFolder))
             {
                 if (ImGui.Button("开始扫描##startScan"))
                 {
-                    _fileCacheManager.InvokeScan(forced: true);
+                    _cacheMonitor.InvokeScan();
                 }
             }
             else
             {
                 _uiShared.DrawFileScanState();
             }
-            if (!Util.IsLinux())
+            if (!Util.IsWine())
             {
                 var useFileCompactor = _configService.Current.UseCompactor;
                 if (ImGui.Checkbox("使用文件系统压缩", ref useFileCompactor))
@@ -214,7 +216,7 @@ public class IntroUi : WindowMediatorSubscriberBase
             var buttonWidth = _secretKey.Length != 64 ? 0 : ImGuiHelpers.GetButtonSize(buttonText).X + ImGui.GetStyle().ItemSpacing.X;
             var textSize = ImGui.CalcTextSize(text);
             ImGui.AlignTextToFramePadding();
-            ImGui.Text(text);
+            ImGui.TextUnformatted(text);
             ImGui.SameLine();
             ImGui.SetNextItemWidth(UiSharedService.GetWindowContentRegionWidth() - ImGui.GetWindowContentRegionMin().X - buttonWidth - textSize.X);
             ImGui.InputText("", ref _secretKey, 64);
@@ -235,7 +237,7 @@ public class IntroUi : WindowMediatorSubscriberBase
                     });
                     _serverConfigurationManager.AddCurrentCharacterToServer(addLastSecretKey: true);
                     _secretKey = string.Empty;
-                    Task.Run(() => _uiShared.ApiController.CreateConnections(forceGetToken: true));
+                    _ = Task.Run(() => _uiShared.ApiController.CreateConnections());
                 }
             }
         }
@@ -253,6 +255,6 @@ public class IntroUi : WindowMediatorSubscriberBase
             _uiShared.LoadLocalization(_languages.ElementAt(changeLanguageTo).Value);
         }
 
-        _tosParagraphs = new[] { Strings.ToS.Paragraph1, Strings.ToS.Paragraph2, Strings.ToS.Paragraph3, Strings.ToS.Paragraph4, Strings.ToS.Paragraph5, Strings.ToS.Paragraph6 };
+        _tosParagraphs = [Strings.ToS.Paragraph1, Strings.ToS.Paragraph2, Strings.ToS.Paragraph3, Strings.ToS.Paragraph4, Strings.ToS.Paragraph5, Strings.ToS.Paragraph6];
     }
 }
