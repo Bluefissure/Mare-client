@@ -39,7 +39,7 @@ internal class EventViewerUI : WindowMediatorSubscriberBase
 
     public EventViewerUI(ILogger<EventViewerUI> logger, MareMediator mediator,
         EventAggregator eventAggregator, UiSharedService uiSharedService, PerformanceCollectorService performanceCollectorService) 
-        : base(logger, mediator, "Event Viewer", performanceCollectorService)
+        : base(logger, mediator, "事件查看器", performanceCollectorService)
     {
         _eventAggregator = eventAggregator;
         _uiSharedService = uiSharedService;

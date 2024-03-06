@@ -34,7 +34,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         ApiController apiController, UiBuilder uiBuilder, UiSharedService uiSharedService,
         FileDialogManager fileDialogManager, MareProfileManager mareProfileManager,
         PerformanceCollectorService performanceCollectorService)
-        : base(logger, mediator, "Mare Synchronos Edit Profile###MareSynchronosEditProfileUI", performanceCollectorService)
+        : base(logger, mediator, "修改月海档案###MareSynchronosEditProfileUI", performanceCollectorService)
     {
         IsOpen = false;
         this.SizeConstraints = new()

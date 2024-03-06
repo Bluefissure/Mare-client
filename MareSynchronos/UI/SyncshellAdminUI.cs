@@ -33,7 +33,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
 
     public SyncshellAdminUI(ILogger<SyncshellAdminUI> logger, MareMediator mediator, ApiController apiController,
         UiSharedService uiSharedService, PairManager pairManager, GroupFullInfoDto groupFullInfo, PerformanceCollectorService performanceCollectorService)
-        : base(logger, mediator, "Syncshell Admin Panel (" + groupFullInfo.GroupAliasOrGID + ")", performanceCollectorService)
+        : base(logger, mediator, "同步贝管理员面板 (" + groupFullInfo.GroupAliasOrGID + ")", performanceCollectorService)
     {
         GroupFullInfo = groupFullInfo;
         _apiController = apiController;

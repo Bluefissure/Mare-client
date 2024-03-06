@@ -22,7 +22,7 @@ public class PermissionWindowUI : WindowMediatorSubscriberBase
 
     public PermissionWindowUI(ILogger<PermissionWindowUI> logger, Pair pair, MareMediator mediator, UiSharedService uiSharedService,
         ApiController apiController, PerformanceCollectorService performanceCollectorService)
-        : base(logger, mediator, "Permissions for " + pair.UserData.AliasOrUID + "###MareSynchronosPermissions" + pair.UserData.UID, performanceCollectorService)
+        : base(logger, mediator, "对 " + pair.UserData.AliasOrUID + " 的权限设置###MareSynchronosPermissions" + pair.UserData.UID, performanceCollectorService)
     {
         Pair = pair;
         _uiSharedService = uiSharedService;

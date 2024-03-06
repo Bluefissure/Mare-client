@@ -77,7 +77,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         FileTransferOrchestrator fileTransferOrchestrator,
         FileCacheManager fileCacheManager,
         FileCompactor fileCompactor, ApiController apiController,
-        IpcManager ipcManager, CacheMonitor cacheMonitor) : base(logger, mediator, "Mare Synchronos设置", performanceCollector)
+        IpcManager ipcManager, CacheMonitor cacheMonitor) : base(logger, mediator, "Mare设置", performanceCollector)
     {
         _configService = configService;
         _mareCharaFileManager = mareCharaFileManager;
