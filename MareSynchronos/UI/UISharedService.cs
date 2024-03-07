@@ -863,7 +863,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     internal ImFontPtr GetGameFontHandle()
     {
-        return _pluginInterface.UiBuilder.GetGameFontHandle(new GameFontStyle(GameFontFamilyAndSize.ChnAxis120)).ImFont;
+        return _pluginInterface.UiBuilder.GetGameFontHandle(new GameFontStyle(GameFontFamilyAndSize.Axis12)).ImFont;
     }
 
     internal IDalamudTextureWrap LoadImage(byte[] imageData)

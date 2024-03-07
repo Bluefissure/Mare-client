@@ -93,6 +93,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
         var spacing = ImGui.GetStyle().ItemSpacing.X;
         ImGuiHelpers.ScaledRelativeSameLine(256, spacing);
+        ImGui.PushFont(_uiBuilder.GetGameFontHandle(new GameFontStyle(GameFontFamilyAndSize.Axis12)).ImFont);
         var descriptionTextSize = ImGui.CalcTextSize(profile.Description, 256f);
         var childFrame = ImGuiHelpers.ScaledVector2(256 + ImGui.GetStyle().WindowPadding.X + ImGui.GetStyle().WindowBorderSize, 256);
         if (descriptionTextSize.Y > childFrame.Y)
@@ -112,6 +113,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             UiSharedService.TextWrapped(profile.Description);
         }
         ImGui.EndChildFrame();
+        ImGui.PopFont();
 
         var nsfw = profile.IsNSFW;
         ImGui.BeginDisabled();
@@ -183,10 +185,13 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         ImGui.SetCursorPosX(posX);
         ImGuiHelpers.ScaledRelativeSameLine(widthTextBox, ImGui.GetStyle().ItemSpacing.X);
         ImGui.TextUnformatted("预览（大致）");
+        ImGui.PushFont(_uiBuilder.GetGameFontHandle(new GameFontStyle(GameFontFamilyAndSize.Axis12)).ImFont);
         ImGui.InputTextMultiline("##description", ref _descriptionText, 1500, ImGuiHelpers.ScaledVector2(widthTextBox, 200));
+        ImGui.PopFont();
 
         ImGui.SameLine();
 
+        ImGui.PushFont(_uiBuilder.GetGameFontHandle(new GameFontStyle(GameFontFamilyAndSize.Axis12)).ImFont);
         var descriptionTextSizeLocal = ImGui.CalcTextSize(_descriptionText, 256f);
         var childFrameLocal = ImGuiHelpers.ScaledVector2(256 + ImGui.GetStyle().WindowPadding.X + ImGui.GetStyle().WindowBorderSize, 200);
         if (descriptionTextSizeLocal.Y > childFrameLocal.Y)
@@ -206,6 +211,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             UiSharedService.TextWrapped(_descriptionText);
         }
         ImGui.EndChildFrame();
+        ImGui.PopFont();
 
         if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Save, "保存描述"))
         {
