@@ -62,7 +62,7 @@ public class DrawUserPair
     {
         if (!_pair.IsPaused)
         {
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.User, "Open Profile", _menuRenderWidth, true))
+            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.User, "打开月海档案", _menuRenderWidth, true))
             {
                 _displayHandler.OpenProfile(_pair);
                 ImGui.CloseCurrentPopup();
