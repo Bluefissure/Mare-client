@@ -59,10 +59,10 @@ public class Pair
         SeStringBuilder seStringBuilder2 = new();
         SeStringBuilder seStringBuilder3 = new();
         SeStringBuilder seStringBuilder4 = new();
-        var openProfileSeString = seStringBuilder.AddUiForeground(526).AddText(" ").AddUiForegroundOff().AddText("Open Profile").Build();
-        var reapplyDataSeString = seStringBuilder2.AddUiForeground(526).AddText(" ").AddUiForegroundOff().AddText("Reapply last data").Build();
-        var cyclePauseState = seStringBuilder3.AddUiForeground(526).AddText(" ").AddUiForegroundOff().AddText("Cycle pause state").Build();
-        var changePermissions = seStringBuilder4.AddUiForeground(526).AddText(" ").AddUiForegroundOff().AddText("Change Permissions").Build();
+        var openProfileSeString = seStringBuilder.AddUiForeground(526).AddText(" ").AddUiForegroundOff().AddText("打开月海档案").Build();
+        var reapplyDataSeString = seStringBuilder2.AddUiForeground(526).AddText(" ").AddUiForegroundOff().AddText("尝试重绘角色").Build();
+        var cyclePauseState = seStringBuilder3.AddUiForeground(526).AddText(" ").AddUiForegroundOff().AddText("同步/暂停同步").Build();
+        var changePermissions = seStringBuilder4.AddUiForeground(526).AddText(" ").AddUiForegroundOff().AddText("修改同步权限").Build();
         args.AddCustomItem(new GameObjectContextMenuItem(openProfileSeString, (a) =>
         {
             _mediator.Publish(new ProfileOpenStandaloneMessage(this));
