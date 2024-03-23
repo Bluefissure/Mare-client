@@ -145,8 +145,8 @@ public class PermissionWindowUI : WindowMediatorSubscriberBase
             }
         UiSharedService.AttachToolTip("保存并应用");
 
-        var rightSideButtons = _uiSharedService.GetIconTextButtonSize(Dalamud.Interface.FontAwesomeIcon.Undo, "撤销").X +
-            _uiSharedService.GetIconTextButtonSize(Dalamud.Interface.FontAwesomeIcon.ArrowsSpin, "恢复默认设置").X;
+        var rightSideButtons = _uiSharedService.GetIconTextButtonSize(Dalamud.Interface.FontAwesomeIcon.Undo, "撤销") +
+            _uiSharedService.GetIconTextButtonSize(Dalamud.Interface.FontAwesomeIcon.ArrowsSpin, "恢复默认设置");
         var availableWidth = ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X;
 
         ImGui.SameLine(availableWidth - rightSideButtons);

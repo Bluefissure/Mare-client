@@ -89,7 +89,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
         if (_pfpTextureWrap != null)
         {
-            ImGui.Image(_pfpTextureWrap.ImGuiHandle, ImGuiHelpers.ScaledVector2(_pfpTextureWrap.Width, _pfpTextureWrap.Height));
+            ImGui.Image(_pfpTextureWrap.ImGuiHandle,
+                ImGuiHelpers.ScaledVector2(_pfpTextureWrap.Width, _pfpTextureWrap.Height));
         }
 
         var spacing = ImGui.GetStyle().ItemSpacing.X;
@@ -97,7 +98,9 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         using (_uiSharedService.GameFont.Push())
         {
             var descriptionTextSize = ImGui.CalcTextSize(profile.Description, 256f);
-            var childFrame = ImGuiHelpers.ScaledVector2(256 + ImGui.GetStyle().WindowPadding.X + ImGui.GetStyle().WindowBorderSize, 256);
+            var childFrame =
+                ImGuiHelpers.ScaledVector2(256 + ImGui.GetStyle().WindowPadding.X + ImGui.GetStyle().WindowBorderSize,
+                    256);
             if (descriptionTextSize.Y > childFrame.Y)
             {
                 _adjustedForScollBarsOnlineProfile = true;
@@ -106,6 +109,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             {
                 _adjustedForScollBarsOnlineProfile = false;
             }
+
             childFrame = childFrame with
             {
                 X = childFrame.X + (_adjustedForScollBarsOnlineProfile ? ImGui.GetStyle().ScrollbarSize : 0),
@@ -114,6 +118,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             {
                 UiSharedService.TextWrapped(profile.Description);
             }
+
             ImGui.EndChildFrame();
         }
 
@@ -126,12 +131,12 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         _uiSharedService.BigText("档案的备注和规则");
 
         ImGui.TextWrapped($"- 所有与您配对且未暂停的用户都将能够看到您的个人档案图片和描述。{Environment.NewLine}" +
-            $"- 其他用户可以举报您的个人档案违反规则。{Environment.NewLine}" +
-            $"- !!!禁止：任何可被视为高度非法或淫秽的个人档案图片（兽交、任何可被视为与未成年人（包括拉拉菲尔族）发生性行为的东西等）。{Environment.NewLine}" +
-            $"- !!!避免：描述中任何可能被视为高度冒犯性的侮辱词汇。{Environment.NewLine}" +
-            $"- 如果其他用户提供的举报有效，这可能会导致您的个人档案被永久禁用或您的月海帐户被无限期终止。{Environment.NewLine}" +
-            $"- 插件的管理团队作出的关于您的个人档案是否合规的结论是不可争议的，并且永久禁用您的个人档案/帐户的决定也是不可争议的。{Environment.NewLine}" +
-            $"- 如果您的个人档案图片或个人档案描述应该被视为NSFW，请启用下面的开关。");
+                          $"- 其他用户可以举报您的个人档案违反规则。{Environment.NewLine}" +
+                          $"- !!!禁止：任何可被视为高度非法或淫秽的个人档案图片（兽交、任何可被视为与未成年人（包括拉拉菲尔族）发生性行为的东西等）。{Environment.NewLine}" +
+                          $"- !!!避免：描述中任何可能被视为高度冒犯性的侮辱词汇。{Environment.NewLine}" +
+                          $"- 如果其他用户提供的举报有效，这可能会导致您的个人档案被永久禁用或您的月海帐户被无限期终止。{Environment.NewLine}" +
+                          $"- 插件的管理团队作出的关于您的个人档案是否合规的结论是不可争议的，并且永久禁用您的个人档案/帐户的决定也是不可争议的。{Environment.NewLine}" +
+                          $"- 如果您的个人档案图片或个人档案描述应该被视为NSFW，请启用下面的开关。");
         ImGui.Separator();
         _uiSharedService.BigText("档案设置");
 
@@ -150,6 +155,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                         _showFileDialogError = true;
                         return;
                     }
+
                     using var image = Image.Load<Rgba32>(fileContent);
 
                     if (image.Width > 256 || image.Height > 256 || (fileContent.Length > 250 * 1024))
@@ -159,27 +165,34 @@ public class EditProfileUi : WindowMediatorSubscriberBase
                     }
 
                     _showFileDialogError = false;
-                    await _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false, IsNSFW: null, Convert.ToBase64String(fileContent), Description: null))
+                    await _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID),
+                            Disabled: false, IsNSFW: null, Convert.ToBase64String(fileContent), Description: null))
                         .ConfigureAwait(false);
                 });
             });
         }
+
         UiSharedService.AttachToolTip("选择并上传新的个人档案图片");
         ImGui.SameLine();
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "清除上传的个人档案图片"))
         {
-            _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false, IsNSFW: null, "", Description: null));
+            _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false,
+                IsNSFW: null, "", Description: null));
         }
+
         UiSharedService.AttachToolTip("清除您当前上传的个人档案图片");
         if (_showFileDialogError)
         {
             UiSharedService.ColorTextWrapped("个人档案图片必须是PNG文件，最大高度和宽度为256px，大小不超过250KiB", ImGuiColors.DalamudRed);
         }
+
         var isNsfw = profile.IsNSFW;
         if (ImGui.Checkbox("档案是NSFW", ref isNsfw))
         {
-            _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false, isNsfw, ProfilePictureBase64: null, Description: null));
+            _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false,
+                isNsfw, ProfilePictureBase64: null, Description: null));
         }
+
         _uiSharedService.DrawHelpText("如果您的个人档案描述或图片为NSFW，请勾选");
         var widthTextBox = 400;
         var posX = ImGui.GetCursorPosX();
@@ -188,14 +201,17 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         ImGuiHelpers.ScaledRelativeSameLine(widthTextBox, ImGui.GetStyle().ItemSpacing.X);
         ImGui.TextUnformatted("预览（大致）");
         using (_uiSharedService.GameFont.Push())
-            ImGui.InputTextMultiline("##description", ref _descriptionText, 1500, ImGuiHelpers.ScaledVector2(widthTextBox, 200));
+            ImGui.InputTextMultiline("##description", ref _descriptionText, 1500,
+                ImGuiHelpers.ScaledVector2(widthTextBox, 200));
 
         ImGui.SameLine();
 
         using (_uiSharedService.GameFont.Push())
         {
             var descriptionTextSizeLocal = ImGui.CalcTextSize(_descriptionText, 256f);
-            var childFrameLocal = ImGuiHelpers.ScaledVector2(256 + ImGui.GetStyle().WindowPadding.X + ImGui.GetStyle().WindowBorderSize, 200);
+            var childFrameLocal =
+                ImGuiHelpers.ScaledVector2(256 + ImGui.GetStyle().WindowPadding.X + ImGui.GetStyle().WindowBorderSize,
+                    200);
             if (descriptionTextSizeLocal.Y > childFrameLocal.Y)
             {
                 _adjustedForScollBarsLocalProfile = true;
@@ -204,6 +220,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             {
                 _adjustedForScollBarsLocalProfile = false;
             }
+
             childFrameLocal = childFrameLocal with
             {
                 X = childFrameLocal.X + (_adjustedForScollBarsLocalProfile ? ImGui.GetStyle().ScrollbarSize : 0),
@@ -212,17 +229,24 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             {
                 UiSharedService.TextWrapped(_descriptionText);
             }
+
             ImGui.EndChildFrame();
         }
 
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, "保存描述"))
         {
-            _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false, IsNSFW: null, ProfilePictureBase64: null, _descriptionText));
+            _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false,
+                IsNSFW: null, ProfilePictureBase64: null, _descriptionText));
         }
+
         UiSharedService.AttachToolTip("设置档案描述文本");
         ImGui.SameLine();
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "清除描述"))
         {
+            _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false,
+                IsNSFW: null, ProfilePictureBase64: null, ""));
+        }
+        UiSharedService.AttachToolTip("Clears your profile description text");
     }
 
     protected override void Dispose(bool disposing)

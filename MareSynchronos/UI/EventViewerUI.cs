@@ -114,7 +114,7 @@ internal class EventViewerUI : WindowMediatorSubscriberBase
         }
 
         var buttonSize = _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.FolderOpen, "打开事件记录文件夹");
-        var dist = ImGui.GetWindowContentRegionMax().X - buttonSize.X;
+        var dist = ImGui.GetWindowContentRegionMax().X - buttonSize;
         ImGui.SameLine(dist);
         if (_uiSharedService.IconTextButton(FontAwesomeIcon.FolderOpen, "打开事件记录文件夹"))
         {

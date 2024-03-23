@@ -369,11 +369,11 @@ public class DrawUserPair
                         ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
                         ImGui.AlignTextToFramePadding();
                         ImGui.TextUnformatted("你");
-                        UiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OwnPermissions.IsDisableSounds());
+                        _uiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OwnPermissions.IsDisableSounds());
                         ImGui.SameLine();
                         ImGui.AlignTextToFramePadding();
                         ImGui.TextUnformatted("他们");
-                        UiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OtherPermissions.IsDisableSounds());
+                        _uiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OtherPermissions.IsDisableSounds());
                     }
 
                     if (individualAnimDisabled)
@@ -387,7 +387,7 @@ public class DrawUserPair
                         ImGui.SameLine();
                         ImGui.AlignTextToFramePadding();
                         ImGui.TextUnformatted("他们");
-                        UiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OtherPermissions.IsDisableAnimations());
+                        _uiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OtherPermissions.IsDisableAnimations());
                     }
 
                     if (individualVFXDisabled)
@@ -401,11 +401,11 @@ public class DrawUserPair
                         ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
                         ImGui.AlignTextToFramePadding();
                         ImGui.TextUnformatted("你");
-                        UiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OwnPermissions.IsDisableVFX());
+                        _uiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OwnPermissions.IsDisableVFX());
                         ImGui.SameLine();
                         ImGui.AlignTextToFramePadding();
                         ImGui.TextUnformatted("他们");
-                        UiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OtherPermissions.IsDisableVFX());
+                        _uiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OtherPermissions.IsDisableVFX());
                     }
 
                     ImGui.EndTooltip();

@@ -69,7 +69,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
             {
                 ImGui.TextUnformatted("BC7 转换正在进行中: " + _conversionCurrentFileProgress + "/" + _texturesToConvert.Count);
                 UiSharedService.TextWrapped("当前文件: " + _conversionCurrentFileName);
-                if (_uiSharedService.NormalizedIconTextButton(FontAwesomeIcon.StopCircle, "取消转换"))
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.StopCircle, "取消转换"))
                 {
                     _conversionCancellationTokenSource.Cancel();
                 }
@@ -111,7 +111,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
         {
             UiSharedService.ColorTextWrapped($"分析中 {_characterAnalyzer.CurrentFile}/{_characterAnalyzer.TotalFiles}",
                 ImGuiColors.DalamudYellow);
-            if (_uiSharedService.NormalizedIconTextButton(FontAwesomeIcon.StopCircle, "取消分析"))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.StopCircle, "取消分析"))
             {
                 _characterAnalyzer.CancelAnalyze();
             }
@@ -122,14 +122,14 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
             {
                 UiSharedService.ColorTextWrapped("分析中的某些条目的文件大小尚未确定，请按下面的按钮分析您的当前数据",
                     ImGuiColors.DalamudYellow);
-                if (_uiSharedService.NormalizedIconTextButton(FontAwesomeIcon.PlayCircle, "开始分析（缺失条目）"))
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.PlayCircle, "开始分析（缺失条目）"))
                 {
                     _ = _characterAnalyzer.ComputeAnalysis(print: false);
                 }
             }
             else
             {
-                if (_uiSharedService.NormalizedIconTextButton(FontAwesomeIcon.PlayCircle, "开始分析（重新计算所有条目）"))
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.PlayCircle, "开始分析（重新计算所有条目）"))
                 {
                     _ = _characterAnalyzer.ComputeAnalysis(print: false, recalculate: true);
                 }

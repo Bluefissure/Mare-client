@@ -74,7 +74,7 @@ public class SelectTagForPairUi
             }
 
             ImGui.Separator();
-            UiSharedService.FontText($"为 {name} 创建一个新的组.");
+            ImGui.TextUnformatted($"为 {name} 创建一个新的组.");
             if (_uiSharedService.IconButton(FontAwesomeIcon.Plus))
             {
                 HandleAddTag();

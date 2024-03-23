@@ -72,7 +72,7 @@ public class CreateSyncshellUI : WindowMediatorSubscriberBase
             _uiSharedService.BooleanToColoredIcon(!_apiController.DefaultPermissions!.DisableGroupAnimations);
             ImGui.AlignTextToFramePadding();
             ImGui.TextUnformatted("- 声音");
-            _uiSharedService..BooleanToColoredIcon(!_apiController.DefaultPermissions!.DisableGroupSounds);
+            _uiSharedService.BooleanToColoredIcon(!_apiController.DefaultPermissions!.DisableGroupSounds);
             ImGui.AlignTextToFramePadding();
             ImGui.TextUnformatted("- VFX");
             _uiSharedService.BooleanToColoredIcon(!_apiController.DefaultPermissions!.DisableGroupVFX);

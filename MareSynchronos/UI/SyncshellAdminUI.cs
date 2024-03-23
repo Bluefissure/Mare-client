@@ -370,7 +370,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
 
                 ImGui.AlignTextToFramePadding();
                 ImGui.Text("推荐的声音同步设置");
-                _uiSharedService.IconText(!isDisableSounds);
+                _uiSharedService.BooleanToColoredIcon(!isDisableSounds);
                 ImGui.SameLine(230);
                 if (_uiSharedService.IconTextButton(isDisableSounds ? FontAwesomeIcon.VolumeUp : FontAwesomeIcon.VolumeMute,
                     isDisableSounds ? "建议打开声音同步" : "建议关闭声音同步"))
@@ -381,7 +381,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
 
                 ImGui.AlignTextToFramePadding();
                 ImGui.Text("推荐的动画同步设置");
-                _uiSharedService.IconText(!isDisableAnimations);
+                _uiSharedService.BooleanToColoredIcon(!isDisableAnimations);
                 ImGui.SameLine(230);
                 if (_uiSharedService.IconTextButton(isDisableAnimations ? FontAwesomeIcon.Running : FontAwesomeIcon.Stop,
                     isDisableAnimations ? "建议打开动画同步" : "建议关闭动画同步"))
@@ -392,7 +392,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
 
                 ImGui.AlignTextToFramePadding();
                 ImGui.Text("推荐的VFX同步设置");
-                _uiSharedService.IconText(!isDisableVfx);
+                _uiSharedService.BooleanToColoredIcon(!isDisableVfx);
                 ImGui.SameLine(230);
                 if (_uiSharedService.IconTextButton(isDisableVfx ? FontAwesomeIcon.Sun : FontAwesomeIcon.Circle,
                     isDisableVfx ? "建议打开VFX同步" : "建议关闭VFX同步"))
