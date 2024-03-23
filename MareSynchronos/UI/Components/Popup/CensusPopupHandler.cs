@@ -1,5 +1,4 @@
 ﻿using Dalamud.Interface.Utility;
-using Dalamud.Interface.Utility.Raii;
 using ImGuiNET;
 using MareSynchronos.Services.ServerConfiguration;
 using System.Numerics;
@@ -25,7 +24,7 @@ public class CensusPopupHandler : IPopupHandler
     public void DrawContent()
     {
         var start = 0f;
-        using (ImRaii.PushFont(_uiSharedService.UidFont))
+        using (_uiSharedService.UidFont.Push())
         {
             start = ImGui.GetCursorPosY() - ImGui.CalcTextSize("Mare角色数据普查").Y;
             UiSharedService.TextWrapped("参与Mare角色数据普查");

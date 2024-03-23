@@ -3,6 +3,7 @@ using Dalamud.Game.ClientState.Objects;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Memory;
 using Dalamud.Plugin.Services;
+using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
@@ -56,20 +57,22 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
                 .Where(w => w.IsPublic && !w.Name.RawData.IsEmpty)
                 .ToDictionary(w => (ushort)w.RowId, w => w.Name.ToString());
         });
-        mediator.Subscribe<TargetPairMessage>(this, async (msg) =>
+        mediator.Subscribe<TargetPairMessage>(this, (msg) =>
         {
             if (clientState.IsPvP) return;
             var name = msg.Pair.PlayerName;
             if (string.IsNullOrEmpty(name)) return;
             var addr = _playerCharas.FirstOrDefault(f => string.Equals(f.Value.Name, name, StringComparison.Ordinal)).Value.Address;
             if (addr == nint.Zero) return;
-            await RunOnFrameworkThread(() =>
+            _ = RunOnFrameworkThread(() =>
             {
                 targetManager.Target = CreateGameObject(addr);
             }).ConfigureAwait(false);
         });
+        IsWine = Util.IsWine();
     }
 
+    public bool IsWine { get; init; }
     public unsafe GameObject* GposeTarget => TargetSystem.Instance()->GPoseTarget;
     public unsafe Dalamud.Game.ClientState.Objects.Types.GameObject? GposeTargetGameObject => GposeTarget == null ? null : _objectTable[GposeTarget->ObjectIndex];
     public bool IsAnythingDrawing { get; private set; } = false;
@@ -194,7 +197,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
 
     public async Task<string> GetPlayerNameHashedAsync()
     {
-        return await RunOnFrameworkThread(() => (GetPlayerName() + GetHomeWorldId()).GetHash256()).ConfigureAwait(false);
+        return await RunOnFrameworkThread(() => (GetPlayerName(), (ushort)GetHomeWorldId()).GetHash256()).ConfigureAwait(false);
     }
 
     public IntPtr GetPlayerPointer()
@@ -249,7 +252,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     public async Task RunOnFrameworkThread(Action act, [CallerMemberName] string callerMember = "", [CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
     {
         var fileName = Path.GetFileNameWithoutExtension(callerFilePath);
-        await _performanceCollector.LogPerformance(this, "RunOnFramework:Act/" + fileName + ">" + callerMember + ":" + callerLineNumber, async () =>
+        await _performanceCollector.LogPerformance(this, $"RunOnFramework:Act/{fileName}>{callerMember}:{callerLineNumber}", async () =>
         {
             if (!_framework.IsInFrameworkUpdateThread)
             {
@@ -268,7 +271,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     public async Task<T> RunOnFrameworkThread<T>(Func<T> func, [CallerMemberName] string callerMember = "", [CallerFilePath] string callerFilePath = "", [CallerLineNumber] int callerLineNumber = 0)
     {
         var fileName = Path.GetFileNameWithoutExtension(callerFilePath);
-        return await _performanceCollector.LogPerformance(this, "RunOnFramework:Func<" + typeof(T) + ">/" + fileName + ">" + callerMember + ":" + callerLineNumber, async () =>
+        return await _performanceCollector.LogPerformance(this, $"RunOnFramework:Func<{typeof(T)}>/{fileName}>{callerMember}:{callerLineNumber}", async () =>
         {
             if (!_framework.IsInFrameworkUpdateThread)
             {
@@ -371,7 +374,6 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     {
         var gameObj = (GameObject*)address;
         var drawObj = gameObj->DrawObject;
-        var playerName = characterName;
         bool isDrawing = false;
         bool isDrawingChanged = false;
         if ((nint)drawObj != IntPtr.Zero)
@@ -383,20 +385,20 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
                 if (!isDrawing)
                 {
                     isDrawing = ((CharacterBase*)drawObj)->HasModelFilesInSlotLoaded != 0;
-                    if (isDrawing && !string.Equals(_lastGlobalBlockPlayer, playerName, StringComparison.Ordinal)
+                    if (isDrawing && !string.Equals(_lastGlobalBlockPlayer, characterName, StringComparison.Ordinal)
                         && !string.Equals(_lastGlobalBlockReason, "HasModelFilesInSlotLoaded", StringComparison.Ordinal))
                     {
-                        _lastGlobalBlockPlayer = playerName;
+                        _lastGlobalBlockPlayer = characterName;
                         _lastGlobalBlockReason = "HasModelFilesInSlotLoaded";
                         isDrawingChanged = true;
                     }
                 }
                 else
                 {
-                    if (!string.Equals(_lastGlobalBlockPlayer, playerName, StringComparison.Ordinal)
+                    if (!string.Equals(_lastGlobalBlockPlayer, characterName, StringComparison.Ordinal)
                         && !string.Equals(_lastGlobalBlockReason, "HasModelInSlotLoaded", StringComparison.Ordinal))
                     {
-                        _lastGlobalBlockPlayer = playerName;
+                        _lastGlobalBlockPlayer = characterName;
                         _lastGlobalBlockReason = "HasModelInSlotLoaded";
                         isDrawingChanged = true;
                     }
@@ -404,10 +406,10 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
             }
             else
             {
-                if (!string.Equals(_lastGlobalBlockPlayer, playerName, StringComparison.Ordinal)
+                if (!string.Equals(_lastGlobalBlockPlayer, characterName, StringComparison.Ordinal)
                     && !string.Equals(_lastGlobalBlockReason, "RenderFlags", StringComparison.Ordinal))
                 {
-                    _lastGlobalBlockPlayer = playerName;
+                    _lastGlobalBlockPlayer = characterName;
                     _lastGlobalBlockReason = "RenderFlags";
                     isDrawingChanged = true;
                 }
@@ -416,7 +418,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
 
         if (isDrawingChanged)
         {
-            _logger.LogTrace("Global draw block: START => {name} ({reason})", playerName, _lastGlobalBlockReason);
+            _logger.LogTrace("Global draw block: START => {name} ({reason})", characterName, _lastGlobalBlockReason);
         }
 
         IsAnythingDrawing |= isDrawing;
@@ -424,7 +426,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
 
     private void FrameworkOnUpdate(IFramework framework)
     {
-        _performanceCollector.LogPerformance(this, "FrameworkOnUpdate", FrameworkOnUpdateInternal);
+        _performanceCollector.LogPerformance(this, $"FrameworkOnUpdate", FrameworkOnUpdateInternal);
     }
 
     private unsafe void FrameworkOnUpdateInternal()
@@ -436,10 +438,10 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
 
         bool isNormalFrameworkUpdate = DateTime.Now < _delayedFrameworkUpdateCheck.AddSeconds(1);
 
-        _performanceCollector.LogPerformance(this, "FrameworkOnUpdateInternal+" + (isNormalFrameworkUpdate ? "Regular" : "Delayed"), () =>
+        _performanceCollector.LogPerformance(this, $"FrameworkOnUpdateInternal+{(isNormalFrameworkUpdate ? "Regular" : "Delayed")}", () =>
         {
             IsAnythingDrawing = false;
-            _performanceCollector.LogPerformance(this, "ObjTableToCharas",
+            _performanceCollector.LogPerformance(this, $"ObjTableToCharas",
                 () =>
                 {
                     _notUpdatedCharas.AddRange(_playerCharas.Keys);
@@ -451,9 +453,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
                             continue;
 
                         MemoryHelper.ReadStringNullTerminated((nint)((GameObject*)chara.Address)->Name, out string charaName);
-                        string homeWorldId = ((BattleChara*)chara.Address)->Character.HomeWorld.ToString();
-
-                        var hash = (charaName + homeWorldId).GetHash256();
+                        var hash = (charaName, ((BattleChara*)chara.Address)->Character.HomeWorld).GetHash256();
                         if (!IsAnythingDrawing)
                             CheckCharacterForDrawing(chara.Address, charaName);
                         _notUpdatedCharas.Remove(hash);

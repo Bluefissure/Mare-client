@@ -12,6 +12,7 @@ namespace MareSynchronos.UI;
 public class GposeUi : WindowMediatorSubscriberBase
 {
     private readonly MareConfigService _configService;
+    private readonly UiSharedService _uiSharedService;
     private readonly DalamudUtilService _dalamudUtil;
     private readonly FileDialogManager _fileDialogManager;
     private readonly MareCharaFileManager _mareCharaFileManager;
@@ -20,14 +21,14 @@ public class GposeUi : WindowMediatorSubscriberBase
 
     public GposeUi(ILogger<GposeUi> logger, MareCharaFileManager mareCharaFileManager,
         DalamudUtilService dalamudUtil, FileDialogManager fileDialogManager, MareConfigService configService,
-        MareMediator mediator, PerformanceCollectorService performanceCollectorService) 
+        MareMediator mediator, PerformanceCollectorService performanceCollectorService, UiSharedService uiSharedService)
         : base(logger, mediator, "月海同步器集体动作导入窗口###MareSynchronosGposeUI", performanceCollectorService)
     {
         _mareCharaFileManager = mareCharaFileManager;
         _dalamudUtil = dalamudUtil;
         _fileDialogManager = fileDialogManager;
         _configService = configService;
-
+        _uiSharedService = uiSharedService;
         Mediator.Subscribe<GposeStartMessage>(this, (_) => StartGpose());
         Mediator.Subscribe<GposeEndMessage>(this, (_) => EndGpose());
         IsOpen = _dalamudUtil.IsInGpose;
@@ -44,7 +45,7 @@ public class GposeUi : WindowMediatorSubscriberBase
 
         if (!_mareCharaFileManager.CurrentlyWorking)
         {
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.FolderOpen, "加载MCDF"))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.FolderOpen, "加载MCDF"))
             {
                 _fileDialogManager.OpenFileDialog("选择MCDF文件", ".mcdf", (success, paths) =>
                 {
@@ -62,7 +63,7 @@ public class GposeUi : WindowMediatorSubscriberBase
             {
                 UiSharedService.TextWrapped("已加载文件：" + _mareCharaFileManager.LoadedCharaFile.FilePath);
                 UiSharedService.TextWrapped("文件描述： " + _mareCharaFileManager.LoadedCharaFile.CharaFileData.Description);
-                if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Check, "应用加载的MCDF"))
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Check, "应用加载的MCDF"))
                 {
                     _applicationTask = Task.Run(async () => await _mareCharaFileManager.ApplyMareCharaFile(_dalamudUtil.GposeTargetGameObject, _expectedLength!.GetAwaiter().GetResult()).ConfigureAwait(false));
                 }

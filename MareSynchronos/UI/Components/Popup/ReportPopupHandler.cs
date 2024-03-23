@@ -28,7 +28,7 @@ internal class ReportPopupHandler : IPopupHandler
 
     public void DrawContent()
     {
-        using (ImRaii.PushFont(_uiSharedService.UidFont))
+        using (_uiSharedService.UidFont.Push())
             UiSharedService.TextWrapped("举报 " + _reportedPair!.UserData.AliasOrUID + " 月海档案");
 
         ImGui.InputTextMultiline("##reportReason", ref _reportReason, 500, new Vector2(500 - ImGui.GetStyle().ItemSpacing.X * 2, 200));
@@ -42,7 +42,7 @@ internal class ReportPopupHandler : IPopupHandler
 
         using (ImRaii.Disabled(string.IsNullOrEmpty(_reportReason)))
         {
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.ExclamationTriangle, "发送举报"))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.ExclamationTriangle, "发送举报"))
             {
                 ImGui.CloseCurrentPopup();
                 var reason = _reportReason;

@@ -1,6 +1,8 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using MareSynchronos.MareConfiguration;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
+using System.Reflection;
 using System.Text;
 
 namespace MareSynchronos.Services.Mediator;
@@ -13,13 +15,15 @@ public sealed class MareMediator : IHostedService
     private readonly CancellationTokenSource _loopCts = new();
     private readonly ConcurrentQueue<MessageBase> _messageQueue = new();
     private readonly PerformanceCollectorService _performanceCollector;
+    private readonly MareConfigService _mareConfigService;
     private readonly Dictionary<Type, HashSet<SubscriberAction>> _subscriberDict = [];
     private bool _processQueue = false;
-
-    public MareMediator(ILogger<MareMediator> logger, PerformanceCollectorService performanceCollector)
+    private readonly Dictionary<Type, MethodInfo?> _genericExecuteMethods = new();
+    public MareMediator(ILogger<MareMediator> logger, PerformanceCollectorService performanceCollector, MareConfigService mareConfigService)
     {
         _logger = logger;
         _performanceCollector = performanceCollector;
+        _mareConfigService = mareConfigService;
     }
 
     public void PrintSubscriberInfo()
@@ -143,23 +147,34 @@ public sealed class MareMediator : IHostedService
         }
 
 #pragma warning disable S3011 // Reflection should not be used to increase accessibility of classes, methods, or fields
-        GetType()
-           .GetMethod(nameof(ExecuteReflected), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?
-           .MakeGenericMethod(message.GetType())?
-           .Invoke(this, [subscribersCopy, message]);
+        var msgType = message.GetType();
+        if (!_genericExecuteMethods.TryGetValue(msgType, out var methodInfo))
+        {
+            _genericExecuteMethods[msgType] = methodInfo = GetType()
+                 .GetMethod(nameof(ExecuteReflected), System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?
+                 .MakeGenericMethod(msgType);
+        }
+
+        methodInfo!.Invoke(this, [subscribersCopy, message]);
 #pragma warning restore S3011 // Reflection should not be used to increase accessibility of classes, methods, or fields
     }
 
     private void ExecuteReflected<T>(List<SubscriberAction> subscribers, T message) where T : MessageBase
     {
-        var msgTypeName = message.GetType().Name;
         foreach (SubscriberAction subscriber in subscribers)
         {
             try
             {
-                var isSameThread = message.KeepThreadContext ? "$" : string.Empty;
-                _performanceCollector.LogPerformance(this, $"{isSameThread}Execute>{msgTypeName}+{subscriber.Subscriber.GetType().Name}>{subscriber.Subscriber}",
-                    () => ((Action<T>)subscriber.Action).Invoke(message));
+                if (_mareConfigService.Current.LogPerformance)
+                {
+                    var isSameThread = message.KeepThreadContext ? "$" : string.Empty;
+                    _performanceCollector.LogPerformance(this, $"{isSameThread}Execute>{message.GetType().Name}+{subscriber.Subscriber.GetType().Name}>{subscriber.Subscriber}",
+                        () => ((Action<T>)subscriber.Action).Invoke(message));
+                }
+                else
+                {
+                    ((Action<T>)subscriber.Action).Invoke(message);
+                }
             }
             catch (Exception ex)
             {

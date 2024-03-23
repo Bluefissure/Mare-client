@@ -1,6 +1,5 @@
 ﻿using Dalamud.Interface;
 using Dalamud.Interface.Colors;
-using Dalamud.Interface.GameFonts;
 using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Internal;
 using Dalamud.Interface.Utility;
@@ -11,6 +10,8 @@ using MareSynchronos.Services;
 using MareSynchronos.Services.Mediator;
 using MareSynchronos.WebAPI;
 using Microsoft.Extensions.Logging;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace MareSynchronos.UI;
 
@@ -93,27 +94,28 @@ public class EditProfileUi : WindowMediatorSubscriberBase
 
         var spacing = ImGui.GetStyle().ItemSpacing.X;
         ImGuiHelpers.ScaledRelativeSameLine(256, spacing);
-        ImGui.PushFont(_uiBuilder.GetGameFontHandle(new GameFontStyle(GameFontFamilyAndSize.Axis12)).ImFont);
-        var descriptionTextSize = ImGui.CalcTextSize(profile.Description, 256f);
-        var childFrame = ImGuiHelpers.ScaledVector2(256 + ImGui.GetStyle().WindowPadding.X + ImGui.GetStyle().WindowBorderSize, 256);
-        if (descriptionTextSize.Y > childFrame.Y)
+        using (_uiSharedService.GameFont.Push())
         {
-            _adjustedForScollBarsOnlineProfile = true;
+            var descriptionTextSize = ImGui.CalcTextSize(profile.Description, 256f);
+            var childFrame = ImGuiHelpers.ScaledVector2(256 + ImGui.GetStyle().WindowPadding.X + ImGui.GetStyle().WindowBorderSize, 256);
+            if (descriptionTextSize.Y > childFrame.Y)
+            {
+                _adjustedForScollBarsOnlineProfile = true;
+            }
+            else
+            {
+                _adjustedForScollBarsOnlineProfile = false;
+            }
+            childFrame = childFrame with
+            {
+                X = childFrame.X + (_adjustedForScollBarsOnlineProfile ? ImGui.GetStyle().ScrollbarSize : 0),
+            };
+            if (ImGui.BeginChildFrame(101, childFrame))
+            {
+                UiSharedService.TextWrapped(profile.Description);
+            }
+            ImGui.EndChildFrame();
         }
-        else
-        {
-            _adjustedForScollBarsOnlineProfile = false;
-        }
-        childFrame = childFrame with
-        {
-            X = childFrame.X + (_adjustedForScollBarsOnlineProfile ? ImGui.GetStyle().ScrollbarSize : 0),
-        };
-        if (ImGui.BeginChildFrame(101, childFrame))
-        {
-            UiSharedService.TextWrapped(profile.Description);
-        }
-        ImGui.EndChildFrame();
-        ImGui.PopFont();
 
         var nsfw = profile.IsNSFW;
         ImGui.BeginDisabled();
@@ -133,7 +135,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         ImGui.Separator();
         _uiSharedService.BigText("档案设置");
 
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.FileUpload, "上传新的个人档案图片"))
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.FileUpload, "上传新的个人档案图片"))
         {
             _fileDialogManager.OpenFileDialog("选择新的个人档案图片", ".png", (success, file) =>
             {
@@ -164,7 +166,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         }
         UiSharedService.AttachToolTip("选择并上传新的个人档案图片");
         ImGui.SameLine();
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "清除上传的个人档案图片"))
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "清除上传的个人档案图片"))
         {
             _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false, IsNSFW: null, "", Description: null));
         }
@@ -178,52 +180,49 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         {
             _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false, isNsfw, ProfilePictureBase64: null, Description: null));
         }
-        UiSharedService.DrawHelpText("如果您的个人档案描述或图片为NSFW，请勾选");
+        _uiSharedService.DrawHelpText("如果您的个人档案描述或图片为NSFW，请勾选");
         var widthTextBox = 400;
         var posX = ImGui.GetCursorPosX();
         ImGui.TextUnformatted($"描述 {_descriptionText.Length}/1500");
         ImGui.SetCursorPosX(posX);
         ImGuiHelpers.ScaledRelativeSameLine(widthTextBox, ImGui.GetStyle().ItemSpacing.X);
         ImGui.TextUnformatted("预览（大致）");
-        ImGui.PushFont(_uiBuilder.GetGameFontHandle(new GameFontStyle(GameFontFamilyAndSize.Axis12)).ImFont);
-        ImGui.InputTextMultiline("##description", ref _descriptionText, 1500, ImGuiHelpers.ScaledVector2(widthTextBox, 200));
-        ImGui.PopFont();
+        using (_uiSharedService.GameFont.Push())
+            ImGui.InputTextMultiline("##description", ref _descriptionText, 1500, ImGuiHelpers.ScaledVector2(widthTextBox, 200));
 
         ImGui.SameLine();
 
-        ImGui.PushFont(_uiBuilder.GetGameFontHandle(new GameFontStyle(GameFontFamilyAndSize.Axis12)).ImFont);
-        var descriptionTextSizeLocal = ImGui.CalcTextSize(_descriptionText, 256f);
-        var childFrameLocal = ImGuiHelpers.ScaledVector2(256 + ImGui.GetStyle().WindowPadding.X + ImGui.GetStyle().WindowBorderSize, 200);
-        if (descriptionTextSizeLocal.Y > childFrameLocal.Y)
+        using (_uiSharedService.GameFont.Push())
         {
-            _adjustedForScollBarsLocalProfile = true;
+            var descriptionTextSizeLocal = ImGui.CalcTextSize(_descriptionText, 256f);
+            var childFrameLocal = ImGuiHelpers.ScaledVector2(256 + ImGui.GetStyle().WindowPadding.X + ImGui.GetStyle().WindowBorderSize, 200);
+            if (descriptionTextSizeLocal.Y > childFrameLocal.Y)
+            {
+                _adjustedForScollBarsLocalProfile = true;
+            }
+            else
+            {
+                _adjustedForScollBarsLocalProfile = false;
+            }
+            childFrameLocal = childFrameLocal with
+            {
+                X = childFrameLocal.X + (_adjustedForScollBarsLocalProfile ? ImGui.GetStyle().ScrollbarSize : 0),
+            };
+            if (ImGui.BeginChildFrame(102, childFrameLocal))
+            {
+                UiSharedService.TextWrapped(_descriptionText);
+            }
+            ImGui.EndChildFrame();
         }
-        else
-        {
-            _adjustedForScollBarsLocalProfile = false;
-        }
-        childFrameLocal = childFrameLocal with
-        {
-            X = childFrameLocal.X + (_adjustedForScollBarsLocalProfile ? ImGui.GetStyle().ScrollbarSize : 0),
-        };
-        if (ImGui.BeginChildFrame(102, childFrameLocal))
-        {
-            UiSharedService.TextWrapped(_descriptionText);
-        }
-        ImGui.EndChildFrame();
-        ImGui.PopFont();
 
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Save, "保存描述"))
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, "保存描述"))
         {
             _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false, IsNSFW: null, ProfilePictureBase64: null, _descriptionText));
         }
         UiSharedService.AttachToolTip("设置档案描述文本");
         ImGui.SameLine();
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "清除描述"))
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "清除描述"))
         {
-            _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false, IsNSFW: null, ProfilePictureBase64: null, ""));
-        }
-        UiSharedService.AttachToolTip("清除档案件描述文本");
     }
 
     protected override void Dispose(bool disposing)

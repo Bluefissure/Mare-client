@@ -40,7 +40,7 @@ public class CompactUi : WindowMediatorSubscriberBase
     private readonly ServerConfigurationManager _serverManager;
     private readonly TopTabMenu _tabMenu;
     private readonly TagHandler _tagHandler;
-    private readonly UiSharedService _uiShared;
+    private readonly UiSharedService _uiSharedService;
     private List<IDrawFolder> _drawFolders;
     private Pair? _lastAddedUser;
     private string _lastAddedUserComment = string.Empty;
@@ -58,7 +58,7 @@ public class CompactUi : WindowMediatorSubscriberBase
         PerformanceCollectorService performanceCollectorService)
         : base(logger, mediator, "###MareSynchronosMainUI", performanceCollectorService)
     {
-        _uiShared = uiShared;
+        _uiSharedService = uiShared;
         _configService = configService;
         _apiController = apiController;
         _pairManager = pairManager;
@@ -68,7 +68,7 @@ public class CompactUi : WindowMediatorSubscriberBase
         _drawEntityFactory = drawEntityFactory;
         _selectGroupForPairUi = selectTagForPairUi;
         _selectPairsForGroupUi = selectPairForTagUi;
-        _tabMenu = new TopTabMenu(Mediator, _apiController, _pairManager);
+        _tabMenu = new TopTabMenu(Mediator, _apiController, _pairManager, _uiSharedService);
 
         AllowPinning = false;
         AllowClickthrough = false;
@@ -141,7 +141,7 @@ public class CompactUi : WindowMediatorSubscriberBase
         {
             var ver = _apiController.CurrentClientVersion;
             var unsupported = "不支持的版本";
-            using (ImRaii.PushFont(_uiShared.UidFont, _uiShared.UidFontBuilt))
+            using (_uiSharedService.UidFont.Push())
             {
                 var uidTextSize = ImGui.CalcTextSize(unsupported);
                 ImGui.SetCursorPosX((ImGui.GetWindowContentRegionMax().X + ImGui.GetWindowContentRegionMin().X) / 2 - uidTextSize.X / 2);
@@ -188,7 +188,7 @@ public class CompactUi : WindowMediatorSubscriberBase
             {
                 UiSharedService.TextWrapped($"您已成功添加 {_lastAddedUser.UserData.AliasOrUID}。在下面的字段中为用户设置本地备注：");
                 ImGui.InputTextWithHint("##noteforuser", $"{_lastAddedUser.UserData.AliasOrUID} 的备注", ref _lastAddedUserComment, 100);
-                if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Save, "保存备注"))
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, "保存备注"))
                 {
                     _serverManager.SetNoteForUid(_lastAddedUser.UserData.UID, _lastAddedUserComment);
                     _lastAddedUser = null;
@@ -217,12 +217,12 @@ public class CompactUi : WindowMediatorSubscriberBase
         if (keys.Any())
         {
             if (_secretKeyIdx == -1) _secretKeyIdx = keys.First().Key;
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Plus, "为当前角色添加密钥"))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Plus, "为当前角色添加密钥"))
             {
                 _serverManager.CurrentServer!.Authentications.Add(new MareConfiguration.Models.Authentication()
                 {
-                    CharacterName = _uiShared.PlayerName,
-                    WorldId = _uiShared.WorldId,
+                    CharacterName = _uiSharedService.PlayerName,
+                    WorldId = _uiSharedService.WorldId,
                     SecretKeyIdx = _secretKeyIdx
                 });
 
@@ -231,7 +231,7 @@ public class CompactUi : WindowMediatorSubscriberBase
                 _ = _apiController.CreateConnections();
             }
 
-            _uiShared.DrawCombo("密钥##addCharacterSecretKey", keys, (f) => f.Value.FriendlyName, (f) => _secretKeyIdx = f.Key);
+            _uiSharedService.DrawCombo("密钥##addCharacterSecretKey", keys, (f) => f.Value.FriendlyName, (f) => _secretKeyIdx = f.Key);
         }
         else
         {
@@ -257,7 +257,7 @@ public class CompactUi : WindowMediatorSubscriberBase
     }
     private void DrawServerStatus()
     {
-        var buttonSize = UiSharedService.NormalizedIconButtonSize(FontAwesomeIcon.Link);
+        var buttonSize = _uiSharedService.IconButtonSize(FontAwesomeIcon.Link);
         var userCount = _apiController.OnlineUsers.ToString(CultureInfo.InvariantCulture);
         var userSize = ImGui.CalcTextSize(userCount);
         var textSize = ImGui.CalcTextSize("用户在线");
@@ -309,7 +309,7 @@ public class CompactUi : WindowMediatorSubscriberBase
         {
             using (ImRaii.PushColor(ImGuiCol.Text, color))
             {
-                if (UiSharedService.NormalizedIconButton(connectedIcon))
+                if (_uiSharedService.IconButton(connectedIcon))
                 {
                     _serverManager.CurrentServer.FullPause = !_serverManager.CurrentServer.FullPause;
                     _serverManager.Save();
@@ -324,7 +324,8 @@ public class CompactUi : WindowMediatorSubscriberBase
     private void DrawTransfers()
     {
         var currentUploads = _fileTransferManager.CurrentUploads.ToList();
-        UiSharedService.NormalizedIcon(FontAwesomeIcon.Upload);
+        ImGui.AlignTextToFramePadding();
+        _uiSharedService.IconText(FontAwesomeIcon.Upload);
         ImGui.SameLine(35 * ImGuiHelpers.GlobalScale);
 
         if (currentUploads.Any())
@@ -349,7 +350,8 @@ public class CompactUi : WindowMediatorSubscriberBase
         }
 
         var currentDownloads = _currentDownloads.SelectMany(d => d.Value.Values).ToList();
-        UiSharedService.NormalizedIcon(FontAwesomeIcon.Download);
+        ImGui.AlignTextToFramePadding();
+        _uiSharedService.IconText(FontAwesomeIcon.Download);
         ImGui.SameLine(35 * ImGuiHelpers.GlobalScale);
 
         if (currentDownloads.Any())
@@ -378,7 +380,7 @@ public class CompactUi : WindowMediatorSubscriberBase
     {
         var uidText = GetUidText();
 
-        using (ImRaii.PushFont(_uiShared.UidFont, _uiShared.UidFontBuilt))
+        using (_uiSharedService.UidFont.Push())
         {
             var uidTextSize = ImGui.CalcTextSize(uidText);
             ImGui.SetCursorPosX((ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X) / 2 - (uidTextSize.X / 2));
@@ -498,7 +500,7 @@ public class CompactUi : WindowMediatorSubscriberBase
         }
 
         if (_configService.Current.GroupUpSyncshells)
-            drawFolders.Add(new DrawGroupedGroupFolder(groupFolders, _tagHandler));
+            drawFolders.Add(new DrawGroupedGroupFolder(groupFolders, _tagHandler, _uiSharedService));
         else
             drawFolders.AddRange(groupFolders);
 

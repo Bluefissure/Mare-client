@@ -52,7 +52,7 @@ internal class JoinSyncshellUI : WindowMediatorSubscriberBase
 
     protected override void DrawInternal()
     {
-        using (ImRaii.PushFont(_uiSharedService.UidFont))
+        using (_uiSharedService.UidFont.Push())
             ImGui.TextUnformatted(_groupJoinInfo == null || !_groupJoinInfo.Success ? "加入同步贝" : "尝试加入同步贝 " + _groupJoinInfo.GroupAliasOrGID);
         ImGui.Separator();
 
@@ -76,7 +76,7 @@ internal class JoinSyncshellUI : WindowMediatorSubscriberBase
             ImGui.InputTextWithHint("##syncshellpw", "密码", ref _syncshellPassword, 50, ImGuiInputTextFlags.Password);
             using (ImRaii.Disabled(string.IsNullOrEmpty(_desiredSyncshellToJoin) || string.IsNullOrEmpty(_syncshellPassword)))
             {
-                if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.Plus, "加入同步贝"))
+                if (_uiSharedService.IconTextButton(Dalamud.Interface.FontAwesomeIcon.Plus, "加入同步贝"))
                 {
                     _groupJoinInfo = _apiController.GroupJoin(new GroupPasswordDto(new API.Data.GroupData(_desiredSyncshellToJoin), _syncshellPassword)).Result;
                     _previousPassword = _syncshellPassword;
@@ -98,13 +98,13 @@ internal class JoinSyncshellUI : WindowMediatorSubscriberBase
             ImGui.TextUnformatted("同步贝管理员设置了如下的默认同步权限:");
             ImGui.AlignTextToFramePadding();
             ImGui.TextUnformatted("- 声音 ");
-            UiSharedService.BooleanToColoredIcon(!_groupJoinInfo.GroupPermissions.IsPreferDisableSounds());
+            _uiSharedService.BooleanToColoredIcon(!_groupJoinInfo.GroupPermissions.IsPreferDisableSounds());
             ImGui.AlignTextToFramePadding();
             ImGui.TextUnformatted("- 动画");
-            UiSharedService.BooleanToColoredIcon(!_groupJoinInfo.GroupPermissions.IsPreferDisableAnimations());
+            _uiSharedService.BooleanToColoredIcon(!_groupJoinInfo.GroupPermissions.IsPreferDisableAnimations());
             ImGui.AlignTextToFramePadding();
             ImGui.TextUnformatted("- VFX");
-            UiSharedService.BooleanToColoredIcon(!_groupJoinInfo.GroupPermissions.IsPreferDisableVFX());
+            _uiSharedService.BooleanToColoredIcon(!_groupJoinInfo.GroupPermissions.IsPreferDisableVFX());
 
             if (_groupJoinInfo.GroupPermissions.IsPreferDisableSounds() != _ownPermissions.DisableGroupSounds
                 || _groupJoinInfo.GroupPermissions.IsPreferDisableVFX() != _ownPermissions.DisableGroupVFX
@@ -116,14 +116,14 @@ internal class JoinSyncshellUI : WindowMediatorSubscriberBase
                 {
                     ImGui.AlignTextToFramePadding();
                     ImGui.TextUnformatted("- 声音");
-                    UiSharedService.BooleanToColoredIcon(!_ownPermissions.DisableGroupSounds);
+                    _uiSharedService.BooleanToColoredIcon(!_ownPermissions.DisableGroupSounds);
                     ImGui.SameLine(200);
                     ImGui.AlignTextToFramePadding();
                     ImGui.TextUnformatted("推荐的设置");
-                    UiSharedService.BooleanToColoredIcon(!_groupJoinInfo.GroupPermissions.IsPreferDisableSounds());
+                    _uiSharedService.BooleanToColoredIcon(!_groupJoinInfo.GroupPermissions.IsPreferDisableSounds());
                     ImGui.SameLine();
                     using var id = ImRaii.PushId("suggestedSounds");
-                    if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.ArrowRight, "使用推荐的设置"))
+                    if (_uiSharedService.IconTextButton(Dalamud.Interface.FontAwesomeIcon.ArrowRight, "使用推荐的设置"))
                     {
                         _ownPermissions.DisableGroupSounds = _groupJoinInfo.GroupPermissions.IsPreferDisableSounds();
                     }
@@ -132,14 +132,14 @@ internal class JoinSyncshellUI : WindowMediatorSubscriberBase
                 {
                     ImGui.AlignTextToFramePadding();
                     ImGui.TextUnformatted("- 动画");
-                    UiSharedService.BooleanToColoredIcon(!_ownPermissions.DisableGroupAnimations);
+                    _uiSharedService.BooleanToColoredIcon(!_ownPermissions.DisableGroupAnimations);
                     ImGui.SameLine(200);
                     ImGui.AlignTextToFramePadding();
                     ImGui.TextUnformatted("推荐的设置");
-                    UiSharedService.BooleanToColoredIcon(!_groupJoinInfo.GroupPermissions.IsPreferDisableAnimations());
+                    _uiSharedService.BooleanToColoredIcon(!_groupJoinInfo.GroupPermissions.IsPreferDisableAnimations());
                     ImGui.SameLine();
                     using var id = ImRaii.PushId("suggestedAnims");
-                    if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.ArrowRight, "使用推荐的设置"))
+                    if (_uiSharedService.IconTextButton(Dalamud.Interface.FontAwesomeIcon.ArrowRight, "使用推荐的设置"))
                     {
                         _ownPermissions.DisableGroupAnimations = _groupJoinInfo.GroupPermissions.IsPreferDisableAnimations();
                     }
@@ -148,14 +148,14 @@ internal class JoinSyncshellUI : WindowMediatorSubscriberBase
                 {
                     ImGui.AlignTextToFramePadding();
                     ImGui.TextUnformatted("- VFX");
-                    UiSharedService.BooleanToColoredIcon(!_ownPermissions.DisableGroupVFX);
+                    _uiSharedService.BooleanToColoredIcon(!_ownPermissions.DisableGroupVFX);
                     ImGui.SameLine(200);
                     ImGui.AlignTextToFramePadding();
                     ImGui.TextUnformatted("推荐的设置");
-                    UiSharedService.BooleanToColoredIcon(!_groupJoinInfo.GroupPermissions.IsPreferDisableVFX());
+                    _uiSharedService.BooleanToColoredIcon(!_groupJoinInfo.GroupPermissions.IsPreferDisableVFX());
                     ImGui.SameLine();
                     using var id = ImRaii.PushId("suggestedVfx");
-                    if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.ArrowRight, "使用推荐的设置"))
+                    if (_uiSharedService.IconTextButton(Dalamud.Interface.FontAwesomeIcon.ArrowRight, "使用推荐的设置"))
                     {
                         _ownPermissions.DisableGroupVFX = _groupJoinInfo.GroupPermissions.IsPreferDisableVFX();
                     }
@@ -167,7 +167,7 @@ internal class JoinSyncshellUI : WindowMediatorSubscriberBase
                 UiSharedService.TextWrapped("你对当前同步贝的同步设置将使用同步贝的推荐设置.");
             }
             ImGuiHelpers.ScaledDummy(2f);
-            if (UiSharedService.NormalizedIconTextButton(Dalamud.Interface.FontAwesomeIcon.Plus, "确认并加入 " + _groupJoinInfo.GroupAliasOrGID))
+            if (_uiSharedService.IconTextButton(Dalamud.Interface.FontAwesomeIcon.Plus, "确认并加入 " + _groupJoinInfo.GroupAliasOrGID))
             {
                 GroupUserPreferredPermissions joinPermissions = GroupUserPreferredPermissions.NoneSet;
                 joinPermissions.SetDisableSounds(_ownPermissions.DisableGroupSounds);
