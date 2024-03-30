@@ -309,9 +309,9 @@ public class PlayerDataFactory
 
         if (noValidationFailed > 0)
         {
-            _mareMediator.Publish(new NotificationMessage("Invalid Skeleton Setup",
-                $"Your client is attempting to send {noValidationFailed} animation files with invalid bone data. Those animation files have been removed from your sent data. " +
-                $"Verify that you are using the correct skeleton for those animation files (Check /xllog for more information).",
+            _mareMediator.Publish(new NotificationMessage("无效的骨骼设置",
+                $"你的客户端试图发送 {noValidationFailed} 个包含错误骨骼的动画. 这些动画已被从你即将发送的数据中移除. " +
+                $"请确认你使用了这些动画所需的正确骨骼 (检查 /xllog 以查看更多信息).",
                 Dalamud.Interface.Internal.Notifications.NotificationType.Warning, TimeSpan.FromSeconds(10)));
         }
     }

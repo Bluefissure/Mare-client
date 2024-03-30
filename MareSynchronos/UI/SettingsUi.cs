@@ -950,7 +950,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             Mediator.Publish(new CompactUiChange(Vector2.Zero, Vector2.Zero));
         }
         _uiShared.DrawHelpText("将在主界面的右侧显示档案");
-        if (ImGui.SliderFloat("悬停延迟", ref profileDelay, 1, 10))
+        if (ImGui.SliderFloat("悬停延迟", ref profileDelay, 0.5f, 10,"%.1f"))
         {
             _configService.Current.ProfileDelay = profileDelay;
             _configService.Save();
