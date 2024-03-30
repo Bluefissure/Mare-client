@@ -31,19 +31,18 @@ namespace MareSynchronos;
 
 public sealed class Plugin : IDalamudPlugin
 {
-    private readonly CancellationTokenSource _pluginCts = new();
-    private readonly Task _hostBuilderRunTask;
+    private readonly IHost _host;
 
     public Plugin(DalamudPluginInterface pluginInterface, ICommandManager commandManager, IDataManager gameData,
         IFramework framework, IObjectTable objectTable, IClientState clientState, ICondition condition, IChatGui chatGui,
-        IGameGui gameGui, IDtrBar dtrBar, IPluginLog pluginLog, ITargetManager targetManager)
+        IGameGui gameGui, IDtrBar dtrBar, IPluginLog pluginLog, ITargetManager targetManager, INotificationManager notificationManager)
     {
-        _hostBuilderRunTask = new HostBuilder()
+        _host = new HostBuilder()
         .UseContentRoot(pluginInterface.ConfigDirectory.FullName)
         .ConfigureLogging(lb =>
         {
             lb.ClearProviders();
-            lb.AddDalamudLogging(pluginLog);
+            lb.AddDalamudLogging(pluginLog, gameData.HasModifiedGameDataFiles);
             lb.SetMinimumLevel(LogLevel.Trace);
         })
         .ConfigureServices(collection =>
@@ -69,13 +68,14 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<FileDownloadManagerFactory>();
             collection.AddSingleton<PairHandlerFactory>();
             collection.AddSingleton<PairFactory>();
+            collection.AddSingleton<XivDataAnalyzer>(s => new(s.GetRequiredService<ILogger<XivDataAnalyzer>>(), s.GetRequiredService<FileCacheManager>(),
+                s.GetRequiredService<XivDataStorageService>(), gameData));
             collection.AddSingleton<CharacterAnalyzer>();
             collection.AddSingleton<TokenProvider>();
             collection.AddSingleton<PluginWarningNotificationService>();
             collection.AddSingleton<FileCompactor>();
             collection.AddSingleton<TagHandler>();
             collection.AddSingleton<IdDisplayHandler>();
-            collection.AddSingleton<DrawEntityFactory>();
             collection.AddSingleton((s) => new IpcProvider(s.GetRequiredService<ILogger<IpcProvider>>(),
                 pluginInterface,
                 s.GetRequiredService<MareCharaFileManager>(), s.GetRequiredService<DalamudUtilService>(),
@@ -83,7 +83,6 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton<SelectPairForTagUi>();
             collection.AddSingleton((s) => new EventAggregator(pluginInterface.ConfigDirectory.FullName,
                 s.GetRequiredService<ILogger<EventAggregator>>(), s.GetRequiredService<MareMediator>()));
-            collection.AddSingleton<SelectTagForPairUi>();
             collection.AddSingleton((s) => new DalamudContextMenu(pluginInterface));
             collection.AddSingleton((s) => new DalamudUtilService(s.GetRequiredService<ILogger<DalamudUtilService>>(),
                 clientState, objectTable, framework, gameGui, condition, gameData, targetManager,
@@ -114,12 +113,15 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddSingleton((s) => new NotesConfigService(pluginInterface.ConfigDirectory.FullName));
             collection.AddSingleton((s) => new ServerTagConfigService(pluginInterface.ConfigDirectory.FullName));
             collection.AddSingleton((s) => new TransientConfigService(pluginInterface.ConfigDirectory.FullName));
+            collection.AddSingleton((s) => new XivDataStorageService(pluginInterface.ConfigDirectory.FullName));
             collection.AddSingleton((s) => new ConfigurationMigrator(s.GetRequiredService<ILogger<ConfigurationMigrator>>(), pluginInterface));
             collection.AddSingleton<HubFactory>();
 
             // add scoped services
+            collection.AddScoped<DrawEntityFactory>();
             collection.AddScoped<CacheMonitor>();
             collection.AddScoped<UiFactory>();
+            collection.AddScoped<SelectTagForPairUi>();
             collection.AddScoped<WindowMediatorSubscriberBase, SettingsUi>();
             collection.AddScoped<WindowMediatorSubscriberBase, CompactUi>();
             collection.AddScoped<WindowMediatorSubscriberBase, GposeUi>();
@@ -150,7 +152,7 @@ public sealed class Plugin : IDalamudPlugin
                 s.GetRequiredService<ServerConfigurationManager>(), s.GetRequiredService<CacheMonitor>(), s.GetRequiredService<ApiController>(),
                 s.GetRequiredService<MareMediator>(), s.GetRequiredService<MareConfigService>()));
             collection.AddScoped((s) => new NotificationService(s.GetRequiredService<ILogger<NotificationService>>(),
-                s.GetRequiredService<MareMediator>(), pluginInterface.UiBuilder, chatGui, s.GetRequiredService<MareConfigService>()));
+                s.GetRequiredService<MareMediator>(), notificationManager, chatGui, s.GetRequiredService<MareConfigService>()));
             collection.AddScoped((s) => new UiSharedService(s.GetRequiredService<ILogger<UiSharedService>>(), s.GetRequiredService<IpcManager>(), s.GetRequiredService<ApiController>(),
                 s.GetRequiredService<CacheMonitor>(), s.GetRequiredService<FileDialogManager>(), s.GetRequiredService<MareConfigService>(), s.GetRequiredService<DalamudUtilService>(),
                 pluginInterface, s.GetRequiredService<Dalamud.Localization>(), s.GetRequiredService<ServerConfigurationManager>(), s.GetRequiredService<MareMediator>()));
@@ -165,14 +167,14 @@ public sealed class Plugin : IDalamudPlugin
             collection.AddHostedService(p => p.GetRequiredService<IpcProvider>());
             collection.AddHostedService(p => p.GetRequiredService<MarePlugin>());
         })
-        .Build()
-        .RunAsync(_pluginCts.Token);
+        .Build();
+
+        _ = _host.StartAsync();
     }
 
     public void Dispose()
     {
-        _pluginCts.Cancel();
-        _pluginCts.Dispose();
-        _hostBuilderRunTask.Wait();
+        _host.StopAsync().GetAwaiter().GetResult();
+        _host.Dispose();
     }
 }

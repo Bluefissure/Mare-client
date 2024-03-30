@@ -11,13 +11,15 @@ namespace MareSynchronos.UI.Components.Popup;
 public class BanUserPopupHandler : IPopupHandler
 {
     private readonly ApiController _apiController;
+    private readonly UiSharedService _uiSharedService;
     private string _banReason = string.Empty;
     private GroupFullInfoDto _group = null!;
     private Pair _reportedPair = null!;
 
-    public BanUserPopupHandler(ApiController apiController)
+    public BanUserPopupHandler(ApiController apiController, UiSharedService uiSharedService)
     {
         _apiController = apiController;
+        _uiSharedService = uiSharedService;
     }
 
     public Vector2 PopupSize => new(500, 250);
@@ -29,7 +31,7 @@ public class BanUserPopupHandler : IPopupHandler
         UiSharedService.TextWrapped("用户 " + (_reportedPair.UserData.AliasOrUID) + " 将被从本同步贝封禁.");
         ImGui.InputTextWithHint("##banreason", "封禁原因", ref _banReason, 255);
 
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.UserSlash, "封禁用户"))
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.UserSlash, "封禁用户"))
         {
             ImGui.CloseCurrentPopup();
             var reason = _banReason;

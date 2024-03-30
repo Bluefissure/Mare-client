@@ -147,7 +147,7 @@ public sealed class PairManager : DisposableMediatorSubscriberBase
             var msg = !string.IsNullOrEmpty(note)
                 ? $"{note} ({pair.UserData.AliasOrUID}) 现在处于联机状态"
                 : $"{pair.UserData.AliasOrUID} 现在处于联机状态";
-            Mediator.Publish(new NotificationMessage("用户在线", msg, NotificationType.Info, 5000));
+            Mediator.Publish(new NotificationMessage("用户在线", msg, NotificationType.Info, TimeSpan.FromSeconds(5)));
         }
 
         pair.CreateCachedPlayer(dto);

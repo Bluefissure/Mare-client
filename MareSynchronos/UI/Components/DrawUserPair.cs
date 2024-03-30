@@ -25,13 +25,16 @@ public class DrawUserPair
     private readonly string _id;
     private readonly SelectTagForPairUi _selectTagForPairUi;
     private readonly ServerConfigurationManager _serverConfigurationManager;
-    private float _menuRenderWidth = -1;
+    private readonly UiSharedService _uiSharedService;
+    private float _menuWidth = -1;
+    private bool _wasHovered = false;
 
     public DrawUserPair(string id, Pair entry, List<GroupFullInfoDto> syncedGroups,
         GroupFullInfoDto? currentGroup,
         ApiController apiController, IdDisplayHandler uIDDisplayHandler,
         MareMediator mareMediator, SelectTagForPairUi selectTagForPairUi,
-        ServerConfigurationManager serverConfigurationManager)
+        ServerConfigurationManager serverConfigurationManager,
+        UiSharedService uiSharedService)
     {
         _id = id;
         _pair = entry;
@@ -42,6 +45,7 @@ public class DrawUserPair
         _mediator = mareMediator;
         _selectTagForPairUi = selectTagForPairUi;
         _serverConfigurationManager = serverConfigurationManager;
+        _uiSharedService = uiSharedService;
     }
 
     public Pair Pair => _pair;
@@ -50,19 +54,24 @@ public class DrawUserPair
     public void DrawPairedClient()
     {
         using var id = ImRaii.PushId(GetType() + _id);
-
-        DrawLeftSide();
-        ImGui.SameLine();
-        var posX = ImGui.GetCursorPosX();
-        var rightSide = DrawRightSide();
-        DrawName(posX, rightSide);
+        var color = ImRaii.PushColor(ImGuiCol.ChildBg, ImGui.GetColorU32(ImGuiCol.FrameBgHovered), _wasHovered);
+        using (ImRaii.Child(GetType() + _id, new System.Numerics.Vector2(UiSharedService.GetWindowContentRegionWidth() - ImGui.GetCursorPosX(), ImGui.GetFrameHeight())))
+        {
+            DrawLeftSide();
+            ImGui.SameLine();
+            var posX = ImGui.GetCursorPosX();
+            var rightSide = DrawRightSide();
+            DrawName(posX, rightSide);
+        }
+        _wasHovered = ImGui.IsItemHovered();
+        color.Dispose();
     }
 
     private void DrawCommonClientMenu()
     {
         if (!_pair.IsPaused)
         {
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.User, "打开月海档案", _menuRenderWidth, true))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.User, "打开月海档案", _menuWidth, true))
             {
                 _displayHandler.OpenProfile(_pair);
                 ImGui.CloseCurrentPopup();
@@ -71,7 +80,7 @@ public class DrawUserPair
         }
         if (_pair.IsVisible)
         {
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Sync, "重新加载最后一次数据", _menuRenderWidth, true))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Sync, "重新加载最后一次数据", _menuWidth, true))
             {
                 _pair.ApplyLastReceivedData(forced: true);
                 ImGui.CloseCurrentPopup();
@@ -79,7 +88,7 @@ public class DrawUserPair
             UiSharedService.AttachToolTip("这将上次接收的角色数据重新应用到此角色");
         }
 
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.PlayCircle, "暂停循环状态", _menuRenderWidth, true))
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.PlayCircle, "暂停循环状态", _menuWidth, true))
         {
             _ = _apiController.CyclePause(_pair.UserData);
             ImGui.CloseCurrentPopup();
@@ -87,7 +96,7 @@ public class DrawUserPair
         ImGui.Separator();
 
         ImGui.TextUnformatted("配对权限功能");
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.WindowMaximize, "打开权限设置窗口", _menuRenderWidth, true))
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.WindowMaximize, "打开权限设置窗口", _menuWidth, true))
         {
             _mediator.Publish(new OpenPermissionWindow(_pair));
             ImGui.CloseCurrentPopup();
@@ -97,7 +106,7 @@ public class DrawUserPair
         var isSticky = _pair.UserPair!.OwnPermissions.IsSticky();
         string stickyText = isSticky ? "禁用首选权限配置" : "启用首选权限配置";
         var stickyIcon = isSticky ? FontAwesomeIcon.ArrowCircleDown : FontAwesomeIcon.ArrowCircleUp;
-        if (UiSharedService.NormalizedIconTextButton(stickyIcon, stickyText, _menuRenderWidth, true))
+        if (_uiSharedService.IconTextButton(stickyIcon, stickyText, _menuWidth, true))
         {
             var permissions = _pair.UserPair.OwnPermissions;
             permissions.SetSticky(!isSticky);
@@ -113,7 +122,7 @@ public class DrawUserPair
         var isDisableSounds = _pair.UserPair!.OwnPermissions.IsDisableSounds();
         string disableSoundsText = isDisableSounds ? "启用声音同步" : "禁用声音同步";
         var disableSoundsIcon = isDisableSounds ? FontAwesomeIcon.VolumeUp : FontAwesomeIcon.VolumeMute;
-        if (UiSharedService.NormalizedIconTextButton(disableSoundsIcon, disableSoundsText, _menuRenderWidth, true))
+        if (_uiSharedService.IconTextButton(disableSoundsIcon, disableSoundsText, _menuWidth, true))
         {
             var permissions = _pair.UserPair.OwnPermissions;
             permissions.SetDisableSounds(!isDisableSounds);
@@ -124,7 +133,7 @@ public class DrawUserPair
         var isDisableAnims = _pair.UserPair!.OwnPermissions.IsDisableAnimations();
         string disableAnimsText = isDisableAnims ? "启用动画同步" : "禁用动画同步";
         var disableAnimsIcon = isDisableAnims ? FontAwesomeIcon.Running : FontAwesomeIcon.Stop;
-        if (UiSharedService.NormalizedIconTextButton(disableAnimsIcon, disableAnimsText, _menuRenderWidth, true))
+        if (_uiSharedService.IconTextButton(disableAnimsIcon, disableAnimsText, _menuWidth, true))
         {
             var permissions = _pair.UserPair.OwnPermissions;
             permissions.SetDisableAnimations(!isDisableAnims);
@@ -135,7 +144,7 @@ public class DrawUserPair
         var isDisableVFX = _pair.UserPair!.OwnPermissions.IsDisableVFX();
         string disableVFXText = isDisableVFX ? "启用视效VFX同步" : "禁用视效VFX同步";
         var disableVFXIcon = isDisableVFX ? FontAwesomeIcon.Sun : FontAwesomeIcon.Circle;
-        if (UiSharedService.NormalizedIconTextButton(disableVFXIcon, disableVFXText, _menuRenderWidth, true))
+        if (_uiSharedService.IconTextButton(disableVFXIcon, disableVFXText, _menuWidth, true))
         {
             var permissions = _pair.UserPair.OwnPermissions;
             permissions.SetDisableVFX(!isDisableVFX);
@@ -147,7 +156,7 @@ public class DrawUserPair
         {
             ImGui.Separator();
             ImGui.TextUnformatted("配对举报");
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.ExclamationTriangle, "举报月海档案", _menuRenderWidth, true))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.ExclamationTriangle, "举报月海档案", _menuWidth, true))
             {
                 ImGui.CloseCurrentPopup();
                 _mediator.Publish(new OpenReportPopupMessage(_pair));
@@ -163,12 +172,12 @@ public class DrawUserPair
 
         if (_pair.IndividualPairStatus != API.Data.Enum.IndividualPairStatus.None)
         {
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Folder, "配对组", _menuRenderWidth, true))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Folder, "配对组", _menuWidth, true))
             {
                 _selectTagForPairUi.Open(_pair);
             }
             UiSharedService.AttachToolTip("为 " + entryUID + "选择配对组");
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "永久取消独立配对", _menuRenderWidth, true) && UiSharedService.CtrlPressed())
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "永久取消独立配对", _menuWidth, true) && UiSharedService.CtrlPressed())
             {
                 _ = _apiController.UserRemovePair(new(_pair.UserData));
             }
@@ -176,7 +185,7 @@ public class DrawUserPair
         }
         else
         {
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Plus, "独立配对", _menuRenderWidth, true))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Plus, "独立配对", _menuWidth, true))
             {
                 _ = _apiController.UserAddPair(new(_pair.UserData));
             }
@@ -193,13 +202,13 @@ public class DrawUserPair
         if (_pair.IsPaused)
         {
             using var _ = ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudYellow);
-            UiSharedService.NormalizedIcon(FontAwesomeIcon.PauseCircle);
+            _uiSharedService.IconText(FontAwesomeIcon.PauseCircle);
             userPairText = _pair.UserData.AliasOrUID + " 已暂停";
         }
         else if (!_pair.IsOnline)
         {
             using var _ = ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudRed);
-            UiSharedService.NormalizedIcon(_pair.IndividualPairStatus == API.Data.Enum.IndividualPairStatus.OneSided
+            _uiSharedService.IconText(_pair.IndividualPairStatus == API.Data.Enum.IndividualPairStatus.OneSided
                 ? FontAwesomeIcon.ArrowsLeftRight
                 : (_pair.IndividualPairStatus == API.Data.Enum.IndividualPairStatus.Bidirectional
                     ? FontAwesomeIcon.User : FontAwesomeIcon.Users));
@@ -207,7 +216,7 @@ public class DrawUserPair
         }
         else if (_pair.IsVisible)
         {
-            UiSharedService.NormalizedIcon(FontAwesomeIcon.Eye, ImGuiColors.ParsedGreen);
+            _uiSharedService.IconText(FontAwesomeIcon.Eye, ImGuiColors.ParsedGreen);
             userPairText = _pair.UserData.AliasOrUID + " 可见: " + _pair.PlayerName + Environment.NewLine + "点击以选中角色";
             if (ImGui.IsItemClicked())
             {
@@ -217,7 +226,7 @@ public class DrawUserPair
         else
         {
             using var _ = ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.HealerGreen);
-            UiSharedService.NormalizedIcon(_pair.IndividualPairStatus == API.Data.Enum.IndividualPairStatus.Bidirectional
+            _uiSharedService.IconText(_pair.IndividualPairStatus == API.Data.Enum.IndividualPairStatus.Bidirectional
                 ? FontAwesomeIcon.User : FontAwesomeIcon.Users);
             userPairText = _pair.UserData.AliasOrUID + " 在线";
         }
@@ -233,8 +242,14 @@ public class DrawUserPair
 
         if (_pair.LastAppliedDataSize >= 0)
         {
-            userPairText += UiSharedService.TooltipSeparator + (!_pair.IsVisible ? "(最近) " : string.Empty) +
-                "已加载的MOD大小: " + UiSharedService.ByteToString(_pair.LastAppliedDataSize, true);
+            userPairText += UiSharedService.TooltipSeparator;
+            userPairText += ((!_pair.IsPaired) ? "(最近) " : string.Empty) + "Mod信息" + Environment.NewLine;
+            userPairText += "文件大小: " + UiSharedService.ByteToString(_pair.LastAppliedDataSize, true);
+            if (_pair.LastAppliedDataTris >= 0)
+            {
+                userPairText += Environment.NewLine + "模型面数 (非原生): "
+                    + (_pair.LastAppliedDataTris > 1000 ? (_pair.LastAppliedDataTris / 1000d).ToString("0.0'k'") : _pair.LastAppliedDataTris);
+            }
         }
 
         if (_syncedGroups.Any())
@@ -286,22 +301,22 @@ public class DrawUserPair
     private float DrawRightSide()
     {
         var pauseIcon = _pair.UserPair!.OwnPermissions.IsPaused() ? FontAwesomeIcon.Play : FontAwesomeIcon.Pause;
-        var pauseIconSize = UiSharedService.NormalizedIconButtonSize(pauseIcon);
-        var barButtonSize = UiSharedService.NormalizedIconButtonSize(FontAwesomeIcon.Bars);
+        var pauseIconSize = _uiSharedService.GetIconButtonSize(pauseIcon);
+        var barButtonSize = _uiSharedService.GetIconButtonSize(FontAwesomeIcon.EllipsisV);
         var spacingX = ImGui.GetStyle().ItemSpacing.X;
         var windowEndX = ImGui.GetWindowContentRegionMin().X + UiSharedService.GetWindowContentRegionWidth();
         float currentRightSide = windowEndX - barButtonSize.X;
 
         ImGui.SameLine(currentRightSide);
         ImGui.AlignTextToFramePadding();
-        if (UiSharedService.NormalizedIconButton(FontAwesomeIcon.Bars))
+        if (_uiSharedService.IconButton(FontAwesomeIcon.EllipsisV))
         {
             ImGui.OpenPopup("User Flyout Menu");
         }
 
         currentRightSide -= (pauseIconSize.X + spacingX);
         ImGui.SameLine(currentRightSide);
-        if (UiSharedService.NormalizedIconButton(pauseIcon))
+        if (_uiSharedService.IconButton(pauseIcon))
         {
             var perm = _pair.UserPair!.OwnPermissions;
             perm.SetPaused(!perm.IsPaused());
@@ -321,11 +336,11 @@ public class DrawUserPair
 
             if (individualAnimDisabled || individualSoundsDisabled || individualVFXDisabled || individualIsSticky)
             {
-                currentRightSide -= (UiSharedService.GetIconData(individualIcon).NormalizedIconScale.X + spacingX);
+                currentRightSide -= (_uiSharedService.GetIconData(individualIcon).X + spacingX);
 
                 ImGui.SameLine(currentRightSide);
                 using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudYellow, individualAnimDisabled || individualSoundsDisabled || individualVFXDisabled))
-                    UiSharedService.NormalizedIcon(individualIcon);
+                    _uiSharedService.IconText(individualIcon);
                 if (ImGui.IsItemHovered())
                 {
                     ImGui.BeginTooltip();
@@ -335,7 +350,7 @@ public class DrawUserPair
 
                     if (individualIsSticky)
                     {
-                        UiSharedService.NormalizedIcon(individualIcon);
+                        _uiSharedService.IconText(individualIcon);
                         ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
                         ImGui.AlignTextToFramePadding();
                         ImGui.TextUnformatted("首选权限设置已启用");
@@ -346,7 +361,7 @@ public class DrawUserPair
                     if (individualSoundsDisabled)
                     {
                         var userSoundsText = "同步声音";
-                        UiSharedService.NormalizedIcon(FontAwesomeIcon.VolumeOff);
+                        _uiSharedService.IconText(FontAwesomeIcon.VolumeOff);
                         ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
                         ImGui.AlignTextToFramePadding();
                         ImGui.TextUnformatted(userSoundsText);
@@ -354,35 +369,31 @@ public class DrawUserPair
                         ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
                         ImGui.AlignTextToFramePadding();
                         ImGui.TextUnformatted("你");
-                        UiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OwnPermissions.IsDisableSounds());
+                        _uiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OwnPermissions.IsDisableSounds());
                         ImGui.SameLine();
                         ImGui.AlignTextToFramePadding();
                         ImGui.TextUnformatted("他们");
-                        UiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OtherPermissions.IsDisableSounds());
+                        _uiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OtherPermissions.IsDisableSounds());
                     }
 
                     if (individualAnimDisabled)
                     {
                         var userAnimText = "同步动画";
-                        UiSharedService.NormalizedIcon(FontAwesomeIcon.Stop);
+                        _uiSharedService.IconText(FontAwesomeIcon.Stop);
                         ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
                         ImGui.AlignTextToFramePadding();
-                        ImGui.TextUnformatted(userAnimText);
                         ImGui.NewLine();
                         ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
-                        ImGui.AlignTextToFramePadding();
-                        ImGui.TextUnformatted("你");
-                        UiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OwnPermissions.IsDisableAnimations());
                         ImGui.SameLine();
                         ImGui.AlignTextToFramePadding();
                         ImGui.TextUnformatted("他们");
-                        UiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OtherPermissions.IsDisableAnimations());
+                        _uiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OtherPermissions.IsDisableAnimations());
                     }
 
                     if (individualVFXDisabled)
                     {
                         var userVFXText = "同步VFX";
-                        UiSharedService.NormalizedIcon(FontAwesomeIcon.Circle);
+                        _uiSharedService.IconText(FontAwesomeIcon.Circle);
                         ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
                         ImGui.AlignTextToFramePadding();
                         ImGui.TextUnformatted(userVFXText);
@@ -390,11 +401,11 @@ public class DrawUserPair
                         ImGui.SameLine(40 * ImGuiHelpers.GlobalScale);
                         ImGui.AlignTextToFramePadding();
                         ImGui.TextUnformatted("你");
-                        UiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OwnPermissions.IsDisableVFX());
+                        _uiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OwnPermissions.IsDisableVFX());
                         ImGui.SameLine();
                         ImGui.AlignTextToFramePadding();
                         ImGui.TextUnformatted("他们");
-                        UiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OtherPermissions.IsDisableVFX());
+                        _uiSharedService.BooleanToColoredIcon(!_pair.UserPair!.OtherPermissions.IsDisableVFX());
                     }
 
                     ImGui.EndTooltip();
@@ -427,9 +438,9 @@ public class DrawUserPair
 
             if (!string.IsNullOrEmpty(text))
             {
-                currentRightSide -= (UiSharedService.GetIconData(icon).NormalizedIconScale.X + spacingX);
+                currentRightSide -= (_uiSharedService.GetIconData(icon).X + spacingX);
                 ImGui.SameLine(currentRightSide);
-                UiSharedService.NormalizedIcon(icon);
+                _uiSharedService.IconText(icon);
                 UiSharedService.AttachToolTip(text);
             }
         }
@@ -442,9 +453,9 @@ public class DrawUserPair
                 DrawCommonClientMenu();
                 ImGui.Separator();
                 DrawPairedClientMenu();
-                if (_menuRenderWidth <= 0)
+                if (_menuWidth <= 0)
                 {
-                    _menuRenderWidth = ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X;
+                    _menuWidth = ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X;
                 }
             }
 
@@ -460,7 +471,7 @@ public class DrawUserPair
         {
             ImGui.TextUnformatted("配对贝管理设置");
             var pinText = userIsPinned ? "取消置顶用户" : "置顶用户";
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Thumbtack, pinText, _menuRenderWidth, true))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Thumbtack, pinText, _menuWidth, true))
             {
                 ImGui.CloseCurrentPopup();
                 if (!group.GroupPairUserInfos.TryGetValue(_pair.UserData.UID, out var userinfo))
@@ -475,14 +486,14 @@ public class DrawUserPair
             }
             UiSharedService.AttachToolTip("在同步贝中置顶用户. 置顶用户不会在手动清理中被删除");
 
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Trash, "移除用户", _menuRenderWidth, true) && UiSharedService.CtrlPressed())
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "移除用户", _menuWidth, true) && UiSharedService.CtrlPressed())
             {
                 ImGui.CloseCurrentPopup();
                 _ = _apiController.GroupRemoveUser(new(group.Group, _pair.UserData));
             }
             UiSharedService.AttachToolTip("按住CTRL并点击,从贝中移除 " + (_pair.UserData.AliasOrUID));
 
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.UserSlash, "封禁用户", _menuRenderWidth, true))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.UserSlash, "封禁用户", _menuWidth, true))
             {
                 _mediator.Publish(new OpenBanUserPopupMessage(_pair, group));
                 ImGui.CloseCurrentPopup();
@@ -496,7 +507,7 @@ public class DrawUserPair
         {
             ImGui.TextUnformatted("配对贝所有者设置");
             string modText = userIsModerator ? "取消管理员" : "设为管理员";
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.UserShield, modText, _menuRenderWidth, true) && UiSharedService.CtrlPressed())
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.UserShield, modText, _menuWidth, true) && UiSharedService.CtrlPressed())
             {
                 ImGui.CloseCurrentPopup();
                 if (!group.GroupPairUserInfos.TryGetValue(_pair.UserData.UID, out var userinfo))
@@ -513,7 +524,7 @@ public class DrawUserPair
             UiSharedService.AttachToolTip("按住CTRL修改 " + (_pair.UserData.AliasOrUID) + " 的管理员权限" + Environment.NewLine +
                 "管理员可以踢出, 封禁/取消封禁, 置顶/取消置顶用户或清空同步贝.");
 
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Crown, "转移所有权", _menuRenderWidth, true) && UiSharedService.CtrlPressed() && UiSharedService.ShiftPressed())
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Crown, "转移所有权", _menuWidth, true) && UiSharedService.CtrlPressed() && UiSharedService.ShiftPressed())
             {
                 ImGui.CloseCurrentPopup();
                 _ = _apiController.GroupChangeOwnership(new(group.Group, _pair.UserData));

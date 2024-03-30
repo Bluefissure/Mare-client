@@ -20,6 +20,7 @@ public class IntroUi : WindowMediatorSubscriberBase
     private readonly CacheMonitor _cacheMonitor;
     private readonly Dictionary<string, string> _languages = new(StringComparer.Ordinal) { { "English", "en" }, { "Deutsch", "de" }, { "Français", "fr" }, { "中文", "zh"  }};
     private readonly ServerConfigurationManager _serverConfigurationManager;
+    private readonly DalamudUtilService _dalamudUtilService;
     private readonly UiSharedService _uiShared;
     private int _currentLanguage;
     private bool _readFirstPage;
@@ -31,13 +32,13 @@ public class IntroUi : WindowMediatorSubscriberBase
 
     public IntroUi(ILogger<IntroUi> logger, UiSharedService uiShared, MareConfigService configService,
         CacheMonitor fileCacheManager, ServerConfigurationManager serverConfigurationManager, MareMediator mareMediator,
-        PerformanceCollectorService performanceCollectorService) : base(logger, mareMediator, "Mare Synchronos/月海同步器设置", performanceCollectorService)
+        PerformanceCollectorService performanceCollectorService, DalamudUtilService dalamudUtilService) : base(logger, mareMediator, "Mare Synchronos/月海同步器设置", performanceCollectorService)
     {
         _uiShared = uiShared;
         _configService = configService;
         _cacheMonitor = fileCacheManager;
         _serverConfigurationManager = serverConfigurationManager;
-
+        _dalamudUtilService = dalamudUtilService;
         IsOpen = false;
         ShowCloseButton = false;
         RespectCloseHotkey = false;
@@ -53,7 +54,7 @@ public class IntroUi : WindowMediatorSubscriberBase
         Mediator.Subscribe<SwitchToMainUiMessage>(this, (_) => IsOpen = false);
         Mediator.Subscribe<SwitchToIntroUiMessage>(this, (_) =>
         {
-            _configService.Current.UseCompactor = !Util.IsWine();
+            _configService.Current.UseCompactor = !dalamudUtilService.IsWine;
             IsOpen = true;
         });
     }
@@ -90,10 +91,12 @@ public class IntroUi : WindowMediatorSubscriberBase
         }
         else if (!_configService.Current.AcceptedAgreement && _readFirstPage)
         {
-            if (_uiShared.UidFontBuilt) ImGui.PushFont(_uiShared.UidFont);
-            var textSize = ImGui.CalcTextSize(Strings.ToS.LanguageLabel);
-            ImGui.TextUnformatted(Strings.ToS.AgreementLabel);
-            if (_uiShared.UidFontBuilt) ImGui.PopFont();
+            Vector2 textSize;
+            using (_uiShared.UidFont.Push())
+            {
+                textSize = ImGui.CalcTextSize(Strings.ToS.LanguageLabel);
+                ImGui.TextUnformatted(Strings.ToS.AgreementLabel);
+            }
 
             ImGui.SameLine();
             var languageSize = ImGui.CalcTextSize(Strings.ToS.LanguageLabel);
@@ -144,9 +147,9 @@ public class IntroUi : WindowMediatorSubscriberBase
                      || !_configService.Current.InitialScanComplete
                      || !Directory.Exists(_configService.Current.CacheFolder)))
         {
-            if (_uiShared.UidFontBuilt) ImGui.PushFont(_uiShared.UidFont);
-            ImGui.TextUnformatted("文件存储设置");
-            if (_uiShared.UidFontBuilt) ImGui.PopFont();
+            using (_uiShared.UidFont.Push())
+                ImGui.TextUnformatted("文件存储设置");
+
             ImGui.Separator();
 
             if (!_uiShared.HasValidPenumbraModPath)
@@ -176,7 +179,7 @@ public class IntroUi : WindowMediatorSubscriberBase
             {
                 _uiShared.DrawFileScanState();
             }
-            if (!Util.IsWine())
+            if (!_dalamudUtilService.IsWine)
             {
                 var useFileCompactor = _configService.Current.UseCompactor;
                 if (ImGui.Checkbox("使用文件系统压缩", ref useFileCompactor))
@@ -190,9 +193,8 @@ public class IntroUi : WindowMediatorSubscriberBase
         }
         else if (!_uiShared.ApiController.ServerAlive)
         {
-            if (_uiShared.UidFontBuilt) ImGui.PushFont(_uiShared.UidFont);
-            ImGui.TextUnformatted("服务注册");
-            if (_uiShared.UidFontBuilt) ImGui.PopFont();
+            using (_uiShared.UidFont.Push())
+                ImGui.TextUnformatted("服务注册");
             ImGui.Separator();
             UiSharedService.TextWrapped("您必须先注册一个账户，才能使用月海同步器。");
             UiSharedService.TextWrapped("为了安全，注册账户需要您去国服的月海同步器官方服务器Discord上进行处理，没有其他方式（也许您也可以问问亲爱的獭爹）。");

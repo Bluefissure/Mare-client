@@ -4,6 +4,7 @@ using MareSynchronos.API.Data.Extensions;
 using MareSynchronos.API.Dto;
 using MareSynchronos.API.Dto.User;
 using MareSynchronos.API.SignalR;
+using MareSynchronos.MareConfiguration;
 using MareSynchronos.PlayerData.Pairs;
 using MareSynchronos.Services;
 using MareSynchronos.Services.Mediator;
@@ -27,6 +28,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     private readonly PairManager _pairManager;
     private readonly ServerConfigurationManager _serverManager;
     private readonly TokenProvider _tokenProvider;
+    private readonly MareConfigService _mareConfigService;
     private CancellationTokenSource _connectionCancellationTokenSource;
     private ConnectionDto? _connectionDto;
     private bool _doNotNotifyOnNextInfo = false;
@@ -39,19 +41,20 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
     public ApiController(ILogger<ApiController> logger, HubFactory hubFactory, DalamudUtilService dalamudUtil,
         PairManager pairManager, ServerConfigurationManager serverManager, MareMediator mediator,
-        TokenProvider tokenProvider) : base(logger, mediator)
+        TokenProvider tokenProvider, MareConfigService mareConfigService) : base(logger, mediator)
     {
         _hubFactory = hubFactory;
         _dalamudUtil = dalamudUtil;
         _pairManager = pairManager;
         _serverManager = serverManager;
         _tokenProvider = tokenProvider;
+        _mareConfigService = mareConfigService;
         _connectionCancellationTokenSource = new CancellationTokenSource();
 
         Mediator.Subscribe<DalamudLoginMessage>(this, (_) => DalamudUtilOnLogIn());
         Mediator.Subscribe<DalamudLogoutMessage>(this, (_) => DalamudUtilOnLogOut());
         Mediator.Subscribe<HubClosedMessage>(this, (msg) => MareHubOnClosed(msg.Exception));
-        Mediator.Subscribe<HubReconnectedMessage>(this, async (msg) => await MareHubOnReconnected().ConfigureAwait(false));
+        Mediator.Subscribe<HubReconnectedMessage>(this, (msg) => _ = MareHubOnReconnected());
         Mediator.Subscribe<HubReconnectingMessage>(this, (msg) => MareHubOnReconnecting(msg.Exception));
         Mediator.Subscribe<CyclePauseMessage>(this, (msg) => _ = CyclePause(msg.UserData));
         Mediator.Subscribe<CensusUpdateMessage>(this, (msg) => _lastCensus = msg);
@@ -118,7 +121,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
             Logger.LogInformation("Not recreating Connection, paused");
             _connectionDto = null;
             await StopConnection(ServerState.Disconnected).ConfigureAwait(false);
-            _connectionCancellationTokenSource.Cancel();
+            _connectionCancellationTokenSource?.Cancel();
             return;
         }
 
@@ -128,7 +131,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
             Logger.LogWarning("No secret key set for current character");
             _connectionDto = null;
             await StopConnection(ServerState.NoSecretKey).ConfigureAwait(false);
-            _connectionCancellationTokenSource.Cancel();
+            _connectionCancellationTokenSource?.Cancel();
             return;
         }
 
@@ -138,7 +141,8 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         Mediator.Publish(new EventMessage(new Services.Events.Event(nameof(ApiController), Services.Events.EventSeverity.Informational,
             $"Starting Connection to {_serverManager.CurrentServer.ServerName}")));
 
-        _connectionCancellationTokenSource.Cancel();
+        _connectionCancellationTokenSource?.Cancel();
+        _connectionCancellationTokenSource?.Dispose();
         _connectionCancellationTokenSource = new CancellationTokenSource();
         var token = _connectionCancellationTokenSource.Token;
         while (ServerState is not ServerState.Connected && !token.IsCancellationRequested)
@@ -206,10 +210,12 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
                 if (_dalamudUtil.HasModifiedGameFiles)
                 {
-                    Mediator.Publish(new NotificationMessage("Modified Game Files detected",
-                        "Mare has detected modified game files in your FFXIV installation. You will be able to connect, but the synchronization functionality might be (partially) broken. " +
-                        "Exit the game and repair it through XIVLauncher to get rid of this message.",
-                        Dalamud.Interface.Internal.Notifications.NotificationType.Error));
+                    Logger.LogError("Detected modified game files on connection");
+                    if (!_mareConfigService.Current.DebugStopWhining)
+                        Mediator.Publish(new NotificationMessage("Modified Game Files detected",
+                            "Mare has detected modified game files in your FFXIV installation. You will be able to connect, but the synchronization functionality might be (partially) broken. " +
+                            "Exit the game and repair it through XIVLauncher to get rid of this message.",
+                            Dalamud.Interface.Internal.Notifications.NotificationType.Error, TimeSpan.FromSeconds(15)));
                 }
 
                 await LoadIninitialPairs().ConfigureAwait(false);

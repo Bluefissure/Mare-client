@@ -100,7 +100,7 @@ internal class EventViewerUI : WindowMediatorSubscriberBase
     {
         using (ImRaii.Disabled(!_eventAggregator.NewEventsAvailable))
         {
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.ArrowsToCircle, "刷新事件"))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowsToCircle, "刷新事件"))
             {
                 CurrentEvents = _eventAggregator.EventList.Value.OrderByDescending(f => f.EventTime).ToList();
             }
@@ -113,10 +113,10 @@ internal class EventViewerUI : WindowMediatorSubscriberBase
             UiSharedService.ColorTextWrapped("有新的事件,请点击刷新查看", ImGuiColors.DalamudYellow);
         }
 
-        var buttonSize = UiSharedService.GetNormalizedIconTextButtonSize(FontAwesomeIcon.FolderOpen, "打开事件记录文件夹");
-        var dist = ImGui.GetWindowContentRegionMax().X - buttonSize.X;
+        var buttonSize = _uiSharedService.GetIconTextButtonSize(FontAwesomeIcon.FolderOpen, "打开事件记录文件夹");
+        var dist = ImGui.GetWindowContentRegionMax().X - buttonSize;
         ImGui.SameLine(dist);
-        if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.FolderOpen, "打开事件记录文件夹"))
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.FolderOpen, "打开事件记录文件夹"))
         {
             ProcessStartInfo ps = new()
             {
@@ -127,11 +127,11 @@ internal class EventViewerUI : WindowMediatorSubscriberBase
             Process.Start(ps);
         }
 
-        UiSharedService.FontText("最近的事件", _uiSharedService.UidFont);
+        _uiSharedService.BigText("最近的事件");
         var foldOut = ImRaii.TreeNode("筛选");
         if (foldOut)
         {
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.Ban, "清除筛选"))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Ban, "清除筛选"))
             {
                 ClearFilters();
             }
@@ -186,7 +186,7 @@ internal class EventViewerUI : WindowMediatorSubscriberBase
                 };
 
                 ImGui.TableNextColumn();
-                UiSharedService.NormalizedIcon(icon, iconColor == new Vector4() ? null : iconColor);
+                _uiSharedService.IconText(icon, iconColor == new Vector4() ? null : iconColor);
                 UiSharedService.AttachToolTip(ev.EventSeverity.ToString());
                 ImGui.TableNextColumn();
                 ImGui.AlignTextToFramePadding();

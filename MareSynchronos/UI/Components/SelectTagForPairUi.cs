@@ -14,6 +14,7 @@ public class SelectTagForPairUi
 {
     private readonly TagHandler _tagHandler;
     private readonly IdDisplayHandler _uidDisplayHandler;
+    private readonly UiSharedService _uiSharedService;
 
     /// <summary>
     /// The group UI is always open for a specific pair. This defines which pair the UI is open for.
@@ -31,12 +32,13 @@ public class SelectTagForPairUi
     /// </summary>
     private string _tagNameToAdd = "";
 
-    public SelectTagForPairUi(TagHandler tagHandler, IdDisplayHandler uidDisplayHandler)
+    public SelectTagForPairUi(TagHandler tagHandler, IdDisplayHandler uidDisplayHandler, UiSharedService uiSharedService)
     {
         _show = false;
         _pair = null;
         _tagHandler = tagHandler;
         _uidDisplayHandler = uidDisplayHandler;
+        _uiSharedService = uiSharedService;
     }
 
     public void Draw()
@@ -61,7 +63,7 @@ public class SelectTagForPairUi
             var childHeight = tags.Count != 0 ? tags.Count * 25 : 1;
             var childSize = new Vector2(0, childHeight > 100 ? 100 : childHeight) * ImGuiHelpers.GlobalScale;
 
-            UiSharedService.FontText($"选择你想要将 {name} 移到的组。", UiBuilder.DefaultFont);
+            ImGui.TextUnformatted($"选择你想要将 {name} 移到的组。");
             if (ImGui.BeginChild(name + "##listGroups", childSize))
             {
                 foreach (var tag in tags)
@@ -72,8 +74,8 @@ public class SelectTagForPairUi
             }
 
             ImGui.Separator();
-            UiSharedService.FontText($"为 {name} 创建一个新的组.", UiBuilder.DefaultFont);
-            if (UiSharedService.NormalizedIconButton(FontAwesomeIcon.Plus))
+            ImGui.TextUnformatted($"为 {name} 创建一个新的组.");
+            if (_uiSharedService.IconButton(FontAwesomeIcon.Plus))
             {
                 HandleAddTag();
             }

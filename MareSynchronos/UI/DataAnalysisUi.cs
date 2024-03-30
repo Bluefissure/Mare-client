@@ -17,6 +17,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
     private readonly CharacterAnalyzer _characterAnalyzer;
     private readonly Progress<(string, int)> _conversionProgress = new();
     private readonly IpcManager _ipcManager;
+    private readonly UiSharedService _uiSharedService;
     private readonly Dictionary<string, string[]> _texturesToConvert = new(StringComparer.Ordinal);
     private Dictionary<ObjectKind, Dictionary<string, CharacterAnalyzer.FileDataEntry>>? _cachedAnalysis;
     private CancellationTokenSource _conversionCancellationTokenSource = new();
@@ -31,11 +32,13 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
     private ObjectKind _selectedObjectTab;
     private bool _showModal = false;
 
-    public DataAnalysisUi(ILogger<DataAnalysisUi> logger, MareMediator mediator, CharacterAnalyzer characterAnalyzer, IpcManager ipcManager, PerformanceCollectorService performanceCollectorService)
+    public DataAnalysisUi(ILogger<DataAnalysisUi> logger, MareMediator mediator, CharacterAnalyzer characterAnalyzer, IpcManager ipcManager, PerformanceCollectorService performanceCollectorService,
+        UiSharedService uiSharedService)
         : base(logger, mediator, "月海角色数据分析", performanceCollectorService)
     {
         _characterAnalyzer = characterAnalyzer;
         _ipcManager = ipcManager;
+        _uiSharedService = uiSharedService;
         Mediator.Subscribe<CharacterDataAnalyzedMessage>(this, (_) =>
         {
             _hasUpdate = true;
@@ -66,7 +69,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
             {
                 ImGui.TextUnformatted("BC7 转换正在进行中: " + _conversionCurrentFileProgress + "/" + _texturesToConvert.Count);
                 UiSharedService.TextWrapped("当前文件: " + _conversionCurrentFileName);
-                if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.StopCircle, "取消转换"))
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.StopCircle, "取消转换"))
                 {
                     _conversionCancellationTokenSource.Cancel();
                 }
@@ -108,7 +111,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
         {
             UiSharedService.ColorTextWrapped($"分析中 {_characterAnalyzer.CurrentFile}/{_characterAnalyzer.TotalFiles}",
                 ImGuiColors.DalamudYellow);
-            if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.StopCircle, "取消分析"))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.StopCircle, "取消分析"))
             {
                 _characterAnalyzer.CancelAnalyze();
             }
@@ -119,14 +122,14 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
             {
                 UiSharedService.ColorTextWrapped("分析中的某些条目的文件大小尚未确定，请按下面的按钮分析您的当前数据",
                     ImGuiColors.DalamudYellow);
-                if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.PlayCircle, "开始分析（缺失条目）"))
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.PlayCircle, "开始分析（缺失条目）"))
                 {
                     _ = _characterAnalyzer.ComputeAnalysis(print: false);
                 }
             }
             else
             {
-                if (UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.PlayCircle, "开始分析（重新计算所有条目）"))
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.PlayCircle, "开始分析（重新计算所有条目）"))
                 {
                     _ = _characterAnalyzer.ComputeAnalysis(print: false, recalculate: true);
                 }
@@ -158,7 +161,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
         ImGui.TextUnformatted("总大小（已压缩）：");
         ImGui.SameLine();
         ImGui.TextUnformatted(UiSharedService.ByteToString(_cachedAnalysis!.Sum(c => c.Value.Sum(c => c.Value.CompressedSize))));
-
+        ImGui.TextUnformatted($"Total modded model triangles: {_cachedAnalysis.Sum(c => c.Value.Sum(f => f.Value.Triangles))}");
         ImGui.Separator();
 
         using var tabbar = ImRaii.TabBar("objectSelection");
@@ -195,6 +198,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
                 ImGui.TextUnformatted($"{kvp.Key} 大小（已压缩）：");
                 ImGui.SameLine();
                 ImGui.TextUnformatted(UiSharedService.ByteToString(kvp.Value.Sum(c => c.Value.CompressedSize)));
+                ImGui.TextUnformatted($"{kvp.Key} modded model triangles: {kvp.Value.Sum(f => f.Value.Triangles)}");
 
                 ImGui.Separator();
                 if (_selectedObjectTab != kvp.Key)
@@ -260,7 +264,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
                             Environment.NewLine + "- 转换将自动转换所有找到的纹理重复项（文件路径超过1个的条目）。" +
                             Environment.NewLine + "- 将纹理转换为BC7格式是一项非常复杂的工作，根据要转换的纹理数量，需要一段时间才能完成。"
                                 , ImGuiColors.DalamudYellow);
-                            if (_texturesToConvert.Count > 0 && UiSharedService.NormalizedIconTextButton(FontAwesomeIcon.PlayCircle, "Start conversion of " + _texturesToConvert.Count + " texture(s)"))
+                            if (_texturesToConvert.Count > 0 && _uiSharedService.IconTextButton(FontAwesomeIcon.PlayCircle, "Start conversion of " + _texturesToConvert.Count + " texture(s)"))
                             {
                                 _conversionCancellationTokenSource = _conversionCancellationTokenSource.CancelRecreate();
                                 _conversionTask = _ipcManager.Penumbra.ConvertTextureFiles(_logger, _texturesToConvert, _conversionProgress, _conversionCancellationTokenSource.Token);
@@ -293,7 +297,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
                 ImGui.SameLine();
                 ImGui.TextUnformatted($"(另外还有 {filePaths.Count - 1} 个)");
                 ImGui.SameLine();
-                UiSharedService.FontText(FontAwesomeIcon.InfoCircle.ToIconString(), UiBuilder.IconFont);
+                _uiSharedService.IconText(FontAwesomeIcon.InfoCircle);
                 UiSharedService.AttachToolTip(string.Join(Environment.NewLine, filePaths.Skip(1)));
             }
 
@@ -306,7 +310,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
                 ImGui.SameLine();
                 ImGui.TextUnformatted($"(另外还有 {gamepaths.Count - 1} 个)");
                 ImGui.SameLine();
-                UiSharedService.FontText(FontAwesomeIcon.InfoCircle.ToIconString(), UiBuilder.IconFont);
+                _uiSharedService.IconText(FontAwesomeIcon.InfoCircle);
                 UiSharedService.AttachToolTip(string.Join(Environment.NewLine, gamepaths.Skip(1)));
             }
         }
@@ -334,8 +338,10 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
 
     private void DrawTable(IGrouping<string, CharacterAnalyzer.FileDataEntry> fileGroup)
     {
-        using var table = ImRaii.Table("Analysis", string.Equals(fileGroup.Key, "tex", StringComparison.Ordinal) ?
-            (_enableBc7ConversionMode ? 7 : 6) : 5, ImGuiTableFlags.Sortable | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.SizingFixedFit,
+        var tableColumns = string.Equals(fileGroup.Key, "tex", StringComparison.Ordinal)
+            ? (_enableBc7ConversionMode ? 7 : 6)
+            : (string.Equals(fileGroup.Key, "mdl", StringComparison.Ordinal) ? 6 : 5);
+        using var table = ImRaii.Table("Analysis", tableColumns, ImGuiTableFlags.Sortable | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.SizingFixedFit,
             new Vector2(0, 300));
         if (!table.Success) return;
         ImGui.TableSetupColumn("哈希");
@@ -347,6 +353,10 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
         {
             ImGui.TableSetupColumn("格式");
             if (_enableBc7ConversionMode) ImGui.TableSetupColumn("转换为BC7格式");
+        }
+        if (string.Equals(fileGroup.Key, "mdl", StringComparison.Ordinal))
+        {
+            ImGui.TableSetupColumn("Triangles");
         }
         ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableHeadersRow();
@@ -440,6 +450,12 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
                         }
                     }
                 }
+            }
+            if (string.Equals(fileGroup.Key, "mdl", StringComparison.Ordinal))
+            {
+                ImGui.TableNextColumn();
+                ImGui.TextUnformatted(item.Triangles.ToString());
+                if (ImGui.IsItemClicked()) _selectedHash = item.Hash;
             }
         }
     }

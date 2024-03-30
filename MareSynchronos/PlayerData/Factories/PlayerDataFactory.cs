@@ -5,6 +5,7 @@ using MareSynchronos.Interop.Ipc;
 using MareSynchronos.PlayerData.Data;
 using MareSynchronos.PlayerData.Handlers;
 using MareSynchronos.Services;
+using MareSynchronos.Services.Mediator;
 using Microsoft.Extensions.Logging;
 using CharacterData = MareSynchronos.PlayerData.Data.CharacterData;
 
@@ -18,11 +19,13 @@ public class PlayerDataFactory
     private readonly IpcManager _ipcManager;
     private readonly ILogger<PlayerDataFactory> _logger;
     private readonly PerformanceCollectorService _performanceCollector;
+    private readonly XivDataAnalyzer _modelAnalyzer;
+    private readonly MareMediator _mareMediator;
     private readonly TransientResourceManager _transientResourceManager;
 
     public PlayerDataFactory(ILogger<PlayerDataFactory> logger, DalamudUtilService dalamudUtil, IpcManager ipcManager,
         TransientResourceManager transientResourceManager, FileCacheManager fileReplacementFactory,
-        PerformanceCollectorService performanceCollector)
+        PerformanceCollectorService performanceCollector, XivDataAnalyzer modelAnalyzer, MareMediator mareMediator)
     {
         _logger = logger;
         _dalamudUtil = dalamudUtil;
@@ -30,7 +33,9 @@ public class PlayerDataFactory
         _transientResourceManager = transientResourceManager;
         _fileCacheManager = fileReplacementFactory;
         _performanceCollector = performanceCollector;
-        _logger.LogTrace("Creating " + nameof(PlayerDataFactory));
+        _modelAnalyzer = modelAnalyzer;
+        _mareMediator = mareMediator;
+        _logger.LogTrace("Creating {this}", nameof(PlayerDataFactory));
     }
 
     public async Task BuildCharacterData(CharacterData previousData, GameObjectHandler playerRelatedObject, CancellationToken token)
@@ -76,7 +81,7 @@ public class PlayerDataFactory
 
         try
         {
-            await _performanceCollector.LogPerformance(this, "CreateCharacterData>" + playerRelatedObject.ObjectKind, async () =>
+            await _performanceCollector.LogPerformance(this, $"CreateCharacterData>{playerRelatedObject.ObjectKind}", async () =>
             {
                 await CreateCharacterData(previousData, playerRelatedObject, token).ConfigureAwait(false);
             }).ConfigureAwait(true);
@@ -128,19 +133,23 @@ public class PlayerDataFactory
         // wait until chara is not drawing and present so nothing spontaneously explodes
         await _dalamudUtil.WaitWhileCharacterIsDrawing(_logger, playerRelatedObject, Guid.NewGuid(), 30000, ct: token).ConfigureAwait(false);
         int totalWaitTime = 10000;
-        while (!await _dalamudUtil.IsObjectPresentAsync(await _dalamudUtil.CreateGameObjectAsync(charaPointer).ConfigureAwait(false)).ConfigureAwait(false) && totalWaitTime > 0)
+        while (!await _dalamudUtil.IsObjectPresentAsync(await _dalamudUtil.CreateGameObjectAsync(playerRelatedObject.Address).ConfigureAwait(false)).ConfigureAwait(false) && totalWaitTime > 0)
         {
             _logger.LogTrace("Character is null but it shouldn't be, waiting");
             await Task.Delay(50, token).ConfigureAwait(false);
             totalWaitTime -= 50;
         }
+        Dictionary<string, List<ushort>>? boneIndices =
+            objectKind != ObjectKind.Player
+            ? null
+            : await _dalamudUtil.RunOnFrameworkThread(() => _modelAnalyzer.GetSkeletonBoneIndices(playerRelatedObject)).ConfigureAwait(false);
 
         DateTime start = DateTime.UtcNow;
 
         // penumbra call, it's currently broken
         IReadOnlyDictionary<string, string[]>? resolvedPaths;
 
-        resolvedPaths = (await _ipcManager.Penumbra.GetCharacterData(_logger, playerRelatedObject).ConfigureAwait(false))![0];
+        resolvedPaths = (await _ipcManager.Penumbra.GetCharacterData(_logger, playerRelatedObject).ConfigureAwait(false))?[0];
         if (resolvedPaths == null) throw new InvalidOperationException("Penumbra returned null data");
 
         previousData.FileReplacements[objectKind] =
@@ -229,9 +238,82 @@ public class PlayerDataFactory
             }
         }
 
+        if (objectKind == ObjectKind.Player)
+        {
+            try
+            {
+                await VerifyPlayerAnimationBones(boneIndices, previousData, objectKind).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                _logger.LogWarning(e, "Failed to verify player animations, continuing without further verification");
+            }
+        }
+
         _logger.LogInformation("Building character data for {obj} took {time}ms", objectKind, TimeSpan.FromTicks(DateTime.UtcNow.Ticks - start.Ticks).TotalMilliseconds);
 
         return previousData;
+    }
+
+    private async Task VerifyPlayerAnimationBones(Dictionary<string, List<ushort>>? boneIndices, CharacterData previousData, ObjectKind objectKind)
+    {
+        if (boneIndices == null) return;
+
+        foreach (var kvp in boneIndices)
+        {
+            _logger.LogDebug("Found {skellyname} ({idx} bone indices) on player: {bones}", kvp.Key, kvp.Value.Any() ? kvp.Value.Max() : 0, string.Join(',', kvp.Value));
+        }
+
+        if (boneIndices.All(u => u.Value.Count == 0)) return;
+
+        int noValidationFailed = 0;
+        foreach (var file in previousData.FileReplacements[objectKind].Where(f => !f.IsFileSwap && f.GamePaths.First().EndsWith("pap", StringComparison.OrdinalIgnoreCase)).ToList())
+        {
+            var skeletonIndices = await _dalamudUtil.RunOnFrameworkThread(() => _modelAnalyzer.GetBoneIndicesFromPap(file.Hash)).ConfigureAwait(false);
+            bool validationFailed = false;
+            if (skeletonIndices != null)
+            {
+                // 105 is the maximum vanilla skellington spoopy bone index
+                if (skeletonIndices.All(k => k.Value.Max() <= 105))
+                {
+                    _logger.LogTrace("All indices of {path} are <= 105, ignoring", file.ResolvedPath);
+                    continue;
+                }
+
+                _logger.LogDebug("Verifying bone indices for {path}, found {x} skeletons", file.ResolvedPath, skeletonIndices.Count);
+
+                foreach (var boneCount in skeletonIndices.Select(k => k).ToList())
+                {
+                    if (boneCount.Value.Max() > boneIndices.SelectMany(b => b.Value).Max())
+                    {
+                        _logger.LogWarning("Found more bone indices on the animation {path} skeleton {skl} (max indice {idx}) than on any player related skeleton (max indice {idx2})",
+                            file.ResolvedPath, boneCount.Key, boneCount.Value.Max(), boneIndices.SelectMany(b => b.Value).Max());
+                        validationFailed = true;
+                        break;
+                    }
+                }
+            }
+
+            if (validationFailed)
+            {
+                noValidationFailed++;
+                _logger.LogDebug("Removing {file} from sent file replacements and transient data", file.ResolvedPath);
+                previousData.FileReplacements[objectKind].Remove(file);
+                foreach (var gamePath in file.GamePaths)
+                {
+                    _transientResourceManager.RemoveTransientResource(objectKind, gamePath);
+                }
+            }
+
+        }
+
+        if (noValidationFailed > 0)
+        {
+            _mareMediator.Publish(new NotificationMessage("无效的骨骼设置",
+                $"你的客户端试图发送 {noValidationFailed} 个包含错误骨骼的动画. 这些动画已被从你即将发送的数据中移除. " +
+                $"请确认你使用了这些动画所需的正确骨骼 (检查 /xllog 以查看更多信息).",
+                Dalamud.Interface.Internal.Notifications.NotificationType.Warning, TimeSpan.FromSeconds(10)));
+        }
     }
 
     private async Task<IReadOnlyDictionary<string, string[]>> GetFileReplacementsFromPaths(HashSet<string> forwardResolve, HashSet<string> reverseResolve)

@@ -73,7 +73,7 @@ public class IdDisplayHandler
             ImGui.AlignTextToFramePadding();
 
             ImGui.SetNextItemWidth(editBoxWidth.Invoke());
-            if (ImGui.InputTextWithHint("", "Name/Notes", ref _editComment, 255, ImGuiInputTextFlags.EnterReturnsTrue))
+            if (ImGui.InputTextWithHint("", "昵称/备注", ref _editComment, 255, ImGuiInputTextFlags.EnterReturnsTrue))
             {
                 _serverManager.SetNoteForGid(group.GID, _editComment, save: true);
                 _editEntry = string.Empty;
@@ -83,7 +83,7 @@ public class IdDisplayHandler
             {
                 _editEntry = string.Empty;
             }
-            UiSharedService.AttachToolTip("Hit ENTER to save\nRight click to cancel");
+            UiSharedService.AttachToolTip("回车以保存\n右键以取消");
         }
     }
 
@@ -108,9 +108,9 @@ public class IdDisplayHandler
 
                 if (_popupTime > DateTime.UtcNow || !_mareConfigService.Current.ProfilesShow)
                 {
-                    ImGui.SetTooltip("Left click to switch between UID display and nick" + Environment.NewLine
-                        + "Right click to change nick for " + pair.UserData.AliasOrUID + Environment.NewLine
-                        + "Middle Mouse Button to open their profile in a separate window");
+                    ImGui.SetTooltip("左键切换UID/昵称显示" + Environment.NewLine
+                        + "右键修改昵称: " + pair.UserData.AliasOrUID + Environment.NewLine
+                        + "中键在新窗口中打开月海档案");
                 }
                 else if (_popupTime < DateTime.UtcNow && !_popupShown)
                 {
@@ -166,7 +166,7 @@ public class IdDisplayHandler
             ImGui.AlignTextToFramePadding();
 
             ImGui.SetNextItemWidth(editBoxWidth.Invoke());
-            if (ImGui.InputTextWithHint("", "Nick/Notes", ref _editComment, 255, ImGuiInputTextFlags.EnterReturnsTrue))
+            if (ImGui.InputTextWithHint("", "昵称/备注", ref _editComment, 255, ImGuiInputTextFlags.EnterReturnsTrue))
             {
                 _serverManager.SetNoteForUid(pair.UserData.UID, _editComment);
                 _serverManager.SaveNotes();
@@ -177,7 +177,7 @@ public class IdDisplayHandler
             {
                 _editEntry = string.Empty;
             }
-            UiSharedService.AttachToolTip("Hit ENTER to save\nRight click to cancel");
+            UiSharedService.AttachToolTip("回车以保存\n右键以取消");
         }
     }
 
@@ -235,7 +235,7 @@ public class IdDisplayHandler
                 var note = pair.GetNote();
                 if (note != null)
                 {
-                    playerText = note;
+                    playerText = note + "(" + playerText + ")";
                 }
             }
         }
