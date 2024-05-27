@@ -112,39 +112,8 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 SizePx = 24
             }));
         });
-        GameFont = _pluginInterface.UiBuilder.FontAtlas.NewGameFontHandle(new GameFontStyle(GameFontFamilyAndSize.Axis14));
-        IconFont = _pluginInterface.UiBuilder.FontAtlas.NewDelegateFontHandle(e =>
-        {
-            e.OnPreBuild(tk => tk.AddFontAwesomeIconFont(new()
-            {
-                SizePx = _pluginInterface.UiBuilder.DefaultFontSpec.SizePx,
-                GlyphMinAdvanceX = _pluginInterface.UiBuilder.DefaultFontSpec.SizePx,
-                GlyphMaxAdvanceX = _pluginInterface.UiBuilder.DefaultFontSpec.SizePx
-            }));
-            e.OnPostBuild(tk =>
-            {
-                var font = tk.Font;
-                var nsize = font.FontSize;
-                var glyphs = font.GlyphsWrapped();
-                foreach (ref var glyph in glyphs.DataSpan)
-                {
-                    var ratio = 1f;
-                    if (glyph.X1 - glyph.X0 > nsize)
-                        ratio = Math.Max(ratio, (glyph.X1 - glyph.X0) / nsize);
-                    if (glyph.Y1 - glyph.Y0 > nsize)
-                        ratio = Math.Max(ratio, (glyph.Y1 - glyph.Y0) / nsize);
-                    var w = MathF.Round((glyph.X1 - glyph.X0) / ratio, MidpointRounding.ToZero);
-                    var h = MathF.Round((glyph.Y1 - glyph.Y0) / ratio, MidpointRounding.AwayFromZero);
-                    glyph.X0 = MathF.Round((nsize - w) / 2f, MidpointRounding.ToZero);
-                    glyph.Y0 = MathF.Round((nsize - h) / 2f, MidpointRounding.AwayFromZero);
-                    glyph.X1 = glyph.X0 + w;
-                    glyph.Y1 = glyph.Y0 + h;
-                    glyph.AdvanceX = nsize;
-                }
-
-                tk.BuildLookupTable(font);
-            });
-        });
+        GameFont = _pluginInterface.UiBuilder.FontAtlas.NewGameFontHandle(new(GameFontFamilyAndSize.Axis14));
+        IconFont = _pluginInterface.UiBuilder.IconFontFixedWidthHandle;
     }
 
     public ApiController ApiController => _apiController;
@@ -871,7 +840,6 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
         base.Dispose(disposing);
 
-        IconFont.Dispose();
         UidFont.Dispose();
         GameFont.Dispose();
     }
