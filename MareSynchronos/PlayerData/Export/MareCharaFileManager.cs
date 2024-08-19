@@ -10,6 +10,7 @@ using MareSynchronos.Services;
 using MareSynchronos.Services.Mediator;
 using MareSynchronos.Utils;
 using Microsoft.Extensions.Logging;
+using System.Text;
 using CharacterData = MareSynchronos.API.Data.CharacterData;
 
 namespace MareSynchronos.PlayerData.Export;
@@ -72,7 +73,7 @@ public class MareCharaFileManager : DisposableMediatorSubscriberBase
     public bool CurrentlyWorking { get; private set; } = false;
     public MareCharaFileHeader? LoadedCharaFile { get; private set; }
 
-    public async Task ApplyMareCharaFile(GameObject? charaTarget, long expectedLength)
+    public async Task ApplyMareCharaFile(IGameObject? charaTarget, long expectedLength)
     {
         if (charaTarget == null) return;
         Dictionary<string, string> extractedFiles = new(StringComparer.Ordinal);
@@ -120,7 +121,7 @@ public class MareCharaFileManager : DisposableMediatorSubscriberBase
                 }
                 else
                 {
-                    var id = await _ipcManager.CustomizePlus.SetBodyScaleAsync(tempHandler.Address, "{}").ConfigureAwait(false);
+                    var id = await _ipcManager.CustomizePlus.SetBodyScaleAsync(tempHandler.Address, Convert.ToBase64String(Encoding.UTF8.GetBytes("{}"))).ConfigureAwait(false);
                     _gposeCustomizeObjects.Add(id);
                 }
             }

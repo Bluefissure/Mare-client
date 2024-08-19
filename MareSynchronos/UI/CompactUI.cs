@@ -6,6 +6,7 @@ using Dalamud.Utility;
 using ImGuiNET;
 using MareSynchronos.API.Data.Extensions;
 using MareSynchronos.API.Dto.Group;
+using MareSynchronos.Interop.Ipc;
 using MareSynchronos.MareConfiguration;
 using MareSynchronos.PlayerData.Handlers;
 using MareSynchronos.PlayerData.Pairs;
@@ -37,6 +38,7 @@ public class CompactUi : WindowMediatorSubscriberBase
     private readonly PairManager _pairManager;
     private readonly SelectTagForPairUi _selectGroupForPairUi;
     private readonly SelectPairForTagUi _selectPairsForGroupUi;
+    private readonly IpcManager _ipcManager;
     private readonly ServerConfigurationManager _serverManager;
     private readonly TopTabMenu _tabMenu;
     private readonly TagHandler _tagHandler;
@@ -55,7 +57,7 @@ public class CompactUi : WindowMediatorSubscriberBase
     public CompactUi(ILogger<CompactUi> logger, UiSharedService uiShared, MareConfigService configService, ApiController apiController, PairManager pairManager,
         ServerConfigurationManager serverManager, MareMediator mediator, FileUploadManager fileTransferManager,
         TagHandler tagHandler, DrawEntityFactory drawEntityFactory, SelectTagForPairUi selectTagForPairUi, SelectPairForTagUi selectPairForTagUi,
-        PerformanceCollectorService performanceCollectorService)
+        PerformanceCollectorService performanceCollectorService, IpcManager ipcManager)
         : base(logger, mediator, "###MareSynchronosMainUI", performanceCollectorService)
     {
         _uiSharedService = uiShared;
@@ -68,6 +70,7 @@ public class CompactUi : WindowMediatorSubscriberBase
         _drawEntityFactory = drawEntityFactory;
         _selectGroupForPairUi = selectTagForPairUi;
         _selectPairsForGroupUi = selectPairForTagUi;
+        _ipcManager = ipcManager;
         _tabMenu = new TopTabMenu(Mediator, _apiController, _pairManager, _uiSharedService);
 
         AllowPinning = false;
@@ -150,6 +153,35 @@ public class CompactUi : WindowMediatorSubscriberBase
             }
             UiSharedService.ColorTextWrapped($"您安装的月海同步器版本已过期，当前版本为: {ver.Major}.{ver.Minor}.{ver.Build}. " +
                 $"强烈建议更新月海同步器到最新版本。打开插件管理器/xlplugins并更新插件.", ImGuiColors.DalamudRed);
+        }
+
+        if (!_ipcManager.Initialized)
+        {
+            var unsupported = "MISSING ESSENTIAL PLUGINS";
+
+            using (_uiSharedService.UidFont.Push())
+            {
+                var uidTextSize = ImGui.CalcTextSize(unsupported);
+                ImGui.SetCursorPosX((ImGui.GetWindowContentRegionMax().X + ImGui.GetWindowContentRegionMin().X) / 2 - uidTextSize.X / 2);
+                ImGui.AlignTextToFramePadding();
+                ImGui.TextColored(ImGuiColors.DalamudRed, unsupported);
+            }
+            var penumAvailable = _ipcManager.Penumbra.APIAvailable;
+            var glamAvailable = _ipcManager.Glamourer.APIAvailable;
+
+            UiSharedService.ColorTextWrapped($"One or more Plugins essential for Mare operation are unavailable. Enable or update following plugins:", ImGuiColors.DalamudRed);
+            using var indent = ImRaii.PushIndent(10f);
+            if (!penumAvailable)
+            {
+                UiSharedService.TextWrapped("Penumbra");
+                _uiSharedService.BooleanToColoredIcon(penumAvailable, true);
+            }
+            if (!glamAvailable)
+            {
+                UiSharedService.TextWrapped("Glamourer");
+                _uiSharedService.BooleanToColoredIcon(glamAvailable, true);
+            }
+            ImGui.Separator();
         }
 
         using (ImRaii.PushId("header")) DrawUIDHeader();
@@ -566,6 +598,7 @@ public class CompactUi : WindowMediatorSubscriberBase
             ServerState.RateLimited => "您因过于频繁地重新连接而受到限制。请断开连接并等待10分钟，然后重试。",
             ServerState.Connected => string.Empty,
             ServerState.NoSecretKey => "您没有为当前角色设置密钥。使用下面的按钮或打开设置为当前角色设置密钥。您可以对多个角色使用同一密钥。",
+            ServerState.MultiChara => "Your Character Configuration has multiple characters configured with same name and world. You will not be able to connect until you fix this issue. Remove the duplicates from the configuration in Settings -> Service Settings -> Character Management and reconnect manually after.",
             _ => string.Empty
         };
     }
@@ -584,6 +617,7 @@ public class CompactUi : WindowMediatorSubscriberBase
             ServerState.Offline => ImGuiColors.DalamudRed,
             ServerState.RateLimited => ImGuiColors.DalamudYellow,
             ServerState.NoSecretKey => ImGuiColors.DalamudYellow,
+            ServerState.MultiChara => ImGuiColors.DalamudYellow,
             _ => ImGuiColors.DalamudRed
         };
     }
@@ -601,6 +635,7 @@ public class CompactUi : WindowMediatorSubscriberBase
             ServerState.Offline => "不可用",
             ServerState.RateLimited => "速率限制",
             ServerState.NoSecretKey => "无密钥",
+            ServerState.MultiChara => "重复的角色",
             ServerState.Connected => _apiController.DisplayName,
             _ => string.Empty
         };

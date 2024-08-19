@@ -150,6 +150,9 @@ public static class VariousExtensions
             oldData.CustomizePlusData.TryGetValue(objectKind, out var oldCustomizePlusData);
             newData.CustomizePlusData.TryGetValue(objectKind, out var newCustomizePlusData);
 
+            oldCustomizePlusData ??= string.Empty;
+            newCustomizePlusData ??= string.Empty;
+
             bool customizeDataDifferent = !string.Equals(oldCustomizePlusData, newCustomizePlusData, StringComparison.Ordinal);
             if (customizeDataDifferent || (forceApplyCustomization && !string.IsNullOrEmpty(newCustomizePlusData)))
             {
@@ -203,7 +206,7 @@ public static class VariousExtensions
         return JsonSerializer.Deserialize<T>(JsonSerializer.Serialize(obj))!;
     }
 
-    public static unsafe int? ObjectTableIndex(this GameObject? gameObject)
+    public static unsafe int? ObjectTableIndex(this IGameObject? gameObject)
     {
         if (gameObject == null || gameObject.Address == IntPtr.Zero)
         {

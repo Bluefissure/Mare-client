@@ -1,4 +1,5 @@
 ﻿using Dalamud.Game.Gui.Dtr;
+using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Plugin.Services;
 using MareSynchronos.MareConfiguration;
 using MareSynchronos.MareConfiguration.Configurations;
@@ -16,12 +17,14 @@ public sealed class DtrEntry : IDisposable, IHostedService
     private readonly CancellationTokenSource _cancellationTokenSource = new();
     private readonly ConfigurationServiceBase<MareConfig> _configService;
     private readonly IDtrBar _dtrBar;
-    private readonly Lazy<DtrBarEntry> _entry;
+    private readonly Lazy<IDtrBarEntry> _entry;
     private readonly ILogger<DtrEntry> _logger;
     private readonly MareMediator _mareMediator;
     private readonly PairManager _pairManager;
     private Task? _runTask;
     private string? _text;
+    private string? _tooltip;
+    private StatusColorId _color;
 
     public DtrEntry(ILogger<DtrEntry> logger, IDtrBar dtrBar, ConfigurationServiceBase<MareConfig> configService, MareMediator mareMediator, PairManager pairManager, ApiController apiController)
     {
@@ -40,7 +43,7 @@ public sealed class DtrEntry : IDisposable, IHostedService
         {
             _logger.LogDebug("Disposing DtrEntry");
             Clear();
-            _entry.Value.Dispose();
+            _entry.Value.Remove();
         }
     }
 
@@ -74,11 +77,13 @@ public sealed class DtrEntry : IDisposable, IHostedService
         if (!_entry.IsValueCreated) return;
         _logger.LogInformation("Clearing entry");
         _text = null;
+        _tooltip = null;
+        _color = default;
 
         _entry.Value.Shown = false;
     }
 
-    private DtrBarEntry CreateEntry()
+    private IDtrBarEntry CreateEntry()
     {
         _logger.LogTrace("Creating new DtrBar entry");
         var entry = _dtrBar.Get("Mare Synchronos");
@@ -118,6 +123,7 @@ public sealed class DtrEntry : IDisposable, IHostedService
 
         string text;
         string tooltip;
+        StatusColorId color;
         if (_apiController.IsConnected)
         {
             var pairCount = _pairManager.GetVisibleUserCount();
@@ -139,23 +145,41 @@ public sealed class DtrEntry : IDisposable, IHostedService
                 }
 
                 tooltip = $"月海同步器: 已连接{Environment.NewLine}----------{Environment.NewLine}{string.Join(Environment.NewLine, visiblePairs)}";
+                color = StatusColorId.PairsInRange;
             }
             else
             {
                 tooltip = "月海同步器: 已连接";
+                color = default;
             }
         }
         else
         {
             text = "\uE044 \uE04C";
             tooltip = "月海同步器: 未连接";
+            color = StatusColorId.NotConnected;
         }
 
-        if (!string.Equals(text, _text, StringComparison.Ordinal))
+        if (!_configService.Current.UseColorsInDtr)
+            color = default;
+
+        if (!string.Equals(text, _text, StringComparison.Ordinal) || !string.Equals(tooltip, _tooltip, StringComparison.Ordinal) || color != _color)
         {
             _text = text;
-            _entry.Value.Text = text;
+            _tooltip = tooltip;
+            _color = color;
+            _entry.Value.Text = color != default ? BuildColoredSeString(text, color) : text;
             _entry.Value.Tooltip = tooltip;
         }
+    }
+
+    private static SeString BuildColoredSeString(string text, StatusColorId color)
+        => new SeStringBuilder().AddUiGlow(text, (ushort)color).Build();
+
+    private enum StatusColorId : ushort
+    {
+        None = default,
+        NotConnected = 518,
+        PairsInRange = 526,
     }
 }

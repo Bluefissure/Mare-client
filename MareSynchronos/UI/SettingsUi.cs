@@ -833,6 +833,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         var enableDtrEntry = _configService.Current.EnableDtrEntry;
         var showUidInDtrTooltip = _configService.Current.ShowUidInDtrTooltip;
         var preferNoteInDtrTooltip = _configService.Current.PreferNoteInDtrTooltip;
+        var useColorsInDtr = _configService.Current.UseColorsInDtr;
         var preferNotesInsteadOfName = _configService.Current.PreferNotesOverNamesForVisible;
         var groupUpSyncshells = _configService.Current.GroupUpSyncshells;
         var groupInVisible = _configService.Current.ShowSyncshellUsersInVisible;
@@ -864,6 +865,12 @@ public class SettingsUi : WindowMediatorSubscriberBase
             if (ImGui.Checkbox("优先显示备注而非UID", ref preferNoteInDtrTooltip))
             {
                 _configService.Current.PreferNoteInDtrTooltip = preferNoteInDtrTooltip;
+                _configService.Save();
+            }
+
+            if (ImGui.Checkbox("Color-code the Server Info Bar entry according to status", ref useColorsInDtr))
+            {
+                _configService.Current.UseColorsInDtr = useColorsInDtr;
                 _configService.Save();
             }
         }
@@ -1176,7 +1183,13 @@ public class SettingsUi : WindowMediatorSubscriberBase
                         }
                         var friendlyName = secretKey.FriendlyName;
 
-                        if (ImGui.TreeNode($"chara", $"角色: {item.CharacterName}, 服务器: {worldPreview}, 密钥: {friendlyName}"))
+                        bool thisIsYou = false;
+                        if (string.Equals(_dalamudUtilService.GetPlayerName(), item.CharacterName, StringComparison.OrdinalIgnoreCase)
+                            && _dalamudUtilService.GetWorldId() == worldIdx)
+                        {
+                            thisIsYou = true;
+                        }
+                        if (ImGui.TreeNode($"chara", (thisIsYou ? "[当前] " : "") + $"角色: {item.CharacterName}, 服务器: {worldPreview}, 密钥: {friendlyName}"))
                         {
                             var charaName = item.CharacterName;
                             if (ImGui.InputText("角色名", ref charaName, 64))

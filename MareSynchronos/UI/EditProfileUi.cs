@@ -1,7 +1,7 @@
 ﻿using Dalamud.Interface;
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.ImGuiFileDialog;
-using Dalamud.Interface.Internal;
+using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Interface.Utility;
 using ImGuiNET;
 using MareSynchronos.API.Data;
@@ -20,7 +20,6 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private readonly ApiController _apiController;
     private readonly FileDialogManager _fileDialogManager;
     private readonly MareProfileManager _mareProfileManager;
-    private readonly UiBuilder _uiBuilder;
     private readonly UiSharedService _uiSharedService;
     private bool _adjustedForScollBarsLocalProfile = false;
     private bool _adjustedForScollBarsOnlineProfile = false;
@@ -32,9 +31,8 @@ public class EditProfileUi : WindowMediatorSubscriberBase
     private bool _wasOpen;
 
     public EditProfileUi(ILogger<EditProfileUi> logger, MareMediator mediator,
-        ApiController apiController, UiBuilder uiBuilder, UiSharedService uiSharedService,
-        FileDialogManager fileDialogManager, MareProfileManager mareProfileManager,
-        PerformanceCollectorService performanceCollectorService)
+        ApiController apiController, UiSharedService uiSharedService, FileDialogManager fileDialogManager,
+        MareProfileManager mareProfileManager, PerformanceCollectorService performanceCollectorService)
         : base(logger, mediator, "修改月海档案###MareSynchronosEditProfileUI", performanceCollectorService)
     {
         IsOpen = false;
@@ -44,7 +42,6 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             MaximumSize = new(768, 2000)
         };
         _apiController = apiController;
-        _uiBuilder = uiBuilder;
         _uiSharedService = uiSharedService;
         _fileDialogManager = fileDialogManager;
         _mareProfileManager = mareProfileManager;
@@ -78,7 +75,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
         {
             _profileImage = profile.ImageData.Value;
             _pfpTextureWrap?.Dispose();
-            _pfpTextureWrap = _uiBuilder.LoadImage(_profileImage);
+            _pfpTextureWrap = _uiSharedService.LoadImage(_profileImage);
         }
 
         if (!string.Equals(_profileDescription, profile.Description, StringComparison.OrdinalIgnoreCase))

@@ -2,6 +2,7 @@
 using MareSynchronos.API.Data.Enum;
 using MareSynchronos.FileCache;
 using MareSynchronos.Interop.Ipc;
+using MareSynchronos.MareConfiguration.Models;
 using MareSynchronos.PlayerData.Data;
 using MareSynchronos.PlayerData.Handlers;
 using MareSynchronos.Services;
@@ -13,7 +14,6 @@ namespace MareSynchronos.PlayerData.Factories;
 
 public class PlayerDataFactory
 {
-    private static readonly string[] _allowedExtensionsForGamePaths = [".mdl", ".tex", ".mtrl", ".tmb", ".pap", ".avfx", ".atex", ".sklb", ".eid", ".phyb", ".scd", ".skp", ".shpk"];
     private readonly DalamudUtilService _dalamudUtil;
     private readonly FileCacheManager _fileCacheManager;
     private readonly IpcManager _ipcManager;
@@ -42,7 +42,7 @@ public class PlayerDataFactory
     {
         if (!_ipcManager.Initialized)
         {
-            throw new InvalidOperationException("Penumbra is not connected");
+            throw new InvalidOperationException("Penumbra or Glamourer is not connected");
         }
 
         if (playerRelatedObject == null) return;
@@ -155,7 +155,7 @@ public class PlayerDataFactory
         previousData.FileReplacements[objectKind] =
                 new HashSet<FileReplacement>(resolvedPaths.Select(c => new FileReplacement([.. c.Value], c.Key)), FileReplacementComparer.Instance)
                 .Where(p => p.HasFileReplacement).ToHashSet();
-        previousData.FileReplacements[objectKind].RemoveWhere(c => c.GamePaths.Any(g => !_allowedExtensionsForGamePaths.Any(e => g.EndsWith(e, StringComparison.OrdinalIgnoreCase))));
+        previousData.FileReplacements[objectKind].RemoveWhere(c => c.GamePaths.Any(g => !CacheMonitor.AllowedFileExtensions.Any(e => g.EndsWith(e, StringComparison.OrdinalIgnoreCase))));
 
         _logger.LogDebug("== Static Replacements ==");
         foreach (var replacement in previousData.FileReplacements[objectKind].Where(i => i.HasFileReplacement).OrderBy(i => i.GamePaths.First(), StringComparer.OrdinalIgnoreCase))
@@ -207,11 +207,8 @@ public class PlayerDataFactory
         previousData.GlamourerString[playerRelatedObject.ObjectKind] = await getGlamourerData.ConfigureAwait(false);
         _logger.LogDebug("Glamourer is now: {data}", previousData.GlamourerString[playerRelatedObject.ObjectKind]);
         var customizeScale = await getCustomizeData.ConfigureAwait(false);
-        if (!string.IsNullOrEmpty(customizeScale))
-        {
-            previousData.CustomizePlusScale[playerRelatedObject.ObjectKind] = customizeScale;
-            _logger.LogDebug("Customize is now: {data}", previousData.CustomizePlusScale[playerRelatedObject.ObjectKind]);
-        }
+        previousData.CustomizePlusScale[playerRelatedObject.ObjectKind] = customizeScale ?? string.Empty;
+        _logger.LogDebug("Customize is now: {data}", previousData.CustomizePlusScale[playerRelatedObject.ObjectKind]);
         previousData.HonorificData = _ipcManager.Honorific.GetTitle();
         _logger.LogDebug("Honorific is now: {data}", previousData.HonorificData);
         previousData.HeelsData = await getHeelsOffset.ConfigureAwait(false);
@@ -312,7 +309,7 @@ public class PlayerDataFactory
             _mareMediator.Publish(new NotificationMessage("无效的骨骼设置",
                 $"你的客户端试图发送 {noValidationFailed} 个包含错误骨骼的动画. 这些动画已被从你即将发送的数据中移除. " +
                 $"请确认你使用了这些动画所需的正确骨骼 (检查 /xllog 以查看更多信息).",
-                Dalamud.Interface.Internal.Notifications.NotificationType.Warning, TimeSpan.FromSeconds(10)));
+                NotificationType.Warning, TimeSpan.FromSeconds(10)));
         }
     }
 

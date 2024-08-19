@@ -1,4 +1,5 @@
 ﻿using MareSynchronos.API.Routes;
+using MareSynchronos.MareConfiguration.Models;
 using MareSynchronos.Services;
 using MareSynchronos.Services.Mediator;
 using MareSynchronos.Services.ServerConfiguration;
@@ -65,7 +66,7 @@ public sealed class TokenProvider : IDisposable, IMediatorSubscriber
                 tokenUri = MareAuth.AuthFullPath(new Uri(_serverManager.CurrentApiUrl
                     .Replace("wss://", "https://", StringComparison.OrdinalIgnoreCase)
                     .Replace("ws://", "http://", StringComparison.OrdinalIgnoreCase)));
-                var secretKey = _serverManager.GetSecretKey()!;
+                var secretKey = _serverManager.GetSecretKey(out _)!;
                 var auth = secretKey.GetHash256();
                 result = await _httpClient.PostAsync(tokenUri, new FormUrlEncodedContent(new[]
                 {
@@ -99,10 +100,10 @@ public sealed class TokenProvider : IDisposable, IMediatorSubscriber
             {
                 if (isRenewal)
                     Mediator.Publish(new NotificationMessage("Error refreshing token", "Your authentication token could not be renewed. Try reconnecting to Mare manually.",
-                    Dalamud.Interface.Internal.Notifications.NotificationType.Error));
+                    NotificationType.Error));
                 else
                     Mediator.Publish(new NotificationMessage("Error generating token", "Your authentication token could not be generated. Check Mares main UI to see the error message.",
-                    Dalamud.Interface.Internal.Notifications.NotificationType.Error));
+                    NotificationType.Error));
                 Mediator.Publish(new DisconnectedMessage());
                 throw new MareAuthFailureException(response);
             }
@@ -124,41 +125,49 @@ public sealed class TokenProvider : IDisposable, IMediatorSubscriber
             Mediator.Publish(new NotificationMessage("Invalid system clock", "The clock of your computer is invalid. " +
                 "Mare will not function properly if the time zone is not set correctly. " +
                 "Please set your computers time zone correctly and keep your clock synchronized with the internet.",
-                Dalamud.Interface.Internal.Notifications.NotificationType.Error));
+                NotificationType.Error));
             throw new InvalidOperationException($"JwtToken is behind DateTime.UtcNow, DateTime.UtcNow is possibly wrong. DateTime.UtcNow is {DateTime.UtcNow}, JwtToken.ValidTo is {jwtToken.ValidTo}");
         }
         return response;
     }
 
-    private JwtIdentifier? GetIdentifier()
+    private async Task<JwtIdentifier?> GetIdentifier()
     {
         JwtIdentifier jwtIdentifier;
         try
         {
+            var playerIdentifier = await _dalamudUtil.GetPlayerNameHashedAsync().ConfigureAwait(false);
+
+            if (string.IsNullOrEmpty(playerIdentifier))
+            {
+                _logger.LogTrace("GetIdentifier: PlayerIdentifier was null, returning last identifier {identifier}", _lastJwtIdentifier);
+                return _lastJwtIdentifier;
+            }
+
             jwtIdentifier = new(_serverManager.CurrentApiUrl,
-                                _dalamudUtil.GetPlayerNameHashedAsync().GetAwaiter().GetResult(),
-                                _serverManager.GetSecretKey()!);
+                                playerIdentifier,
+                                _serverManager.GetSecretKey(out _)!);
             _lastJwtIdentifier = jwtIdentifier;
         }
         catch (Exception ex)
         {
             if (_lastJwtIdentifier == null)
             {
-                _logger.LogError("GetOrUpdate: No last identifier found, aborting");
+                _logger.LogError("GetIdentifier: No last identifier found, aborting");
                 return null;
             }
 
-            _logger.LogWarning(ex, "GetOrUpdate: Could not get JwtIdentifier for some reason or another, reusing last identifier {identifier}", _lastJwtIdentifier);
+            _logger.LogWarning(ex, "GetIdentifier: Could not get JwtIdentifier for some reason or another, reusing last identifier {identifier}", _lastJwtIdentifier);
             jwtIdentifier = _lastJwtIdentifier;
         }
 
-        _logger.LogDebug("GetOrUpdate: Using identifier {identifier}", jwtIdentifier);
+        _logger.LogDebug("GetIdentifier: Using identifier {identifier}", jwtIdentifier);
         return jwtIdentifier;
     }
 
-    public string? GetToken()
+    public async Task<string?> GetToken()
     {
-        JwtIdentifier? jwtIdentifier = GetIdentifier();
+        JwtIdentifier? jwtIdentifier = await GetIdentifier().ConfigureAwait(false);
         if (jwtIdentifier == null) return null;
 
         if (_tokenCache.TryGetValue(jwtIdentifier, out var token))
@@ -171,7 +180,7 @@ public sealed class TokenProvider : IDisposable, IMediatorSubscriber
 
     public async Task<string?> GetOrUpdateToken(CancellationToken ct)
     {
-        JwtIdentifier? jwtIdentifier = GetIdentifier();
+        JwtIdentifier? jwtIdentifier = await GetIdentifier().ConfigureAwait(false);
         if (jwtIdentifier == null) return null;
 
         bool renewal = false;

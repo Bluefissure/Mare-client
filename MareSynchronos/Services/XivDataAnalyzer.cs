@@ -1,7 +1,9 @@
 ﻿using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
-using FFXIVClientStructs.Havok;
+using FFXIVClientStructs.Havok.Animation;
+using FFXIVClientStructs.Havok.Common.Base.Types;
+using FFXIVClientStructs.Havok.Common.Serialize.Util;
 using Lumina;
 using Lumina.Data.Files;
 using MareSynchronos.FileCache;
@@ -184,17 +186,27 @@ public sealed class XivDataAnalyzer
 
         var filePath = path.ResolvedFilepath;
 
-        _logger.LogDebug("Detected Model File {path}, calculating Tris", filePath);
-        var file = _luminaGameData.GetFileFromDisk<MdlFile>(filePath);
-        if (file.FileHeader.LodCount <= 0)
-            return Task.FromResult((long)0);
-        var meshIdx = file.Lods[0].MeshIndex;
-        var meshCnt = file.Lods[0].MeshCount;
-        var tris = file.Meshes.Skip(meshIdx).Take(meshCnt).Sum(p => p.IndexCount) / 3;
+        try
+        {
+            _logger.LogDebug("Detected Model File {path}, calculating Tris", filePath);
+            var file = _luminaGameData.GetFileFromDisk<MdlFile>(filePath);
+            if (file.FileHeader.LodCount <= 0)
+                return Task.FromResult((long)0);
+            var meshIdx = file.Lods[0].MeshIndex;
+            var meshCnt = file.Lods[0].MeshCount;
+            var tris = file.Meshes.Skip(meshIdx).Take(meshCnt).Sum(p => p.IndexCount) / 3;
 
-        _logger.LogDebug("{filePath} => {tris} triangles", filePath, tris);
-        _configService.Current.TriangleDictionary[hash] = tris;
-        _configService.Save();
-        return Task.FromResult(tris);
+            _logger.LogDebug("{filePath} => {tris} triangles", filePath, tris);
+            _configService.Current.TriangleDictionary[hash] = tris;
+            _configService.Save();
+            return Task.FromResult(tris);
+        }
+        catch (Exception e)
+        {
+            _configService.Current.TriangleDictionary[hash] = 0;
+            _configService.Save();
+            _logger.LogWarning(e, "Could not parse file {file}", filePath);
+            return Task.FromResult((long)0);
+        }
     }
 }
