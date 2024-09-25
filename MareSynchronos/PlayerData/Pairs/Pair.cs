@@ -20,7 +20,7 @@ public class Pair
     private readonly ILogger<Pair> _logger;
     private readonly MareMediator _mediator;
     private readonly ServerConfigurationManager _serverConfigurationManager;
-    private CancellationTokenSource _applicationCts = new CancellationTokenSource();
+    private CancellationTokenSource _applicationCts = new();
     private OnlineUserIdentDto? _onlineUserIdentDto = null;
 
     public Pair(ILogger<Pair> logger, UserFullPairDto userPair, PairHandlerFactory cachedPlayerFactory,
@@ -44,8 +44,10 @@ public class Pair
     public bool IsVisible => CachedPlayer?.IsVisible ?? false;
     public CharacterData? LastReceivedCharacterData { get; set; }
     public string? PlayerName => CachedPlayer?.PlayerName ?? string.Empty;
-    public long LastAppliedDataSize => CachedPlayer?.LastAppliedDataSize ?? -1;
-    public long LastAppliedDataTris => CachedPlayer?.LastAppliedDataTris ?? -1;
+    public long LastAppliedDataBytes => CachedPlayer?.LastAppliedDataBytes ?? -1;
+    public long LastAppliedDataTris { get; set; } = -1;
+    public long LastAppliedApproximateVRAMBytes { get; set; } = -1;
+    public string Ident => _onlineUserIdentDto?.Ident ?? string.Empty;
 
     public UserData UserData => UserPair.User;
 
@@ -160,7 +162,7 @@ public class Pair
             }
 
             CachedPlayer?.Dispose();
-            CachedPlayer = _cachedPlayerFactory.Create(new OnlineUserIdentDto(UserData, _onlineUserIdentDto!.Ident));
+            CachedPlayer = _cachedPlayerFactory.Create(this);
         }
         finally
         {
@@ -188,11 +190,11 @@ public class Pair
         try
         {
             _creationSemaphore.Wait();
-            _onlineUserIdentDto = null;
             LastReceivedCharacterData = null;
             var player = CachedPlayer;
             CachedPlayer = null;
             player?.Dispose();
+            _onlineUserIdentDto = null;
         }
         finally
         {

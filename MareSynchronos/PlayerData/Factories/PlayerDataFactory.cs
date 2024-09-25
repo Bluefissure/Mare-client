@@ -115,7 +115,6 @@ public class PlayerDataFactory
     private async Task<CharacterData> CreateCharacterData(CharacterData previousData, GameObjectHandler playerRelatedObject, CancellationToken token)
     {
         var objectKind = playerRelatedObject.ObjectKind;
-        var charaPointer = playerRelatedObject.Address;
 
         _logger.LogDebug("Building character data for {obj}", playerRelatedObject);
 
@@ -177,10 +176,10 @@ public class PlayerDataFactory
         _logger.LogDebug("Handling transient update for {obj}", playerRelatedObject);
 
         // remove all potentially gathered paths from the transient resource manager that are resolved through static resolving
-        _transientResourceManager.ClearTransientPaths(charaPointer, previousData.FileReplacements[objectKind].SelectMany(c => c.GamePaths).ToList());
+        _transientResourceManager.ClearTransientPaths(objectKind, previousData.FileReplacements[objectKind].SelectMany(c => c.GamePaths).ToList());
 
         // get all remaining paths and resolve them
-        var transientPaths = ManageSemiTransientData(objectKind, charaPointer);
+        var transientPaths = ManageSemiTransientData(objectKind);
         var resolvedTransientPaths = await GetFileReplacementsFromPaths(transientPaths, new HashSet<string>(StringComparer.Ordinal)).ConfigureAwait(false);
 
         _logger.LogDebug("== Transient Replacements ==");
@@ -217,6 +216,9 @@ public class PlayerDataFactory
         {
             previousData.MoodlesData = await _ipcManager.Moodles.GetStatusAsync(playerRelatedObject.Address).ConfigureAwait(false) ?? string.Empty;
             _logger.LogDebug("Moodles is now: {moodles}", previousData.MoodlesData);
+
+            previousData.PetNamesData = _ipcManager.PetNames.GetLocalNames();
+            _logger.LogDebug("Pet Nicknames is now: {petnames}", previousData.PetNamesData);
         }
 
         if (previousData.FileReplacements.TryGetValue(objectKind, out HashSet<FileReplacement>? fileReplacements))
@@ -348,9 +350,9 @@ public class PlayerDataFactory
         return resolvedPaths.ToDictionary(k => k.Key, k => k.Value.ToArray(), StringComparer.OrdinalIgnoreCase).AsReadOnly();
     }
 
-    private HashSet<string> ManageSemiTransientData(ObjectKind objectKind, IntPtr charaPointer)
+    private HashSet<string> ManageSemiTransientData(ObjectKind objectKind)
     {
-        _transientResourceManager.PersistTransientResources(charaPointer, objectKind);
+        _transientResourceManager.PersistTransientResources(objectKind);
 
         HashSet<string> pathsToResolve = new(StringComparer.Ordinal);
         foreach (var path in _transientResourceManager.GetSemiTransientResources(objectKind).Where(path => !string.IsNullOrEmpty(path)))

@@ -11,10 +11,11 @@ using MareSynchronos.Services.Mediator;
 using MareSynchronos.Services.ServerConfiguration;
 using Microsoft.Extensions.Logging;
 using System.Numerics;
+using System.Text.RegularExpressions;
 
 namespace MareSynchronos.UI;
 
-public class IntroUi : WindowMediatorSubscriberBase
+public partial class IntroUi : WindowMediatorSubscriberBase
 {
     private readonly MareConfigService _configService;
     private readonly CacheMonitor _cacheMonitor;
@@ -79,6 +80,7 @@ public class IntroUi : WindowMediatorSubscriberBase
             if (ImGui.Button("下一步##toAgreement"))
             {
                 _readFirstPage = true;
+#if !DEBUG
                 _timeoutTask = Task.Run(async () =>
                 {
                     for (int i = 60; i > 0; i--)
@@ -87,6 +89,9 @@ public class IntroUi : WindowMediatorSubscriberBase
                         await Task.Delay(TimeSpan.FromSeconds(1)).ConfigureAwait(false);
                     }
                 });
+#else
+                _timeoutTask = Task.CompletedTask;
+#endif
             }
         }
         else if (!_configService.Current.AcceptedAgreement && _readFirstPage)
@@ -226,18 +231,33 @@ public class IntroUi : WindowMediatorSubscriberBase
             {
                 UiSharedService.ColorTextWrapped("您的密钥长度为64个字符，请不要在此输入石之家的验证码。", ImGuiColors.DalamudRed);
             }
+            else if (_secretKey.Length == 64 && !HexRegex().IsMatch(_secretKey))
+            {
+                UiSharedService.ColorTextWrapped("Your secret key can only contain ABCDEF and the numbers 0-9.", ImGuiColors.DalamudRed);
+            }
             else if (_secretKey.Length == 64)
             {
                 ImGui.SameLine();
                 if (ImGui.Button(buttonText))
                 {
                     if (_serverConfigurationManager.CurrentServer == null) _serverConfigurationManager.SelectServer(0);
-                    _serverConfigurationManager.CurrentServer!.SecretKeys.Add(_serverConfigurationManager.CurrentServer.SecretKeys.Select(k => k.Key).LastOrDefault() + 1, new SecretKey()
+                    if (!_serverConfigurationManager.CurrentServer!.SecretKeys.Any())
                     {
-                        FriendlyName = $"首次启动时添加的密钥 ({DateTime.Now:yyyy-MM-dd})",
-                        Key = _secretKey,
-                    });
-                    _serverConfigurationManager.AddCurrentCharacterToServer(addLastSecretKey: true);
+                        _serverConfigurationManager.CurrentServer!.SecretKeys.Add(_serverConfigurationManager.CurrentServer.SecretKeys.Select(k => k.Key).LastOrDefault() + 1, new SecretKey()
+                        {
+                            FriendlyName = $"首次启动时添加的密钥 ({DateTime.Now:yyyy-MM-dd})",
+                            Key = _secretKey,
+                        });
+                        _serverConfigurationManager.AddCurrentCharacterToServer();
+                    }
+                    else
+                    {
+                        _serverConfigurationManager.CurrentServer!.SecretKeys[0] = new SecretKey()
+                        {
+                            FriendlyName = $"首次启动时添加的密钥 ({DateTime.Now:yyyy-MM-dd})",
+                            Key = _secretKey,
+                        };
+                    }
                     _secretKey = string.Empty;
                     _ = Task.Run(() => _uiShared.ApiController.CreateConnections());
                 }
@@ -259,4 +279,7 @@ public class IntroUi : WindowMediatorSubscriberBase
 
         _tosParagraphs = [Strings.ToS.Paragraph1, Strings.ToS.Paragraph2, Strings.ToS.Paragraph3, Strings.ToS.Paragraph4, Strings.ToS.Paragraph5, Strings.ToS.Paragraph6];
     }
+
+    [GeneratedRegex("^([A-F0-9]{2})+")]
+    private static partial Regex HexRegex();
 }

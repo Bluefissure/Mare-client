@@ -20,13 +20,13 @@ public class PairHandlerFactory
     private readonly IpcManager _ipcManager;
     private readonly ILoggerFactory _loggerFactory;
     private readonly MareMediator _mareMediator;
-    private readonly XivDataAnalyzer _xivDataAnalyzer;
+    private readonly PlayerPerformanceService _playerPerformanceService;
     private readonly PluginWarningNotificationService _pluginWarningNotificationManager;
 
     public PairHandlerFactory(ILoggerFactory loggerFactory, GameObjectHandlerFactory gameObjectHandlerFactory, IpcManager ipcManager,
         FileDownloadManagerFactory fileDownloadManagerFactory, DalamudUtilService dalamudUtilService,
         PluginWarningNotificationService pluginWarningNotificationManager, IHostApplicationLifetime hostApplicationLifetime,
-        FileCacheManager fileCacheManager, MareMediator mareMediator, XivDataAnalyzer modelAnalyzer)
+        FileCacheManager fileCacheManager, MareMediator mareMediator, PlayerPerformanceService playerPerformanceService)
     {
         _loggerFactory = loggerFactory;
         _gameObjectHandlerFactory = gameObjectHandlerFactory;
@@ -37,13 +37,13 @@ public class PairHandlerFactory
         _hostApplicationLifetime = hostApplicationLifetime;
         _fileCacheManager = fileCacheManager;
         _mareMediator = mareMediator;
-        _xivDataAnalyzer = modelAnalyzer;
+        _playerPerformanceService = playerPerformanceService;
     }
 
-    public PairHandler Create(OnlineUserIdentDto onlineUserIdentDto)
+    public PairHandler Create(Pair pair)
     {
-        return new PairHandler(_loggerFactory.CreateLogger<PairHandler>(), onlineUserIdentDto, _gameObjectHandlerFactory,
+        return new PairHandler(_loggerFactory.CreateLogger<PairHandler>(), pair, _gameObjectHandlerFactory,
             _ipcManager, _fileDownloadManagerFactory.Create(), _pluginWarningNotificationManager, _dalamudUtilService, _hostApplicationLifetime,
-            _fileCacheManager, _mareMediator, _xivDataAnalyzer);
+            _fileCacheManager, _mareMediator, _playerPerformanceService);
     }
 }
