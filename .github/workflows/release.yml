@@ -33,11 +33,11 @@ jobs:
           git config --local user.email "actions@github.com"
           git config --local user.name "github-actions[bot]"
           if (git diff --quiet) {
-            Write-Output "No changes to commit."
-            echo "::set-output name=committed::false"
-          } else {
             git commit -a -m "[CI] Updating plogonmaster.json"
             echo "::set-output name=committed::true"
+          } else {
+            Write-Output "No changes to commit."
+            echo "::set-output name=committed::false"
           }
 
       - name: Push changes if committed
