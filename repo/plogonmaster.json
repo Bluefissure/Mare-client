@@ -1,23 +1,23 @@
 [
-    {
-        "Author": "darkarchon",
-        "Name": "Mare Synchronos",
-        "InternalName": "MareSynchronos",
-        "AssemblyVersion": "1.10.0.0",
-        "Description": "This plugin will synchronize your Penumbra mods and current Glamourer state with other paired clients automatically.",
-        "ApplicableVersion": "any",
-        "RepoUrl": "https://github.com/Penumbra-Sync/client",
-        "Tags": [
-          "customization"
-        ],
-        "DalamudApiLevel": 10,
-        "LoadPriority": 0,
-        "IconUrl": "https://raw.githubusercontent.com/Penumbra-Sync/repo/main/MareSynchronos/images/icon.png",
-        "Punchline": "Let others see you as you see yourself.",
-        "IsHide": "False",
-        "IsTestingExclusive": "False",
-        "DownloadLinkInstall": "https://raw.githubusercontent.com/ottercorp/Mare-client/CN/repo/CN/1.10.0.0.zip",
-        "DownloadLinkTesting": "https://raw.githubusercontent.com/ottercorp/Mare-client/CN/repo/CN/1.10.0.0.zip",
-        "DownloadLinkUpdate": "https://raw.githubusercontent.com/ottercorp/Mare-client/CN/repo/CN/1.10.0.0.zip"
-      }
+  {
+    "Author": "darkarchon",
+    "Name": "Mare Synchronos",
+    "InternalName": "MareSynchronos",
+    "AssemblyVersion": "1.10.11.0",
+    "Description": "This plugin will synchronize your Penumbra mods and current Glamourer state with other paired clients automatically.",
+    "ApplicableVersion": "any",
+    "RepoUrl": "https://github.com/Penumbra-Sync/client",
+    "Tags": [
+      "customization"
+    ],
+    "DalamudApiLevel": 10,
+    "LoadPriority": 0,
+    "IconUrl": "https://raw.githubusercontent.com/Penumbra-Sync/repo/main/MareSynchronos/images/icon.png",
+    "Punchline": "Let others see you as you see yourself.",
+    "IsHide": "False",
+    "IsTestingExclusive": "False",
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ottercorp/Mare-client/CN/repo/CN/1.10.0.1.10.11.0.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ottercorp/Mare-client/CN/repo/CN/1.10.0.1.10.11.0.zip",
+    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ottercorp/Mare-client/CN/repo/CN/1.10.0.1.10.11.0.zip"
+  }
 ]
