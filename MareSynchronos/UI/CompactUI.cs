@@ -169,7 +169,7 @@ public class CompactUi : WindowMediatorSubscriberBase
             var penumAvailable = _ipcManager.Penumbra.APIAvailable;
             var glamAvailable = _ipcManager.Glamourer.APIAvailable;
 
-            UiSharedService.ColorTextWrapped($"One or more Plugins essential for Mare operation are unavailable. Enable or update following plugins:", ImGuiColors.DalamudRed);
+            UiSharedService.ColorTextWrapped($"部分Mare必须的插件缺失. 启用或更新以下插件:", ImGuiColors.DalamudRed);
             using var indent = ImRaii.PushIndent(10f);
             if (!penumAvailable)
             {
@@ -598,7 +598,7 @@ public class CompactUi : WindowMediatorSubscriberBase
             ServerState.RateLimited => "您因过于频繁地重新连接而受到限制。请断开连接并等待10分钟，然后重试。",
             ServerState.Connected => string.Empty,
             ServerState.NoSecretKey => "您没有为当前角色设置密钥。使用下面的按钮或打开设置为当前角色设置密钥。您可以对多个角色使用同一密钥。",
-            ServerState.MultiChara => "Your Character Configuration has multiple characters configured with same name and world. You will not be able to connect until you fix this issue. Remove the duplicates from the configuration in Settings -> Service Settings -> Character Management and reconnect manually after.",
+            ServerState.MultiChara => "你的角色设置中有多个角色拥有相同的角色名和服务器. 在修正该问题前你将无法连接到服务器. 请删除重复的角色设置: 设置 -> 服务设置 -> 角色管理 并手动重连.",
             _ => string.Empty
         };
     }

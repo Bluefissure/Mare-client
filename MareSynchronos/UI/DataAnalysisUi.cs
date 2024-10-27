@@ -210,7 +210,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
                 if (vramUsage != null)
                 {
                     var actualVramUsage = vramUsage.Sum(f => f.OriginalSize);
-                    ImGui.TextUnformatted($"{kvp.Key} VRAM usage:");
+                    ImGui.TextUnformatted($"{kvp.Key} 显存占用:");
                     ImGui.SameLine();
                     ImGui.TextUnformatted(UiSharedService.ByteToString(actualVramUsage));
                     if (_playerPerformanceConfig.Current.WarnOnExceedingThresholds
@@ -218,10 +218,10 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
                     {
                         using var _ = ImRaii.PushIndent(10f);
                         var currentVramWarning = _playerPerformanceConfig.Current.VRAMSizeWarningThresholdMiB;
-                        ImGui.TextUnformatted($"Configured VRAM warning threshold: {currentVramWarning} MiB.");
+                        ImGui.TextUnformatted($"设置的显存占用大小警告限制: {currentVramWarning} MiB.");
                         if (currentVramWarning * 1024 * 1024 < actualVramUsage)
                         {
-                            UiSharedService.ColorText($"You exceed your own threshold by " +
+                            UiSharedService.ColorText($"你超过了你设置的限制 " +
                                 $"{UiSharedService.ByteToString(actualVramUsage - (currentVramWarning * 1024 * 1024))}.",
                                 ImGuiColors.DalamudYellow);
                         }
@@ -229,17 +229,17 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
                 }
 
                 var actualTriCount = kvp.Value.Sum(f => f.Value.Triangles);
-                ImGui.TextUnformatted($"{kvp.Key} modded model triangles: {actualTriCount}");
+                ImGui.TextUnformatted($"{kvp.Key} 模型面数: {actualTriCount}");
                 if (_playerPerformanceConfig.Current.WarnOnExceedingThresholds
                     || _playerPerformanceConfig.Current.ShowPerformanceIndicator)
                 {
                     using var _ = ImRaii.PushIndent(10f);
                     var currentTriWarning = _playerPerformanceConfig.Current.TrisWarningThresholdThousands;
-                    ImGui.TextUnformatted($"Configured triangle warning threshold: {currentTriWarning * 1000} triangles.");
+                    ImGui.TextUnformatted($"设置的模型面数警告限制: {currentTriWarning * 1000} 面数.");
                     if (currentTriWarning * 1000 < actualTriCount)
                     {
-                        UiSharedService.ColorText($"You exceed your own threshold by " +
-                            $"{actualTriCount - (currentTriWarning * 1000)} triangles.",
+                        UiSharedService.ColorText($"你超过了你设置的限制 " +
+                            $"{actualTriCount - (currentTriWarning * 1000)} 面数.",
                             ImGuiColors.DalamudYellow);
                     }
                 }
@@ -308,7 +308,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
                             Environment.NewLine + "- 转换将自动转换所有找到的纹理重复项（文件路径超过1个的条目）。" +
                             Environment.NewLine + "- 将纹理转换为BC7格式是一项非常复杂的工作，根据要转换的纹理数量，需要一段时间才能完成。"
                                 , ImGuiColors.DalamudYellow);
-                            if (_texturesToConvert.Count > 0 && _uiSharedService.IconTextButton(FontAwesomeIcon.PlayCircle, "Start conversion of " + _texturesToConvert.Count + " texture(s)"))
+                            if (_texturesToConvert.Count > 0 && _uiSharedService.IconTextButton(FontAwesomeIcon.PlayCircle, "开始转换 " + _texturesToConvert.Count + " 个纹理"))
                             {
                                 _conversionCancellationTokenSource = _conversionCancellationTokenSource.CancelRecreate();
                                 _conversionTask = _ipcManager.Penumbra.ConvertTextureFiles(_logger, _texturesToConvert, _conversionProgress, _conversionCancellationTokenSource.Token);
@@ -400,7 +400,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
         }
         if (string.Equals(fileGroup.Key, "mdl", StringComparison.Ordinal))
         {
-            ImGui.TableSetupColumn("Triangles");
+            ImGui.TableSetupColumn("面数");
         }
         ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableHeadersRow();

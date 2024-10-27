@@ -243,7 +243,7 @@ public class EditProfileUi : WindowMediatorSubscriberBase
             _ = _apiController.UserSetProfile(new UserProfileDto(new UserData(_apiController.UID), Disabled: false,
                 IsNSFW: null, ProfilePictureBase64: null, ""));
         }
-        UiSharedService.AttachToolTip("Clears your profile description text");
+        UiSharedService.AttachToolTip("清除你档案描述中的所有文本");
     }
 
     protected override void Dispose(bool disposing)

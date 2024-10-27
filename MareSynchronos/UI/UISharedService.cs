@@ -517,7 +517,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         }
         if (_cacheMonitor.MareWatcher != null)
         {
-            AttachToolTip("Stop the Monitoring before changing the Storage folder. As long as monitoring is active, you cannot change the Storage folder location.");
+            AttachToolTip("关闭文件监控后再尝试改变储存路径. 只要监控还在运行, 你就无法改变储存路径.");
         }
 
         if (_isPenumbraDirectory)
@@ -526,7 +526,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         }
         else if (_isOneDrive)
         {
-            ColorTextWrapped("Do not point the storage path to a folder in OneDrive. Do not use OneDrive folders for any Mod related functionality.", ImGuiColors.DalamudRed);
+            ColorTextWrapped("不要将存储路径直接指向使用 OneDrive 的文件夹. 也不要对储存路径使用任何同步工具.", ImGuiColors.DalamudRed);
         }
         else if (!_isDirectoryWritable)
         {
@@ -700,7 +700,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         ImGui.SameLine();
         IconText(_petNamesExists ? check : cross, GetBoolColor(_petNamesExists));
         ImGui.SameLine();
-        AttachToolTip($"PetNicknames is " + (_petNamesExists ? "available and up to date." : "unavailable or not up to date."));
+        AttachToolTip($"PetNicknames " + (_petNamesExists ? "可用." : "不可用或需要更新."));
         ImGui.Spacing();
 
         if (!_penumbraExists || !_glamourerExists)
@@ -727,7 +727,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         for (int i = 0; i < comboEntries.Length; i++)
         {
             if (string.Equals(_serverConfigurationManager.CurrentServer?.ServerName, comboEntries[i], StringComparison.OrdinalIgnoreCase))
-                comboEntries[i] += " [Current]";
+                comboEntries[i] += " [当前]";
         }
         if (ImGui.BeginCombo("选择服务", comboEntries[_serverSelectionIndex]))
         {

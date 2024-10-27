@@ -514,19 +514,19 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         using (ImRaii.Disabled(!logPerformance))
         {
-            if (_uiShared.IconTextButton(FontAwesomeIcon.StickyNote, "Print Performance Stats to /xllog"))
+            if (_uiShared.IconTextButton(FontAwesomeIcon.StickyNote, "输出性能状态到 /xllog"))
             {
                 _performanceCollector.PrintPerformanceStats();
             }
             ImGui.SameLine();
-            if (_uiShared.IconTextButton(FontAwesomeIcon.StickyNote, "Print Performance Stats (last 60s) to /xllog"))
+            if (_uiShared.IconTextButton(FontAwesomeIcon.StickyNote, "输出性能状态(最近60秒)到 /xllog"))
             {
                 _performanceCollector.PrintPerformanceStats(60);
             }
         }
 
         bool stopWhining = _configService.Current.DebugStopWhining;
-        if (ImGui.Checkbox("Do not notify for modified game files", ref stopWhining))
+        if (ImGui.Checkbox("不要提示我游戏文件被修改", ref stopWhining))
         {
             _configService.Current.DebugStopWhining = stopWhining;
         }
@@ -583,7 +583,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
             if (_exportTask?.IsFaulted ?? false)
             {
-                UiSharedService.ColorTextWrapped("Export failed, check /xllog for more details.", ImGuiColors.DalamudRed);
+                UiSharedService.ColorTextWrapped("导出错误, 查看 /xllog 寻找原因.", ImGuiColors.DalamudRed);
             }
 
             ImGui.Unindent();
@@ -876,7 +876,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 _configService.Save();
             }
 
-            if (ImGui.Checkbox("Color-code the Server Info Bar entry according to status", ref useColorsInDtr))
+            if (ImGui.Checkbox("对服务器栏的图标染色", ref useColorsInDtr))
             {
                 _configService.Current.UseColorsInDtr = useColorsInDtr;
                 _configService.Save();
@@ -885,21 +885,21 @@ public class SettingsUi : WindowMediatorSubscriberBase
             using (ImRaii.Disabled(!useColorsInDtr))
             {
                 using var indent2 = ImRaii.PushIndent();
-                if (InputDtrColors("Default", ref dtrColorsDefault))
+                if (InputDtrColors("默认", ref dtrColorsDefault))
                 {
                     _configService.Current.DtrColorsDefault = dtrColorsDefault;
                     _configService.Save();
                 }
 
                 ImGui.SameLine();
-                if (InputDtrColors("Not Connected", ref dtrColorsNotConnected))
+                if (InputDtrColors("未连接", ref dtrColorsNotConnected))
                 {
                     _configService.Current.DtrColorsNotConnected = dtrColorsNotConnected;
                     _configService.Save();
                 }
 
                 ImGui.SameLine();
-                if (InputDtrColors("Pairs in Range", ref dtrColorsPairsInRange))
+                if (InputDtrColors("范围中有配对", ref dtrColorsPairsInRange))
                 {
                     _configService.Current.DtrColorsPairsInRange = dtrColorsPairsInRange;
                     _configService.Save();
@@ -1086,12 +1086,12 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         var ret = ImGui.ColorEdit3("###foreground", ref foregroundColor, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel | ImGuiColorEditFlags.Uint8);
         if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("Foreground Color - Set to pure black (#000000) to use the default color");
+            ImGui.SetTooltip("字体颜色 - 设置为纯黑 (#000000) 以使用默认配色");
 
         ImGui.SameLine(0.0f, innerSpacing);
         ret |= ImGui.ColorEdit3("###glow", ref glowColor, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel | ImGuiColorEditFlags.Uint8);
         if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("Glow Color - Set to pure black (#000000) to use the default color");
+            ImGui.SetTooltip("发光颜色 - 设置为纯黑 (#000000) 以使用默认配色");
 
         ImGui.SameLine(0.0f, innerSpacing);
         ImGui.TextUnformatted(label);
@@ -1483,115 +1483,115 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
     private void DrawPerformance()
     {
-        _uiShared.BigText("Performance Settings");
+        _uiShared.BigText("性能设置");
         UiSharedService.TextWrapped("The configuration options here are to give you more informed warnings and automation when it comes to other performance-intensive synced players.");
         ImGui.Dummy(new Vector2(10));
         ImGui.Separator();
         ImGui.Dummy(new Vector2(10));
         bool showPerformanceIndicator = _playerPerformanceConfigService.Current.ShowPerformanceIndicator;
-        if (ImGui.Checkbox("Show performance indicator", ref showPerformanceIndicator))
+        if (ImGui.Checkbox("显示性能提示", ref showPerformanceIndicator))
         {
             _playerPerformanceConfigService.Current.ShowPerformanceIndicator = showPerformanceIndicator;
             _playerPerformanceConfigService.Save();
         }
-        _uiShared.DrawHelpText("Will show a performance indicator when players exceed defined thresholds in Mares UI." + Environment.NewLine + "Will use warning thresholds.");
+        _uiShared.DrawHelpText("当配对对象超过了你设置的性能限制时将在MareUI上添加一个提示." + Environment.NewLine + "将使用警告等级的设置.");
         bool warnOnExceedingThresholds = _playerPerformanceConfigService.Current.WarnOnExceedingThresholds;
-        if (ImGui.Checkbox("Warn on loading in players exceeding performance thresholds", ref warnOnExceedingThresholds))
+        if (ImGui.Checkbox("当载入的角色超过了你设置的性能限制时显示警告", ref warnOnExceedingThresholds))
         {
             _playerPerformanceConfigService.Current.WarnOnExceedingThresholds = warnOnExceedingThresholds;
             _playerPerformanceConfigService.Save();
         }
-        _uiShared.DrawHelpText("Mare will print a warning in chat once per session of meeting those people. Will not warn on players with preferred permissions.");
+        _uiShared.DrawHelpText("将在该角色被载入时显示该警告. 你进行过独立设置的角色不会触发警告.");
         using (ImRaii.Disabled(!warnOnExceedingThresholds && !showPerformanceIndicator))
         {
             using var indent = ImRaii.PushIndent();
             var warnOnPref = _playerPerformanceConfigService.Current.WarnOnPreferredPermissionsExceedingThresholds;
-            if (ImGui.Checkbox("Warn/Indicate also on players with preferred permissions", ref warnOnPref))
+            if (ImGui.Checkbox("进行过独立设置的角色也显示提示/警告", ref warnOnPref))
             {
                 _playerPerformanceConfigService.Current.WarnOnPreferredPermissionsExceedingThresholds = warnOnPref;
                 _playerPerformanceConfigService.Save();
             }
-            _uiShared.DrawHelpText("Mare will also print warnings and show performance indicator for players where you enabled preferred permissions. If warning in general is disabled, this will not produce any warnings.");
+            _uiShared.DrawHelpText("Mare将对你进行过独立设置的角色也显示提示/警告. 如果警告被设置为关闭,本选项将不会生效.");
         }
         using (ImRaii.Disabled(!showPerformanceIndicator && !warnOnExceedingThresholds))
         {
             var vram = _playerPerformanceConfigService.Current.VRAMSizeWarningThresholdMiB;
             var tris = _playerPerformanceConfigService.Current.TrisWarningThresholdThousands;
             ImGui.SetNextItemWidth(100 * ImGuiHelpers.GlobalScale);
-            if (ImGui.InputInt("Warning VRAM threshold", ref vram))
+            if (ImGui.InputInt("显存占用限制·警告", ref vram))
             {
                 _playerPerformanceConfigService.Current.VRAMSizeWarningThresholdMiB = vram;
                 _playerPerformanceConfigService.Save();
             }
             ImGui.SameLine();
             ImGui.Text("(MiB)");
-            _uiShared.DrawHelpText("Limit in MiB of approximate VRAM usage to trigger warning or performance indicator on UI." + UiSharedService.TooltipSeparator
-                + "Default: 375 MiB");
+            _uiShared.DrawHelpText("设置对于显存占用显示提示和警告的限制." + UiSharedService.TooltipSeparator
+                + "默认: 375 MiB");
             ImGui.SetNextItemWidth(100 * ImGuiHelpers.GlobalScale);
-            if (ImGui.InputInt("Warning Triangle threshold", ref tris))
+            if (ImGui.InputInt("模型面数限制·警告", ref tris))
             {
                 _playerPerformanceConfigService.Current.TrisWarningThresholdThousands = tris;
                 _playerPerformanceConfigService.Save();
             }
             ImGui.SameLine();
-            ImGui.Text("(thousand triangles)");
-            _uiShared.DrawHelpText("Limit in approximate used triangles from mods to trigger warning or performance indicator on UI." + UiSharedService.TooltipSeparator
-                + "Default: 165 thousand");
+            ImGui.Text("(K 面)");
+            _uiShared.DrawHelpText("设置对于模型面数显示提示和警告的限制." + UiSharedService.TooltipSeparator
+                + "默认: 165 K");
         }
         ImGui.Dummy(new Vector2(10));
         bool autoPause = _playerPerformanceConfigService.Current.AutoPausePlayersExceedingThresholds;
         bool autoPauseEveryone = _playerPerformanceConfigService.Current.AutoPausePlayersWithPreferredPermissionsExceedingThresholds;
-        if (ImGui.Checkbox("Automatically pause players exceeding thresholds", ref autoPause))
+        if (ImGui.Checkbox("自动暂停与超过限制的角色的配对", ref autoPause))
         {
             _playerPerformanceConfigService.Current.AutoPausePlayersExceedingThresholds = autoPause;
             _playerPerformanceConfigService.Save();
         }
-        _uiShared.DrawHelpText("When enabled, it will automatically pause all players without preferred permissions that exceed the thresholds defined below." + Environment.NewLine
-            + "Will print a warning in chat when a player got paused automatically."
-            + UiSharedService.TooltipSeparator + "Warning: this will not automatically unpause those people again, you will have to do this manually.");
+        _uiShared.DrawHelpText("启用时,将自动暂停与超过了下方设置的限制的角色的同步." + Environment.NewLine
+            + "同时将在聊天框中输出提示."
+            + UiSharedService.TooltipSeparator + "警告: 你必须手动开启同步, Mare不会自动解除暂停状态.");
         using (ImRaii.Disabled(!autoPause))
         {
             using var indent = ImRaii.PushIndent();
-            if (ImGui.Checkbox("Automatically pause also players with preferred permissions", ref autoPauseEveryone))
+            if (ImGui.Checkbox("自动暂停也对你进行了独立设置的角色生效", ref autoPauseEveryone))
             {
                 _playerPerformanceConfigService.Current.AutoPausePlayersWithPreferredPermissionsExceedingThresholds = autoPauseEveryone;
                 _playerPerformanceConfigService.Save();
             }
-            _uiShared.DrawHelpText("When enabled, will automatically pause all players regardless of preferred permissions that exceed thresholds defined below." + UiSharedService.TooltipSeparator +
-                "Warning: this will not automatically unpause those people again, you will have to do this manually.");
+            _uiShared.DrawHelpText("启用时, 将对你进行过独立设置的角色也进行自动暂停." + UiSharedService.TooltipSeparator +
+                "警告: 你必须手动开启同步, Mare不会自动解除暂停状态.");
             var vramAuto = _playerPerformanceConfigService.Current.VRAMSizeAutoPauseThresholdMiB;
             var trisAuto = _playerPerformanceConfigService.Current.TrisAutoPauseThresholdThousands;
             ImGui.SetNextItemWidth(100 * ImGuiHelpers.GlobalScale);
-            if (ImGui.InputInt("Auto Pause VRAM threshold", ref vramAuto))
+            if (ImGui.InputInt("显存占用限制·自动暂停", ref vramAuto))
             {
                 _playerPerformanceConfigService.Current.VRAMSizeAutoPauseThresholdMiB = vramAuto;
                 _playerPerformanceConfigService.Save();
             }
             ImGui.SameLine();
             ImGui.Text("(MiB)");
-            _uiShared.DrawHelpText("When a loading in player and their VRAM usage exceeds this amount, automatically pauses the synced player." + UiSharedService.TooltipSeparator
-                + "Default: 550 MiB");
+            _uiShared.DrawHelpText("当角色显存占用超过了以下限制时, 自动暂停与他们的配对." + UiSharedService.TooltipSeparator
+                + "默认: 550 MiB");
             ImGui.SetNextItemWidth(100 * ImGuiHelpers.GlobalScale);
-            if (ImGui.InputInt("Auto Pause Triangle threshold", ref trisAuto))
+            if (ImGui.InputInt("模型面数限制·自动暂停", ref trisAuto))
             {
                 _playerPerformanceConfigService.Current.TrisAutoPauseThresholdThousands = trisAuto;
                 _playerPerformanceConfigService.Save();
             }
             ImGui.SameLine();
-            ImGui.Text("(thousand triangles)");
-            _uiShared.DrawHelpText("When a loading in player and their triangle count exceeds this amount, automatically pauses the synced player." + UiSharedService.TooltipSeparator
-                + "Default: 250 thousand");
+            ImGui.Text("(K 面)");
+            _uiShared.DrawHelpText("当角色模型面数超过了以下限制时, 自动暂停与他们的配对." + UiSharedService.TooltipSeparator
+                + "默认: 250 K");
         }
         ImGui.Dummy(new Vector2(10));
-        _uiShared.BigText("Whitelisted UIDs");
-        UiSharedService.TextWrapped("The entries in the list below will be ignored for all warnings and auto pause operations.");
+        _uiShared.BigText("白名单(UID)");
+        UiSharedService.TextWrapped("白名单中的角色不会被自动暂停.");
         ImGui.Dummy(new Vector2(10));
         ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
         ImGui.InputText("##ignoreuid", ref _uidToAddForIgnore, 20);
         ImGui.SameLine();
         using (ImRaii.Disabled(string.IsNullOrEmpty(_uidToAddForIgnore)))
         {
-            if (_uiShared.IconTextButton(FontAwesomeIcon.Plus, "Add UID to whitelist"))
+            if (_uiShared.IconTextButton(FontAwesomeIcon.Plus, "将UID添加到白名单"))
             {
                 if (!_playerPerformanceConfigService.Current.UIDsToIgnore.Contains(_uidToAddForIgnore, StringComparer.Ordinal))
                 {
@@ -1601,10 +1601,10 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 _uidToAddForIgnore = string.Empty;
             }
         }
-        _uiShared.DrawHelpText("Hint: UIDs are case sensitive.");
+        _uiShared.DrawHelpText("提示: UIDs 大小写敏感.");
         var playerList = _playerPerformanceConfigService.Current.UIDsToIgnore;
         ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
-        using (var lb = ImRaii.ListBox("UID whitelist"))
+        using (var lb = ImRaii.ListBox("UID 白名单"))
         {
             if (lb)
             {
@@ -1620,7 +1620,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         using (ImRaii.Disabled(_selectedEntry == -1))
         {
-            if (_uiShared.IconTextButton(FontAwesomeIcon.Trash, "Delete selected UID"))
+            if (_uiShared.IconTextButton(FontAwesomeIcon.Trash, "删除选中的 UID"))
             {
                 _playerPerformanceConfigService.Current.UIDsToIgnore.RemoveAt(_selectedEntry);
                 _selectedEntry = -1;
