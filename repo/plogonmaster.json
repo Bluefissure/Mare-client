@@ -16,8 +16,8 @@
     "Punchline": "Let others see you as you see yourself.",
     "IsHide": "False",
     "IsTestingExclusive": "False",
-    "DownloadLinkInstall": "https://raw.githubusercontent.com/ottercorp/Mare-client/CN/repo/CN/1.10.0.1.10.11.1.10.11.0.zip",
-    "DownloadLinkTesting": "https://raw.githubusercontent.com/ottercorp/Mare-client/CN/repo/CN/1.10.0.1.10.11.1.10.11.0.zip",
-    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ottercorp/Mare-client/CN/repo/CN/1.10.0.1.10.11.1.10.11.0.zip"
+    "DownloadLinkInstall": "https://raw.githubusercontent.com/ottercorp/Mare-client/CN/repo/CN/1.10.11.0.zip",
+    "DownloadLinkTesting": "https://raw.githubusercontent.com/ottercorp/Mare-client/CN/repo/CN/1.10.11.0.zip",
+    "DownloadLinkUpdate": "https://raw.githubusercontent.com/ottercorp/Mare-client/CN/repo/CN/1.10.11.0.zip"
   }
 ]

@@ -21,9 +21,9 @@ jobs:
           $path = './repo/plogonmaster.json'
           $json = Get-Content -Raw $path | ConvertFrom-Json
           $json[0].AssemblyVersion = $ver
-          $json[0].DownloadLinkInstall = $json.DownloadLinkInstall -replace '[\d+\.\d+\.\d+\.\d+].zip',"$ver.zip"
-          $json[0].DownloadLinkTesting = $json.DownloadLinkTesting -replace '[\d+\.\d+\.\d+\.\d+].zip',"$ver.zip"
-          $json[0].DownloadLinkUpdate = $json.DownloadLinkUpdate -replace '[\d+\.\d+\.\d+\.\d+].zip',"$ver.zip"
+          $json[0].DownloadLinkInstall = $json.DownloadLinkInstall -replace '(\d+\.){4}zip',"$ver.zip"
+          $json[0].DownloadLinkTesting = $json.DownloadLinkTesting -replace '(\d+\.){4}zip',"$ver.zip"
+          $json[0].DownloadLinkUpdate = $json.DownloadLinkUpdate -replace '(\d+\.){4}zip',"$ver.zip"
           $content = $json | ConvertTo-Json -AsArray
           set-content -Path $path -Value $content
           
