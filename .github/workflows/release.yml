@@ -27,13 +27,21 @@ jobs:
           $content = $json | ConvertTo-Json -AsArray
           set-content -Path $path -Value $content
           
-      - name: Commit files
+      - name: Commit files if changes exist
+        id: commit
         run: |
           git config --local user.email "actions@github.com"
           git config --local user.name "github-actions[bot]"
-          git commit -a -m "[CI] Updating plogonmaster.json"
+          if git diff --quiet; then
+            echo "No changes to commit."
+            echo "::set-output name=committed::false"
+          else
+            git commit -a -m "[CI] Updating plogonmaster.json"
+            echo "::set-output name=committed::true"
+          fi
 
-      - name: Push changes
+      - name: Push changes if committed
+        if: steps.commit.outputs.committed == 'true'
         uses: ad-m/github-push-action@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
