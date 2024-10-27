@@ -10,7 +10,7 @@
     </Target>
         <Target Name="COPY" AfterTargets="PackagePlugin"
             Condition="'$(Configuration)' == 'Release'">
-            <Exec Command="xcopy $(OutputPath)MareSynchronos\MareSynchronos.json $(ProjectDir)..\repo\CN\MareSynchronos.json /i /Y"/>
-            <Exec Command="xcopy $(ProjectDir)$(OutputPath)MareSynchronos\latest.zip $(ProjectDir)..\repo\CN\$(Version).zip /i /Y"/>
+            <Exec Command="copy $(OutputPath)MareSynchronos\MareSynchronos.json $(ProjectDir)..\repo\CN\MareSynchronos.json"/>
+            <Exec Command="copy $(ProjectDir)$(OutputPath)MareSynchronos\latest.zip $(ProjectDir)..\repo\CN\$(Version).zip"/>
     </Target>
 </Project>
