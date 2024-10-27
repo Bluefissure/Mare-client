@@ -1,0 +1,40 @@
+name: Create Release
+
+on:
+  push:
+    branches: 'CN'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Write out repo.json
+        run: |
+          $jsonpath = './repo/CN/MareSynchronos.json'
+          $pluginjson = Get-Content -Raw $jsonpath | ConvertFrom-Json
+          $ver = $pluginjson.AssemblyVersion
+          $path = './repo/plogonmaster.json'
+          $json = Get-Content -Raw $path | ConvertFrom-Json
+          $json[0].AssemblyVersion = $ver
+          $json[0].DownloadLinkInstall = $json.DownloadLinkInstall -replace '[\d*\.\d*\.\d*\.\d*].zip',"$ver.zip"
+          $json[0].DownloadLinkTesting = $json.DownloadLinkTesting -replace '[\d*\.\d*\.\d*\.\d*].zip',"$ver.zip"
+          $json[0].DownloadLinkUpdate = $json.DownloadLinkUpdate -replace '[\d*\.\d*\.\d*\.\d*].zip',"$ver.zip"
+          $content = $json | ConvertTo-Json -AsArray
+          set-content -Path $path -Value $content
+          
+      - name: Commit files
+        run: |
+          git config --local user.email "actions@github.com"
+          git config --local user.name "github-actions[bot]"
+          git commit -a -m "[CI] Updating plogonmaster.json"
+
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
