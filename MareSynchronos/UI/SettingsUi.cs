@@ -1360,11 +1360,16 @@ public class SettingsUi : WindowMediatorSubscriberBase
             + "- 当前角色性别" + Environment.NewLine
             + "- 当前角色种族" + Environment.NewLine
             + "- 当前角色氏族 (如:晨曦之民 或 中原之民)" + UiSharedService.TooltipSeparator
-            + "这些数据仅会进行短期保存并在你断开与服务器的连接时删除. 这些数据会与你的UID绑定." + UiSharedService.TooltipSeparator
+            + "这些数据仅会进行短期保存并在你断开与服务器的连接时删除. 这些数据会临时与你的UID绑定." + UiSharedService.TooltipSeparator
             + "如果你不想参与角色普查, 取消选中复选框并重新连接服务器.");
         ImGuiHelpers.ScaledDummy(new Vector2(10, 10));
 
         var idx = _uiShared.DrawServiceSelection();
+        if (_lastSelectedServerIndex != idx)
+        {
+            _uiShared.RestOAuthTasksState();
+            _lastSelectedServerIndex = idx;
+        }
 
         ImGuiHelpers.ScaledDummy(new Vector2(10, 10));
 
@@ -1374,15 +1379,18 @@ public class SettingsUi : WindowMediatorSubscriberBase
             UiSharedService.ColorTextWrapped("要将任何修改应用到当前服务，您需要重新连接到该服务。", ImGuiColors.DalamudYellow);
         }
 
+        bool useOauth = selectedServer.UseOAuth2;
+
         if (ImGui.BeginTabBar("serverTabBar"))
         {
             if (ImGui.BeginTabItem("角色管理"))
             {
-                if (selectedServer.SecretKeys.Any())
+                if (selectedServer.SecretKeys.Any() || useOauth)
                 {
                     UiSharedService.ColorTextWrapped("此处列出的角色将使用下面提供的设置自动连接到选定的月海服务。" +
                         " 请确保输入正确的角色名称或使用底部的“添加当前角色”按钮。", ImGuiColors.DalamudYellow);
                     int i = 0;
+                    _uiShared.DrawUpdateOAuthUIDsButton(selectedServer);
                     foreach (var item in selectedServer.Authentications.ToList())
                     {
                         using var charaId = ImRaii.PushId("selectedChara" + i);
@@ -1394,13 +1402,27 @@ public class SettingsUi : WindowMediatorSubscriberBase
                             worldPreview = data.First().Value;
                         }
 
-                        var secretKeyIdx = item.SecretKeyIdx;
-                        var keys = selectedServer.SecretKeys;
-                        if (!keys.TryGetValue(secretKeyIdx, out var secretKey))
+                        var friendlyName = string.Empty;
+                        string friendlyNameTranslation = string.Empty;
+                        Dictionary<int, SecretKey> keys = [];
+
+                        if (!useOauth)
                         {
-                            secretKey = new();
+                            var secretKeyIdx = item.SecretKeyIdx;
+                            keys = selectedServer.SecretKeys;
+                            if (!keys.TryGetValue(secretKeyIdx, out var secretKey))
+                            {
+                                secretKey = new();
+                            }
+
+                            friendlyName = secretKey.FriendlyName;
+                            friendlyNameTranslation = "Secret Key";
                         }
-                        var friendlyName = secretKey.FriendlyName;
+                        else
+                        {
+                            friendlyName = item.UID ?? "-";
+                            friendlyNameTranslation = "UID";
+                        }
 
                         bool thisIsYou = false;
                         if (string.Equals(_dalamudUtilService.GetPlayerName(), item.CharacterName, StringComparison.OrdinalIgnoreCase)
@@ -1408,7 +1430,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                         {
                             thisIsYou = true;
                         }
-                        if (ImGui.TreeNode($"chara", (thisIsYou ? "[当前] " : "") + $"角色: {item.CharacterName}, 服务器: {worldPreview}, 密钥: {friendlyName}"))
+                        if (ImGui.TreeNode($"chara", (thisIsYou ? "[当前] " : "") + $"角色: {item.CharacterName}, 服务器: {worldPreview}, {friendlyNameTranslation}: {friendlyName}"))
                         {
                             var charaName = item.CharacterName;
                             if (ImGui.InputText("角色名", ref charaName, 64))
@@ -1427,16 +1449,22 @@ public class SettingsUi : WindowMediatorSubscriberBase
                                     }
                                 }, EqualityComparer<KeyValuePair<ushort, string>>.Default.Equals(data.FirstOrDefault(f => f.Key == worldIdx), default) ? data.First() : data.First(f => f.Key == worldIdx));
 
-                            _uiShared.DrawCombo("密钥##" + item.CharacterName + i, keys, (w) => w.Value.FriendlyName,
-                                (w) =>
-                                {
-                                    if (w.Key != item.SecretKeyIdx)
+                            if (!useOauth)
+                            {
+                                _uiShared.DrawCombo("密钥###" + item.CharacterName + i, keys, (w) => w.Value.FriendlyName,
+                                    (w) =>
                                     {
-                                        item.SecretKeyIdx = w.Key;
-                                        _serverConfigurationManager.Save();
-                                    }
-                                }, EqualityComparer<KeyValuePair<int, SecretKey>>.Default.Equals(keys.FirstOrDefault(f => f.Key == item.SecretKeyIdx), default) ? keys.First() : keys.First(f => f.Key == item.SecretKeyIdx));
-
+                                        if (w.Key != item.SecretKeyIdx)
+                                        {
+                                            item.SecretKeyIdx = w.Key;
+                                            _serverConfigurationManager.Save();
+                                        }
+                                    }, EqualityComparer<KeyValuePair<int, SecretKey>>.Default.Equals(keys.FirstOrDefault(f => f.Key == item.SecretKeyIdx), default) ? keys.First() : keys.First(f => f.Key == item.SecretKeyIdx));
+                            }
+                            else
+                            {
+                                _uiShared.DrawUIDComboForAuthentication(i, item, selectedServer.ServerUri, _logger);
+                            }
                             if (_uiShared.IconTextButton(FontAwesomeIcon.Trash, "删除角色") && UiSharedService.CtrlPressed())
                                 _serverConfigurationManager.RemoveCharacterFromServer(idx, item);
                             UiSharedService.AttachToolTip("按住CTRL键可删除此条目。");
@@ -1471,7 +1499,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 ImGui.EndTabItem();
             }
 
-            if (ImGui.BeginTabItem("密钥管理"))
+            if (!useOauth && ImGui.BeginTabItem("密钥管理"))
             {
                 foreach (var item in selectedServer.SecretKeys.ToList())
                 {
@@ -1519,23 +1547,23 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 ImGui.EndTabItem();
             }
 
-            if (ImGui.BeginTabItem("服务设置"))
+            if (ImGui.BeginTabItem("服务器设置"))
             {
                 var serverName = selectedServer.ServerName;
                 var serverUri = selectedServer.ServerUri;
                 var isMain = string.Equals(serverName, ApiController.MainServer, StringComparison.OrdinalIgnoreCase);
                 var flags = isMain ? ImGuiInputTextFlags.ReadOnly : ImGuiInputTextFlags.None;
 
-                if (ImGui.InputText("服务URI", ref serverUri, 255, flags))
+                if (ImGui.InputText("服务器URI", ref serverUri, 255, flags))
                 {
                     selectedServer.ServerUri = serverUri;
                 }
                 if (isMain)
                 {
-                    _uiShared.DrawHelpText("无法编辑主服务的URI。");
+                    _uiShared.DrawHelpText("无法编辑主服务器的URI。");
                 }
 
-                if (ImGui.InputText("服务名称", ref serverName, 255, flags))
+                if (ImGui.InputText("服务器名称", ref serverName, 255, flags))
                 {
                     selectedServer.ServerName = serverName;
                     _serverConfigurationManager.Save();
@@ -1545,8 +1573,20 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     _uiShared.DrawHelpText("无法编辑主服务的名称。");
                 }
 
+                if (ImGui.Checkbox("使用 Discord OAuth2 认证", ref useOauth))
+                {
+                    selectedServer.UseOAuth2 = useOauth;
+                    _serverConfigurationManager.Save();
+                }
+                _uiShared.DrawHelpText("使用 Discord OAuth2 Authentication 而非密钥登录来服务器");
+                if (useOauth)
+                {
+                    _uiShared.DrawOAuth(selectedServer);
+                }
+
                 if (!isMain && selectedServer != _serverConfigurationManager.CurrentServer)
                 {
+                    ImGui.Separator();
                     if (_uiShared.IconTextButton(FontAwesomeIcon.Trash, "删除服务") && UiSharedService.CtrlPressed())
                     {
                         _serverConfigurationManager.DeleteServer(selectedServer);
@@ -1636,6 +1676,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGui.EndTabBar();
         }
     }
+
+
 
     private int _lastSelectedServerIndex = -1;
 

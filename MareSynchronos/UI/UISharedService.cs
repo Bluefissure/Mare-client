@@ -870,7 +870,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         using (ImRaii.Disabled(selectedServer.OAuthToken == null))
         {
             if ((_discordOAuthUIDs == null || _discordOAuthUIDs.IsCompleted)
-                && IconTextButton(FontAwesomeIcon.ArrowsSpin, "Update UIDs from Service")
+                && IconTextButton(FontAwesomeIcon.ArrowsSpin, "从服务器更新UID")
                 && selectedServer.OAuthToken != null)
             {
                 _discordOAuthUIDs = _serverConfigurationManager.GetUIDsWithDiscordToken(selectedServer.ServerUri, selectedServer.OAuthToken);
@@ -891,7 +891,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 (v) =>
                 {
                     if (v is null)
-                        return "No UID set";
+                        return "未设置UID";
 
                     if (!string.IsNullOrEmpty(v.Alias))
                     {
@@ -899,7 +899,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                     }
 
                     if (string.IsNullOrEmpty(v.UID))
-                        return "No UID set";
+                        return "未设置UID";
 
                     return $"{v.UID}";
                 },
@@ -915,7 +915,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         }
         if (_discordOAuthUIDs == null)
         {
-            AttachToolTip("Use the button above to update your UIDs from the service before you can assign UIDs to characters.");
+            AttachToolTip("请先从服务器获取UID再尝试分配.");
         }
     }
 
@@ -927,7 +927,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         {
             if (_discordOAuthCheck == null)
             {
-                if (IconTextButton(FontAwesomeIcon.QuestionCircle, "Check if Server supports Discord OAuth2"))
+                if (IconTextButton(FontAwesomeIcon.QuestionCircle, "检查服务器是否支持Discord OAuth2"))
                 {
                     _discordOAuthCheck = _serverConfigurationManager.CheckDiscordOAuth(selectedServer.ServerUri);
                 }
@@ -936,31 +936,31 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             {
                 if (!_discordOAuthCheck.IsCompleted)
                 {
-                    ColorTextWrapped($"Checking OAuth2 compatibility with {selectedServer.ServerUri}", ImGuiColors.DalamudYellow);
+                    ColorTextWrapped($"正在检查服务器 {selectedServer.ServerUri}", ImGuiColors.DalamudYellow);
                 }
                 else
                 {
                     if (_discordOAuthCheck.Result != null)
                     {
-                        ColorTextWrapped("Server is compatible with Discord OAuth2", ImGuiColors.HealerGreen);
+                        ColorTextWrapped("服务器支持Discord OAuth2", ImGuiColors.HealerGreen);
                     }
                     else
                     {
-                        ColorTextWrapped("Server is not compatible with Discord OAuth2", ImGuiColors.DalamudRed);
+                        ColorTextWrapped("服务器不支持Discord OAuth2", ImGuiColors.DalamudRed);
                     }
                 }
             }
 
             if (_discordOAuthCheck != null && _discordOAuthCheck.IsCompleted)
             {
-                if (IconTextButton(FontAwesomeIcon.ArrowRight, "Authenticate with Server"))
+                if (IconTextButton(FontAwesomeIcon.ArrowRight, "进行验证"))
                 {
                     _discordOAuthGetCode = _serverConfigurationManager.GetDiscordOAuthToken(_discordOAuthCheck.Result!, selectedServer.ServerUri, _discordOAuthGetCts.Token);
                 }
                 else if (_discordOAuthGetCode != null && !_discordOAuthGetCode.IsCompleted)
                 {
-                    TextWrapped("A browser window has been opened, follow it to authenticate. Click the button below if you accidentally closed the window and need to restart the authentication.");
-                    if (IconTextButton(FontAwesomeIcon.Ban, "Cancel Authentication"))
+                    TextWrapped("浏览器窗口已打开，请按照窗口进行身份验证。如果您不小心关闭了窗口并需要重新进行身份验证，请点击下面的按钮。");
+                    if (IconTextButton(FontAwesomeIcon.Ban, "取消验证"))
                     {
                         _discordOAuthGetCts = _discordOAuthGetCts.CancelRecreate();
                         _discordOAuthGetCode = null;
@@ -968,18 +968,18 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 }
                 else if (_discordOAuthGetCode != null && _discordOAuthGetCode.IsCompleted)
                 {
-                    TextWrapped("Discord OAuth is completed, status: ");
+                    TextWrapped("Discord OAuth 完成, 状态: ");
                     ImGui.SameLine();
                     if (_discordOAuthGetCode.Result != null)
                     {
                         selectedServer.OAuthToken = _discordOAuthGetCode.Result;
                         _discordOAuthGetCode = null;
                         _serverConfigurationManager.Save();
-                        ColorTextWrapped("Success", ImGuiColors.HealerGreen);
+                        ColorTextWrapped("成功", ImGuiColors.HealerGreen);
                     }
                     else
                     {
-                        ColorTextWrapped("Failed, please check /xllog for more information", ImGuiColors.DalamudRed);
+                        ColorTextWrapped("失败, 请检查 /xllog 获取更多信息", ImGuiColors.DalamudRed);
                     }
                 }
             }
@@ -987,9 +987,9 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
         if (oauthToken != null)
         {
-            ColorTextWrapped($"OAuth2 is enabled, linked to: Discord User {_serverConfigurationManager.GetDiscordUserFromToken(selectedServer)}", ImGuiColors.HealerGreen);
+            ColorTextWrapped($"OAuth2已启用, 连接到Discord用户: {_serverConfigurationManager.GetDiscordUserFromToken(selectedServer)}", ImGuiColors.HealerGreen);
             if ((_discordOAuthUIDs == null || _discordOAuthUIDs.IsCompleted)
-                && IconTextButton(FontAwesomeIcon.Question, "Check Discord Connection"))
+                && IconTextButton(FontAwesomeIcon.Question, "检查Discord连接"))
             {
                 _discordOAuthUIDs = _serverConfigurationManager.GetUIDsWithDiscordToken(selectedServer.ServerUri, oauthToken);
             }
@@ -997,7 +997,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             {
                 if (!_discordOAuthUIDs.IsCompleted)
                 {
-                    ColorTextWrapped("Checking UIDs on Server", ImGuiColors.DalamudYellow);
+                    ColorTextWrapped("检查服务器上的UID", ImGuiColors.DalamudYellow);
                 }
                 else
                 {
@@ -1006,12 +1006,12 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                     var vanity = string.IsNullOrEmpty(primaryUid.Value) ? "-" : primaryUid.Value;
                     if (foundUids > 0)
                     {
-                        ColorTextWrapped($"Found {foundUids} associated UIDs on the server, Primary UID: {primaryUid.Key} (Vanity UID: {vanity})",
+                        ColorTextWrapped($"找到与服务器关联的UID {foundUids}, 主UID: {primaryUid.Key} (个性UID: {vanity})",
                             ImGuiColors.HealerGreen);
                     }
                     else
                     {
-                        ColorTextWrapped($"Found no UIDs associated to this linked OAuth2 account", ImGuiColors.DalamudRed);
+                        ColorTextWrapped($"服务器上未找到与该账户关联的UID", ImGuiColors.DalamudRed);
                     }
                 }
             }
@@ -1023,14 +1023,14 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     {
         using (ImRaii.Disabled(!CtrlPressed()))
         {
-            if (IconTextButton(FontAwesomeIcon.Trash, "Unlink OAuth2 Connection") && UiSharedService.CtrlPressed())
+            if (IconTextButton(FontAwesomeIcon.Trash, "取消OAuth2连接") && UiSharedService.CtrlPressed())
             {
                 selectedServer.OAuthToken = null;
                 _serverConfigurationManager.Save();
                 RestOAuthTasksState();
             }
         }
-        DrawHelpText("Hold CTRL to unlink the current OAuth2 connection.");
+        DrawHelpText("按住CTRL取消当前的OAuth2连接.");
     }
 
     internal void RestOAuthTasksState()
