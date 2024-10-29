@@ -1,5 +1,6 @@
 ﻿using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility;
+using Dalamud.Interface.Utility.Raii;
 using Dalamud.Utility;
 using ImGuiNET;
 using MareSynchronos.FileCache;
@@ -30,6 +31,7 @@ public partial class IntroUi : WindowMediatorSubscriberBase
     private string _timeoutLabel = string.Empty;
     private Task? _timeoutTask;
     private string[]? _tosParagraphs;
+    private bool _useLegacyLogin = false;
 
     public IntroUi(ILogger<IntroUi> logger, UiSharedService uiShared, MareConfigService configService,
         CacheMonitor fileCacheManager, ServerConfigurationManager serverConfigurationManager, MareMediator mareMediator,
@@ -59,6 +61,8 @@ public partial class IntroUi : WindowMediatorSubscriberBase
             IsOpen = true;
         });
     }
+
+    private int _prevIdx = -1;
 
     protected override void DrawInternal()
     {
@@ -216,50 +220,111 @@ public partial class IntroUi : WindowMediatorSubscriberBase
 
             UiSharedService.TextWrapped("一旦您获取到密钥，您就可以使用下面提供的工具来连接该服务。");
 
-            _ = _uiShared.DrawServiceSelection(selectOnChange: true);
+            var serverIdx = _uiShared.DrawServiceSelection(selectOnChange: true, showConnect: false);
+            if (serverIdx != _prevIdx)
+            {
+                _uiShared.RestOAuthTasksState();
+                _prevIdx = serverIdx;
+            }
+            var selectedServer = _serverConfigurationManager.GetServerByIndex(serverIdx);
+            _useLegacyLogin = !selectedServer.UseOAuth2;
 
-            var text = "输入密钥";
-            var buttonText = "保存";
-            var buttonWidth = _secretKey.Length != 64 ? 0 : ImGuiHelpers.GetButtonSize(buttonText).X + ImGui.GetStyle().ItemSpacing.X;
-            var textSize = ImGui.CalcTextSize(text);
-            ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted(text);
-            ImGui.SameLine();
-            ImGui.SetNextItemWidth(UiSharedService.GetWindowContentRegionWidth() - ImGui.GetWindowContentRegionMin().X - buttonWidth - textSize.X);
-            ImGui.InputText("", ref _secretKey, 64);
-            if (_secretKey.Length > 0 && _secretKey.Length != 64)
+            if (ImGui.Checkbox("使用密钥登录", ref _useLegacyLogin))
             {
-                UiSharedService.ColorTextWrapped("您的密钥长度为64个字符，请不要在此输入石之家的验证码。", ImGuiColors.DalamudRed);
+                _serverConfigurationManager.GetServerByIndex(serverIdx).UseOAuth2 = !_useLegacyLogin;
+                _serverConfigurationManager.Save();
             }
-            else if (_secretKey.Length == 64 && !HexRegex().IsMatch(_secretKey))
+
+            if (_useLegacyLogin)
             {
-                UiSharedService.ColorTextWrapped("Your secret key can only contain ABCDEF and the numbers 0-9.", ImGuiColors.DalamudRed);
-            }
-            else if (_secretKey.Length == 64)
-            {
+                var text = "输入密钥";
+                var buttonText = "保存";
+                var buttonWidth = _secretKey.Length != 64 ? 0 : ImGuiHelpers.GetButtonSize(buttonText).X + ImGui.GetStyle().ItemSpacing.X;
+                var textSize = ImGui.CalcTextSize(text);
+                ImGui.AlignTextToFramePadding();
+                ImGui.TextUnformatted(text);
                 ImGui.SameLine();
-                if (ImGui.Button(buttonText))
+                ImGui.SetNextItemWidth(UiSharedService.GetWindowContentRegionWidth() - ImGui.GetWindowContentRegionMin().X - buttonWidth - textSize.X);
+                ImGui.InputText("", ref _secretKey, 64);
+                if (_secretKey.Length > 0 && _secretKey.Length != 64)
                 {
-                    if (_serverConfigurationManager.CurrentServer == null) _serverConfigurationManager.SelectServer(0);
-                    if (!_serverConfigurationManager.CurrentServer!.SecretKeys.Any())
+                    UiSharedService.ColorTextWrapped("您的密钥长度为64个字符，请不要在此输入石之家的验证码。", ImGuiColors.DalamudRed);
+                }
+                else if (_secretKey.Length == 64 && !HexRegex().IsMatch(_secretKey))
+                {
+                    UiSharedService.ColorTextWrapped("你的密钥应当只包括 ABCDEF 和 0-9.", ImGuiColors.DalamudRed);
+                }
+                else if (_secretKey.Length == 64)
+                {
+                    ImGui.SameLine();
+                    if (ImGui.Button(buttonText))
                     {
-                        _serverConfigurationManager.CurrentServer!.SecretKeys.Add(_serverConfigurationManager.CurrentServer.SecretKeys.Select(k => k.Key).LastOrDefault() + 1, new SecretKey()
+                        if (_serverConfigurationManager.CurrentServer == null) _serverConfigurationManager.SelectServer(0);
+                        if (!_serverConfigurationManager.CurrentServer!.SecretKeys.Any())
                         {
-                            FriendlyName = $"首次启动时添加的密钥 ({DateTime.Now:yyyy-MM-dd})",
-                            Key = _secretKey,
+                            _serverConfigurationManager.CurrentServer!.SecretKeys.Add(_serverConfigurationManager.CurrentServer.SecretKeys.Select(k => k.Key).LastOrDefault() + 1, new SecretKey()
+                            {
+                                FriendlyName = $"设置时添加的密钥 ({DateTime.Now:yyyy-MM-dd})",
+                                Key = _secretKey,
+                            });
+                            _serverConfigurationManager.AddCurrentCharacterToServer();
+                        }
+                        else
+                        {
+                            _serverConfigurationManager.CurrentServer!.SecretKeys[0] = new SecretKey()
+                            {
+                                FriendlyName = $"设置时添加的密钥 ({DateTime.Now:yyyy-MM-dd})",
+                                Key = _secretKey,
+                            };
+                        }
+                        _secretKey = string.Empty;
+                        _ = Task.Run(() => _uiShared.ApiController.CreateConnectionsAsync());
+                    }
+                }
+            }
+            else
+            {
+                if (selectedServer.OAuthToken == null)
+                {
+                    UiSharedService.TextWrapped("点击此按钮检查服务器是否允许OAuth2登录. 然后, 在打开的浏览器中用Discord登录.");
+                    _uiShared.DrawOAuth(selectedServer);
+                }
+                else
+                {
+                    UiSharedService.ColorTextWrapped($"OAuth2 已启用, 连接到: Discord 用户 {_serverConfigurationManager.GetDiscordUserFromToken(selectedServer)}", ImGuiColors.HealerGreen);
+                    UiSharedService.TextWrapped("请点击 更新UID 按钮来获取你在本服务器上的所有UID.");
+                    _uiShared.DrawUpdateOAuthUIDsButton(selectedServer);
+                    var playerName = _dalamudUtilService.GetPlayerName();
+                    var playerWorld = _dalamudUtilService.GetHomeWorldId();
+                    UiSharedService.TextWrapped($"之后, 请选择你想分配给当前角色 {_dalamudUtilService.GetPlayerName()} 的UID. 如果没有可用的UID, 请确认你登录了正确的Discord账号. " +
+                        $"如果账号错误, 请点击下方的取消连接按钮 (按住CTRL).");
+                    _uiShared.DrawUnlinkOAuthButton(selectedServer);
+
+                    var auth = selectedServer.Authentications.Find(a => string.Equals(a.CharacterName, playerName, StringComparison.Ordinal) && a.WorldId == playerWorld);
+                    if (auth == null)
+                    {
+                        selectedServer.Authentications.Add(new Authentication()
+                        {
+                            CharacterName = playerName,
+                            WorldId = playerWorld
                         });
-                        _serverConfigurationManager.AddCurrentCharacterToServer();
+                        _serverConfigurationManager.Save();
                     }
-                    else
+
+                    if (auth != null)
                     {
-                        _serverConfigurationManager.CurrentServer!.SecretKeys[0] = new SecretKey()
+                        _uiShared.DrawUIDComboForAuthentication(0, auth, selectedServer.ServerUri);
+
+                        using (ImRaii.Disabled(string.IsNullOrEmpty(auth.UID)))
                         {
-                            FriendlyName = $"首次启动时添加的密钥 ({DateTime.Now:yyyy-MM-dd})",
-                            Key = _secretKey,
-                        };
+                            if (_uiShared.IconTextButton(Dalamud.Interface.FontAwesomeIcon.Link, "连接到服务器"))
+                            {
+                                _ = Task.Run(() => _uiShared.ApiController.CreateConnectionsAsync());
+                            }
+                        }
+                        if (string.IsNullOrEmpty(auth.UID))
+                            UiSharedService.AttachToolTip("选择一个UID以连接到服务器");
                     }
-                    _secretKey = string.Empty;
-                    _ = Task.Run(() => _uiShared.ApiController.CreateConnections());
                 }
             }
         }

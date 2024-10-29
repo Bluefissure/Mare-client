@@ -260,7 +260,7 @@ public class CompactUi : WindowMediatorSubscriberBase
 
                 _serverManager.Save();
 
-                _ = _apiController.CreateConnections();
+                _ = _apiController.CreateConnectionsAsync();
             }
 
             _uiSharedService.DrawCombo("密钥##addCharacterSecretKey", keys, (f) => f.Value.FriendlyName, (f) => _secretKeyIdx = f.Key);
@@ -345,7 +345,7 @@ public class CompactUi : WindowMediatorSubscriberBase
                 {
                     _serverManager.CurrentServer.FullPause = !_serverManager.CurrentServer.FullPause;
                     _serverManager.Save();
-                    _ = _apiController.CreateConnections();
+                    _ = _apiController.CreateConnectionsAsync();
                 }
             }
 
@@ -446,7 +446,17 @@ public class CompactUi : WindowMediatorSubscriberBase
             {
                 DrawAddCharacter();
             }
+            if (_apiController.ServerState is ServerState.OAuthLoginTokenStale)
+            {
+                DrawRenewOAuth2();
+            }
         }
+    }
+
+    private void DrawRenewOAuth2()
+    {
+        ImGuiHelpers.ScaledDummy(10f);
+        // add some text and a button to restart discord authentication
     }
 
     private IEnumerable<IDrawFolder> GetDrawFolders()
@@ -597,8 +607,11 @@ public class CompactUi : WindowMediatorSubscriberBase
                 "您的插件或连接到的服务器已过期。请立即更新您的插件。如果您已经这样做了，请联系服务器提供商，将其服务器更新到最新版本。",
             ServerState.RateLimited => "您因过于频繁地重新连接而受到限制。请断开连接并等待10分钟，然后重试。",
             ServerState.Connected => string.Empty,
+
             ServerState.NoSecretKey => "您没有为当前角色设置密钥。使用下面的按钮或打开设置为当前角色设置密钥。您可以对多个角色使用同一密钥。",
             ServerState.MultiChara => "你的角色设置中有多个角色拥有相同的角色名和服务器. 在修正该问题前你将无法连接到服务器. 请删除重复的角色设置: 设置 -> 服务设置 -> 角色管理 并手动重连.",
+            ServerState.OAuthMisconfigured => "OAuth2 已启用但未正确配置, 请检查 设置 -> 服务设置 中有OAuth连接, 并且, 你已为当前角色分配了一个UID.",
+            ServerState.OAuthLoginTokenStale => "您的 OAuth2 登录令牌已过期，无法更新. 请前往 设置 -> 服务设置 解除并重新设置OAuth令牌.",
             _ => string.Empty
         };
     }
@@ -618,6 +631,8 @@ public class CompactUi : WindowMediatorSubscriberBase
             ServerState.RateLimited => ImGuiColors.DalamudYellow,
             ServerState.NoSecretKey => ImGuiColors.DalamudYellow,
             ServerState.MultiChara => ImGuiColors.DalamudYellow,
+            ServerState.OAuthMisconfigured => ImGuiColors.DalamudRed,
+            ServerState.OAuthLoginTokenStale => ImGuiColors.DalamudRed,
             _ => ImGuiColors.DalamudRed
         };
     }
@@ -636,6 +651,8 @@ public class CompactUi : WindowMediatorSubscriberBase
             ServerState.RateLimited => "速率限制",
             ServerState.NoSecretKey => "无密钥",
             ServerState.MultiChara => "重复的角色",
+            ServerState.OAuthMisconfigured => "OAuth2 设置错误",
+            ServerState.OAuthLoginTokenStale => "OAuth2 过期",
             ServerState.Connected => _apiController.DisplayName,
             _ => string.Empty
         };

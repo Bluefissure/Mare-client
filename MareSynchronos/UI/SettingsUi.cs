@@ -32,32 +32,34 @@ namespace MareSynchronos.UI;
 public class SettingsUi : WindowMediatorSubscriberBase
 {
     private readonly ApiController _apiController;
-    private readonly IpcManager _ipcManager;
     private readonly CacheMonitor _cacheMonitor;
-    private readonly DalamudUtilService _dalamudUtilService;
     private readonly MareConfigService _configService;
     private readonly ConcurrentDictionary<GameObjectHandler, Dictionary<string, FileDownloadStatus>> _currentDownloads = new();
+    private readonly DalamudUtilService _dalamudUtilService;
+    private readonly FileCacheManager _fileCacheManager;
     private readonly FileCompactor _fileCompactor;
     private readonly FileUploadManager _fileTransferManager;
     private readonly FileTransferOrchestrator _fileTransferOrchestrator;
-    private readonly FileCacheManager _fileCacheManager;
+    private readonly IpcManager _ipcManager;
     private readonly MareCharaFileManager _mareCharaFileManager;
     private readonly PairManager _pairManager;
     private readonly PerformanceCollectorService _performanceCollector;
-    private readonly ServerConfigurationManager _serverConfigurationManager;
     private readonly PlayerPerformanceConfigService _playerPerformanceConfigService;
+    private readonly ServerConfigurationManager _serverConfigurationManager;
     private readonly UiSharedService _uiShared;
+    private readonly IProgress<(int, int, FileCacheEntity)> _validationProgress;
+    private (int, int, FileCacheEntity) _currentProgress;
     private bool _deleteAccountPopupModalShown = false;
     private bool _deleteFilesPopupModalShown = false;
     private string _exportDescription = string.Empty;
+    private Task? _exportTask;
     private string _lastTab = string.Empty;
     private bool? _notesSuccessfullyApplied = null;
     private bool _overwriteExistingLabels = false;
     private bool _readClearCache = false;
     private bool _readExport = false;
-    private bool _wasOpen = false;
-    private readonly IProgress<(int, int, FileCacheEntity)> _validationProgress;
-    private Task<List<FileCacheEntity>>? _validationTask;
+    private int _selectedEntry = -1;
+    private string _uidToAddForIgnore = string.Empty;
     private CancellationTokenSource? _validationCts;
     private (int, int, FileCacheEntity) _currentProgress;
     private Task? _exportTask;
@@ -70,6 +72,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private string proxyStatus = "未知";
     private readonly string[] proxyProtocols = new string[] { "http", "https", "socks5" };
 
+    private Task<List<FileCacheEntity>>? _validationTask;
+    private bool _wasOpen = false;
     public SettingsUi(ILogger<SettingsUi> logger,
         UiSharedService uiShared, MareConfigService configService,
         MareCharaFileManager mareCharaFileManager, PairManager pairManager,
@@ -120,11 +124,9 @@ public class SettingsUi : WindowMediatorSubscriberBase
     public CharacterData? LastCreatedCharacterData { private get; set; }
     private ApiController ApiController => _uiShared.ApiController;
 
-    protected override void DrawInternal()
+    public override void OnOpen()
     {
-        _ = _uiShared.DrawOtherPluginState();
-
-        DrawSettingsContent();
+        _uiShared.RestOAuthTasksState();
     }
 
     public override void OnClose()
@@ -133,6 +135,43 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uidToAddForIgnore = string.Empty;
 
         base.OnClose();
+    }
+
+    protected override void DrawInternal()
+    {
+        _ = _uiShared.DrawOtherPluginState();
+
+        DrawSettingsContent();
+    }
+    private static bool InputDtrColors(string label, ref DtrEntry.Colors colors)
+    {
+        using var id = ImRaii.PushId(label);
+        var innerSpacing = ImGui.GetStyle().ItemInnerSpacing.X;
+        var foregroundColor = ConvertColor(colors.Foreground);
+        var glowColor = ConvertColor(colors.Glow);
+
+        var ret = ImGui.ColorEdit3("###foreground", ref foregroundColor, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel | ImGuiColorEditFlags.Uint8);
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Foreground Color - Set to pure black (#000000) to use the default color");
+
+        ImGui.SameLine(0.0f, innerSpacing);
+        ret |= ImGui.ColorEdit3("###glow", ref glowColor, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel | ImGuiColorEditFlags.Uint8);
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Glow Color - Set to pure black (#000000) to use the default color");
+
+        ImGui.SameLine(0.0f, innerSpacing);
+        ImGui.TextUnformatted(label);
+
+        if (ret)
+            colors = new(ConvertBackColor(foregroundColor), ConvertBackColor(glowColor));
+
+        return ret;
+
+        static Vector3 ConvertColor(uint color)
+            => unchecked(new((byte)color / 255.0f, (byte)(color >> 8) / 255.0f, (byte)(color >> 16) / 255.0f));
+
+        static uint ConvertBackColor(Vector3 color)
+            => byte.CreateSaturating(color.X * 255.0f) | ((uint)byte.CreateSaturating(color.Y * 255.0f) << 8) | ((uint)byte.CreateSaturating(color.Z * 255.0f) << 16);
     }
 
     private void DrawBlockedTransfers()
@@ -1077,35 +1116,152 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.DrawHelpText("启用此选项将仅显示您设置了单独备注配对用户的上线通知（类型：信息）.");
     }
 
-    private static bool InputDtrColors(string label, ref DtrEntry.Colors colors)
+    private void DrawPerformance()
     {
-        using var id = ImRaii.PushId(label);
-        var innerSpacing = ImGui.GetStyle().ItemInnerSpacing.X;
-        var foregroundColor = ConvertColor(colors.Foreground);
-        var glowColor = ConvertColor(colors.Glow);
-
-        var ret = ImGui.ColorEdit3("###foreground", ref foregroundColor, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel | ImGuiColorEditFlags.Uint8);
-        if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("字体颜色 - 设置为纯黑 (#000000) 以使用默认配色");
-
-        ImGui.SameLine(0.0f, innerSpacing);
-        ret |= ImGui.ColorEdit3("###glow", ref glowColor, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel | ImGuiColorEditFlags.Uint8);
-        if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("发光颜色 - 设置为纯黑 (#000000) 以使用默认配色");
-
-        ImGui.SameLine(0.0f, innerSpacing);
-        ImGui.TextUnformatted(label);
-
-        if (ret)
-            colors = new(ConvertBackColor(foregroundColor), ConvertBackColor(glowColor));
-
-        return ret;
-
-        static Vector3 ConvertColor(uint color)
-            => unchecked(new((byte)color / 255.0f, (byte)(color >> 8) / 255.0f, (byte)(color >> 16) / 255.0f));
-
-        static uint ConvertBackColor(Vector3 color)
-            => byte.CreateSaturating(color.X * 255.0f) | ((uint)byte.CreateSaturating(color.Y * 255.0f) << 8) | ((uint)byte.CreateSaturating(color.Z * 255.0f) << 16);
+        _uiShared.BigText("性能设置");
+        UiSharedService.TextWrapped("The configuration options here are to give you more informed warnings and automation when it comes to other performance-intensive synced players.");
+        ImGui.Dummy(new Vector2(10));
+        ImGui.Separator();
+        ImGui.Dummy(new Vector2(10));
+        bool showPerformanceIndicator = _playerPerformanceConfigService.Current.ShowPerformanceIndicator;
+        if (ImGui.Checkbox("显示性能提示", ref showPerformanceIndicator))
+        {
+            _playerPerformanceConfigService.Current.ShowPerformanceIndicator = showPerformanceIndicator;
+            _playerPerformanceConfigService.Save();
+        }
+        _uiShared.DrawHelpText("当配对对象超过了你设置的性能限制时将在MareUI上添加一个提示." + Environment.NewLine + "将使用警告等级的设置.");
+        bool warnOnExceedingThresholds = _playerPerformanceConfigService.Current.WarnOnExceedingThresholds;
+        if (ImGui.Checkbox("当载入的角色超过了你设置的性能限制时显示警告", ref warnOnExceedingThresholds))
+        {
+            _playerPerformanceConfigService.Current.WarnOnExceedingThresholds = warnOnExceedingThresholds;
+            _playerPerformanceConfigService.Save();
+        }
+        _uiShared.DrawHelpText("将在该角色被载入时显示该警告. 你进行过独立设置的角色不会触发警告.");
+        using (ImRaii.Disabled(!warnOnExceedingThresholds && !showPerformanceIndicator))
+        {
+            using var indent = ImRaii.PushIndent();
+            var warnOnPref = _playerPerformanceConfigService.Current.WarnOnPreferredPermissionsExceedingThresholds;
+            if (ImGui.Checkbox("进行过独立设置的角色也显示提示/警告", ref warnOnPref))
+            {
+                _playerPerformanceConfigService.Current.WarnOnPreferredPermissionsExceedingThresholds = warnOnPref;
+                _playerPerformanceConfigService.Save();
+            }
+            _uiShared.DrawHelpText("Mare将对你进行过独立设置的角色也显示提示/警告. 如果警告被设置为关闭,本选项将不会生效.");
+        }
+        using (ImRaii.Disabled(!showPerformanceIndicator && !warnOnExceedingThresholds))
+        {
+            var vram = _playerPerformanceConfigService.Current.VRAMSizeWarningThresholdMiB;
+            var tris = _playerPerformanceConfigService.Current.TrisWarningThresholdThousands;
+            ImGui.SetNextItemWidth(100 * ImGuiHelpers.GlobalScale);
+            if (ImGui.InputInt("显存占用限制·警告", ref vram))
+            {
+                _playerPerformanceConfigService.Current.VRAMSizeWarningThresholdMiB = vram;
+                _playerPerformanceConfigService.Save();
+            }
+            ImGui.SameLine();
+            ImGui.Text("(MiB)");
+            _uiShared.DrawHelpText("设置对于显存占用显示提示和警告的限制." + UiSharedService.TooltipSeparator
+                + "默认: 375 MiB");
+            ImGui.SetNextItemWidth(100 * ImGuiHelpers.GlobalScale);
+            if (ImGui.InputInt("模型面数限制·警告", ref tris))
+            {
+                _playerPerformanceConfigService.Current.TrisWarningThresholdThousands = tris;
+                _playerPerformanceConfigService.Save();
+            }
+            ImGui.SameLine();
+            ImGui.Text("(K 面)");
+            _uiShared.DrawHelpText("设置对于模型面数显示提示和警告的限制." + UiSharedService.TooltipSeparator
+                + "默认: 165 K");
+        }
+        ImGui.Dummy(new Vector2(10));
+        bool autoPause = _playerPerformanceConfigService.Current.AutoPausePlayersExceedingThresholds;
+        bool autoPauseEveryone = _playerPerformanceConfigService.Current.AutoPausePlayersWithPreferredPermissionsExceedingThresholds;
+        if (ImGui.Checkbox("自动暂停与超过限制的角色的配对", ref autoPause))
+        {
+            _playerPerformanceConfigService.Current.AutoPausePlayersExceedingThresholds = autoPause;
+            _playerPerformanceConfigService.Save();
+        }
+        _uiShared.DrawHelpText("启用时,将自动暂停与超过了下方设置的限制的角色的同步." + Environment.NewLine
+            + "同时将在聊天框中输出提示."
+            + UiSharedService.TooltipSeparator + "警告: 你必须手动开启同步, Mare不会自动解除暂停状态.");
+        using (ImRaii.Disabled(!autoPause))
+        {
+            using var indent = ImRaii.PushIndent();
+            if (ImGui.Checkbox("自动暂停也对你进行了独立设置的角色生效", ref autoPauseEveryone))
+            {
+                _playerPerformanceConfigService.Current.AutoPausePlayersWithPreferredPermissionsExceedingThresholds = autoPauseEveryone;
+                _playerPerformanceConfigService.Save();
+            }
+            _uiShared.DrawHelpText("启用时, 将对你进行过独立设置的角色也进行自动暂停." + UiSharedService.TooltipSeparator +
+                "警告: 你必须手动开启同步, Mare不会自动解除暂停状态.");
+            var vramAuto = _playerPerformanceConfigService.Current.VRAMSizeAutoPauseThresholdMiB;
+            var trisAuto = _playerPerformanceConfigService.Current.TrisAutoPauseThresholdThousands;
+            ImGui.SetNextItemWidth(100 * ImGuiHelpers.GlobalScale);
+            if (ImGui.InputInt("显存占用限制·自动暂停", ref vramAuto))
+            {
+                _playerPerformanceConfigService.Current.VRAMSizeAutoPauseThresholdMiB = vramAuto;
+                _playerPerformanceConfigService.Save();
+            }
+            ImGui.SameLine();
+            ImGui.Text("(MiB)");
+            _uiShared.DrawHelpText("当角色显存占用超过了以下限制时, 自动暂停与他们的配对." + UiSharedService.TooltipSeparator
+                + "默认: 550 MiB");
+            ImGui.SetNextItemWidth(100 * ImGuiHelpers.GlobalScale);
+            if (ImGui.InputInt("模型面数限制·自动暂停", ref trisAuto))
+            {
+                _playerPerformanceConfigService.Current.TrisAutoPauseThresholdThousands = trisAuto;
+                _playerPerformanceConfigService.Save();
+            }
+            ImGui.SameLine();
+            ImGui.Text("(K 面)");
+            _uiShared.DrawHelpText("当角色模型面数超过了以下限制时, 自动暂停与他们的配对." + UiSharedService.TooltipSeparator
+                + "默认: 250 K");
+        }
+        ImGui.Dummy(new Vector2(10));
+        _uiShared.BigText("白名单(UID)");
+        UiSharedService.TextWrapped("白名单中的角色不会被自动暂停.");
+        ImGui.Dummy(new Vector2(10));
+        ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
+        ImGui.InputText("##ignoreuid", ref _uidToAddForIgnore, 20);
+        ImGui.SameLine();
+        using (ImRaii.Disabled(string.IsNullOrEmpty(_uidToAddForIgnore)))
+        {
+            if (_uiShared.IconTextButton(FontAwesomeIcon.Plus, "将UID添加到白名单"))
+            {
+                if (!_playerPerformanceConfigService.Current.UIDsToIgnore.Contains(_uidToAddForIgnore, StringComparer.Ordinal))
+                {
+                    _playerPerformanceConfigService.Current.UIDsToIgnore.Add(_uidToAddForIgnore);
+                    _playerPerformanceConfigService.Save();
+                }
+                _uidToAddForIgnore = string.Empty;
+            }
+        }
+        _uiShared.DrawHelpText("提示: UIDs 大小写敏感.");
+        var playerList = _playerPerformanceConfigService.Current.UIDsToIgnore;
+        ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
+        using (var lb = ImRaii.ListBox("UID 白名单"))
+        {
+            if (lb)
+            {
+                for (int i = 0; i < playerList.Count; i++)
+                {
+                    bool shouldBeSelected = _selectedEntry == i;
+                    if (ImGui.Selectable(playerList[i] + "##" + i, shouldBeSelected))
+                    {
+                        _selectedEntry = i;
+                    }
+                }
+            }
+        }
+        using (ImRaii.Disabled(_selectedEntry == -1))
+        {
+            if (_uiShared.IconTextButton(FontAwesomeIcon.Trash, "删除选中的 UID"))
+            {
+                _playerPerformanceConfigService.Current.UIDsToIgnore.RemoveAt(_selectedEntry);
+                _selectedEntry = -1;
+                _playerPerformanceConfigService.Save();
+            }
+        }
     }
 
     private void DrawServerConfiguration()
@@ -1481,156 +1637,8 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
     }
 
-    private void DrawPerformance()
-    {
-        _uiShared.BigText("性能设置");
-        UiSharedService.TextWrapped("The configuration options here are to give you more informed warnings and automation when it comes to other performance-intensive synced players.");
-        ImGui.Dummy(new Vector2(10));
-        ImGui.Separator();
-        ImGui.Dummy(new Vector2(10));
-        bool showPerformanceIndicator = _playerPerformanceConfigService.Current.ShowPerformanceIndicator;
-        if (ImGui.Checkbox("显示性能提示", ref showPerformanceIndicator))
-        {
-            _playerPerformanceConfigService.Current.ShowPerformanceIndicator = showPerformanceIndicator;
-            _playerPerformanceConfigService.Save();
-        }
-        _uiShared.DrawHelpText("当配对对象超过了你设置的性能限制时将在MareUI上添加一个提示." + Environment.NewLine + "将使用警告等级的设置.");
-        bool warnOnExceedingThresholds = _playerPerformanceConfigService.Current.WarnOnExceedingThresholds;
-        if (ImGui.Checkbox("当载入的角色超过了你设置的性能限制时显示警告", ref warnOnExceedingThresholds))
-        {
-            _playerPerformanceConfigService.Current.WarnOnExceedingThresholds = warnOnExceedingThresholds;
-            _playerPerformanceConfigService.Save();
-        }
-        _uiShared.DrawHelpText("将在该角色被载入时显示该警告. 你进行过独立设置的角色不会触发警告.");
-        using (ImRaii.Disabled(!warnOnExceedingThresholds && !showPerformanceIndicator))
-        {
-            using var indent = ImRaii.PushIndent();
-            var warnOnPref = _playerPerformanceConfigService.Current.WarnOnPreferredPermissionsExceedingThresholds;
-            if (ImGui.Checkbox("进行过独立设置的角色也显示提示/警告", ref warnOnPref))
-            {
-                _playerPerformanceConfigService.Current.WarnOnPreferredPermissionsExceedingThresholds = warnOnPref;
-                _playerPerformanceConfigService.Save();
-            }
-            _uiShared.DrawHelpText("Mare将对你进行过独立设置的角色也显示提示/警告. 如果警告被设置为关闭,本选项将不会生效.");
-        }
-        using (ImRaii.Disabled(!showPerformanceIndicator && !warnOnExceedingThresholds))
-        {
-            var vram = _playerPerformanceConfigService.Current.VRAMSizeWarningThresholdMiB;
-            var tris = _playerPerformanceConfigService.Current.TrisWarningThresholdThousands;
-            ImGui.SetNextItemWidth(100 * ImGuiHelpers.GlobalScale);
-            if (ImGui.InputInt("显存占用限制·警告", ref vram))
-            {
-                _playerPerformanceConfigService.Current.VRAMSizeWarningThresholdMiB = vram;
-                _playerPerformanceConfigService.Save();
-            }
-            ImGui.SameLine();
-            ImGui.Text("(MiB)");
-            _uiShared.DrawHelpText("设置对于显存占用显示提示和警告的限制." + UiSharedService.TooltipSeparator
-                + "默认: 375 MiB");
-            ImGui.SetNextItemWidth(100 * ImGuiHelpers.GlobalScale);
-            if (ImGui.InputInt("模型面数限制·警告", ref tris))
-            {
-                _playerPerformanceConfigService.Current.TrisWarningThresholdThousands = tris;
-                _playerPerformanceConfigService.Save();
-            }
-            ImGui.SameLine();
-            ImGui.Text("(K 面)");
-            _uiShared.DrawHelpText("设置对于模型面数显示提示和警告的限制." + UiSharedService.TooltipSeparator
-                + "默认: 165 K");
-        }
-        ImGui.Dummy(new Vector2(10));
-        bool autoPause = _playerPerformanceConfigService.Current.AutoPausePlayersExceedingThresholds;
-        bool autoPauseEveryone = _playerPerformanceConfigService.Current.AutoPausePlayersWithPreferredPermissionsExceedingThresholds;
-        if (ImGui.Checkbox("自动暂停与超过限制的角色的配对", ref autoPause))
-        {
-            _playerPerformanceConfigService.Current.AutoPausePlayersExceedingThresholds = autoPause;
-            _playerPerformanceConfigService.Save();
-        }
-        _uiShared.DrawHelpText("启用时,将自动暂停与超过了下方设置的限制的角色的同步." + Environment.NewLine
-            + "同时将在聊天框中输出提示."
-            + UiSharedService.TooltipSeparator + "警告: 你必须手动开启同步, Mare不会自动解除暂停状态.");
-        using (ImRaii.Disabled(!autoPause))
-        {
-            using var indent = ImRaii.PushIndent();
-            if (ImGui.Checkbox("自动暂停也对你进行了独立设置的角色生效", ref autoPauseEveryone))
-            {
-                _playerPerformanceConfigService.Current.AutoPausePlayersWithPreferredPermissionsExceedingThresholds = autoPauseEveryone;
-                _playerPerformanceConfigService.Save();
-            }
-            _uiShared.DrawHelpText("启用时, 将对你进行过独立设置的角色也进行自动暂停." + UiSharedService.TooltipSeparator +
-                "警告: 你必须手动开启同步, Mare不会自动解除暂停状态.");
-            var vramAuto = _playerPerformanceConfigService.Current.VRAMSizeAutoPauseThresholdMiB;
-            var trisAuto = _playerPerformanceConfigService.Current.TrisAutoPauseThresholdThousands;
-            ImGui.SetNextItemWidth(100 * ImGuiHelpers.GlobalScale);
-            if (ImGui.InputInt("显存占用限制·自动暂停", ref vramAuto))
-            {
-                _playerPerformanceConfigService.Current.VRAMSizeAutoPauseThresholdMiB = vramAuto;
-                _playerPerformanceConfigService.Save();
-            }
-            ImGui.SameLine();
-            ImGui.Text("(MiB)");
-            _uiShared.DrawHelpText("当角色显存占用超过了以下限制时, 自动暂停与他们的配对." + UiSharedService.TooltipSeparator
-                + "默认: 550 MiB");
-            ImGui.SetNextItemWidth(100 * ImGuiHelpers.GlobalScale);
-            if (ImGui.InputInt("模型面数限制·自动暂停", ref trisAuto))
-            {
-                _playerPerformanceConfigService.Current.TrisAutoPauseThresholdThousands = trisAuto;
-                _playerPerformanceConfigService.Save();
-            }
-            ImGui.SameLine();
-            ImGui.Text("(K 面)");
-            _uiShared.DrawHelpText("当角色模型面数超过了以下限制时, 自动暂停与他们的配对." + UiSharedService.TooltipSeparator
-                + "默认: 250 K");
-        }
-        ImGui.Dummy(new Vector2(10));
-        _uiShared.BigText("白名单(UID)");
-        UiSharedService.TextWrapped("白名单中的角色不会被自动暂停.");
-        ImGui.Dummy(new Vector2(10));
-        ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
-        ImGui.InputText("##ignoreuid", ref _uidToAddForIgnore, 20);
-        ImGui.SameLine();
-        using (ImRaii.Disabled(string.IsNullOrEmpty(_uidToAddForIgnore)))
-        {
-            if (_uiShared.IconTextButton(FontAwesomeIcon.Plus, "将UID添加到白名单"))
-            {
-                if (!_playerPerformanceConfigService.Current.UIDsToIgnore.Contains(_uidToAddForIgnore, StringComparer.Ordinal))
-                {
-                    _playerPerformanceConfigService.Current.UIDsToIgnore.Add(_uidToAddForIgnore);
-                    _playerPerformanceConfigService.Save();
-                }
-                _uidToAddForIgnore = string.Empty;
-            }
-        }
-        _uiShared.DrawHelpText("提示: UIDs 大小写敏感.");
-        var playerList = _playerPerformanceConfigService.Current.UIDsToIgnore;
-        ImGui.SetNextItemWidth(200 * ImGuiHelpers.GlobalScale);
-        using (var lb = ImRaii.ListBox("UID 白名单"))
-        {
-            if (lb)
-            {
-                for (int i = 0; i < playerList.Count; i++)
-                {
-                    bool shouldBeSelected = _selectedEntry == i;
-                    if (ImGui.Selectable(playerList[i] + "##" + i, shouldBeSelected))
-                    {
-                        _selectedEntry = i;
-                    }
-                }
-            }
-        }
-        using (ImRaii.Disabled(_selectedEntry == -1))
-        {
-            if (_uiShared.IconTextButton(FontAwesomeIcon.Trash, "删除选中的 UID"))
-            {
-                _playerPerformanceConfigService.Current.UIDsToIgnore.RemoveAt(_selectedEntry);
-                _selectedEntry = -1;
-                _playerPerformanceConfigService.Save();
-            }
-        }
-    }
+    private int _lastSelectedServerIndex = -1;
 
-    private string _uidToAddForIgnore = string.Empty;
-    private int _selectedEntry = -1;
 
     private void DrawSettingsContent()
     {
