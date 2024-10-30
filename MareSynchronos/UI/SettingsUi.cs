@@ -61,8 +61,6 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private int _selectedEntry = -1;
     private string _uidToAddForIgnore = string.Empty;
     private CancellationTokenSource? _validationCts;
-    private (int, int, FileCacheEntity) _currentProgress;
-    private Task? _exportTask;
 
     private bool useManualProxy;
     private string proxyProtocol = string.Empty;
@@ -1119,7 +1117,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private void DrawPerformance()
     {
         _uiShared.BigText("性能设置");
-        UiSharedService.TextWrapped("The configuration options here are to give you more informed warnings and automation when it comes to other performance-intensive synced players.");
+        UiSharedService.TextWrapped("此设置将在配对角色可能对你造成较大的性能影响时为你提供更多信息或自动暂停配对.");
         ImGui.Dummy(new Vector2(10));
         ImGui.Separator();
         ImGui.Dummy(new Vector2(10));
