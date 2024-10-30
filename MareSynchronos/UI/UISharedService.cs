@@ -995,7 +995,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                     var vanity = string.IsNullOrEmpty(primaryUid.Value) ? "-" : primaryUid.Value;
                     if (foundUids > 0)
                     {
-                        ColorTextWrapped($"找到与服务器关联的UID {foundUids}, 主UID: {primaryUid.Key} (个性UID: {vanity})",
+                        ColorTextWrapped($"找到与服务器关联的UID共 {foundUids} 个, 主UID: {primaryUid.Key} (个性UID: {vanity})",
                             ImGuiColors.HealerGreen);
                     }
                     else
