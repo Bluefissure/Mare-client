@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  Release:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v2
@@ -32,7 +32,8 @@ jobs:
         run: |
           git config --local user.email "actions@github.com"
           git config --local user.name "github-actions[bot]"
-          if (git diff --quiet) {
+          git diff --quiet
+          if (%ERRORLEVEL%) {
             git commit -a -m "[CI] Updating plogonmaster.json"
             echo "::set-output name=committed::true"
           } else {
