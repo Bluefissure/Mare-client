@@ -559,21 +559,11 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
         if (!_selectedComboItems.TryGetValue(comboName, out var selectedItem) && selectedItem == null)
         {
-            if (!EqualityComparer<T>.Default.Equals(initialSelectedItem, default(T)))
-            {
-                selectedItem = initialSelectedItem;
-                _selectedComboItems[comboName] = selectedItem!;
-                if (!EqualityComparer<T>.Default.Equals(initialSelectedItem, default))
-                    onSelected?.Invoke(initialSelectedItem);
-            }
-            else
-            {
-                selectedItem = null;
-                _selectedComboItems[comboName] = selectedItem;
-            }
+            selectedItem = initialSelectedItem;
+            _selectedComboItems[comboName] = selectedItem;
         }
 
-        if (ImGui.BeginCombo(comboName, toName((T?)selectedItem)))
+        if (ImGui.BeginCombo(comboName, selectedItem == null ? "Unset Value" : toName((T?)selectedItem)))
         {
             foreach (var item in comboItems)
             {
@@ -885,8 +875,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         using (ImRaii.Disabled(_discordOAuthUIDs == null))
         {
             var aliasPairs = _discordOAuthUIDs?.Result?.Select(t => new UIDAliasPair(t.Key, t.Value)).ToList() ?? [new UIDAliasPair(item.UID ?? null, null)];
-            var uidComboName = "UID###" + item.CharacterName + item.WorldId + serverUri + indexOffset;
-            logger?.LogInformation("Drawing Combo with name {name}", uidComboName);
+            var uidComboName = "UID###" + item.CharacterName + item.WorldId + serverUri + indexOffset + aliasPairs.Count;
             DrawCombo(uidComboName, aliasPairs,
                 (v) =>
                 {
@@ -905,9 +894,9 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 },
                 (v) =>
                 {
-                    if (!string.Equals(v.UID, item.UID, StringComparison.Ordinal))
+                    if (!string.Equals(v?.UID ?? null, item.UID, StringComparison.Ordinal))
                     {
-                        item.UID = v.UID;
+                        item.UID = v?.UID ?? null;
                         _serverConfigurationManager.Save();
                     }
                 },
