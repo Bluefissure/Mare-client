@@ -863,12 +863,12 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _uiShared.DrawHelpText("这将打开一个弹窗，方便您在成功添加独立配对用户时为其设置备注。");
 
         var autoPopulateNotes = _configService.Current.AutoPopulateEmptyNotesFromCharaName;
-        if (ImGui.Checkbox("Automatically populate notes using player names", ref autoPopulateNotes))
+        if (ImGui.Checkbox("自动使用角色名作为角色备注", ref autoPopulateNotes))
         {
             _configService.Current.AutoPopulateEmptyNotesFromCharaName = autoPopulateNotes;
             _configService.Save();
         }
-        _uiShared.DrawHelpText("This will automatically populate user notes using the first encountered player name if the note was not set prior");
+        _uiShared.DrawHelpText("当遇到玩家时, 如果你没有为他/她设置备注, 使用角色名作为备注");
 
         ImGui.Separator();
         _uiShared.BigText("UI");

@@ -36,13 +36,13 @@ public sealed class CommandManagerService : IDisposable
         _mareConfigService = mareConfigService;
         _commandManager.AddHandler(_commandName, new CommandInfo(OnCommand)
         {
-            HelpMessage = "Opens the Mare Synchronos UI" + Environment.NewLine + Environment.NewLine +
-                "Additionally possible commands:" + Environment.NewLine +
-                "\t /mare toggle - Disconnects from Mare, if connected. Connects to Mare, if disconnected" + Environment.NewLine +
-                "\t /mare toggle on|off - Connects or disconnects to Mare respectively" + Environment.NewLine +
-                "\t /mare gpose - Opens the GPose MCDF import window (only works in GPose)" + Environment.NewLine +
-                "\t /mare analyze - Opens the Mare Character Data Analysis window" + Environment.NewLine +
-                "\t /mare settings - Opens the Mare Settings window"
+            HelpMessage = "打开Mare主UI" + Environment.NewLine + Environment.NewLine +
+                "其他可用命令:" + Environment.NewLine +
+                "\t /mare toggle - 若已连接到Mare服务器, 断开连接, 否则, 连接到当前设置的服务器" + Environment.NewLine +
+                "\t /mare toggle on|off - 根据参数连接或断开连接" + Environment.NewLine +
+                "\t /mare gpose - 打开GPose MCDF导入窗口 (仅在GPose中生效)" + Environment.NewLine +
+                "\t /mare analyze - 打开Mare角色数据分析界面" + Environment.NewLine +
+                "\t /mare settings - 打开设置界面"
         });
     }
 
@@ -72,7 +72,7 @@ public sealed class CommandManagerService : IDisposable
         {
             if (_apiController.ServerState == WebAPI.SignalR.Utils.ServerState.Disconnecting)
             {
-                _mediator.Publish(new NotificationMessage("Mare disconnecting", "Cannot use /toggle while Mare Synchronos is still disconnecting",
+                _mediator.Publish(new NotificationMessage("Mare正在断开连接", "Mare正在断开连接时不能使用 /toggle 命令",
                     NotificationType.Error));
             }
 
