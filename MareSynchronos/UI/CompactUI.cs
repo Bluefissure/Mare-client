@@ -359,7 +359,7 @@ public class CompactUi : WindowMediatorSubscriberBase
                 }
             }
 
-            UiSharedService.AttachToolTip(isConnectingOrConnected ? "已断开连接 " + _serverManager.CurrentServer.ServerName : "已连接到 " + _serverManager.CurrentServer.ServerName);
+            UiSharedService.AttachToolTip(isConnectingOrConnected ? "从 " + _serverManager.CurrentServer.ServerName + " 断开连接" : "连接到 " + _serverManager.CurrentServer.ServerName);
         }
     }
 
