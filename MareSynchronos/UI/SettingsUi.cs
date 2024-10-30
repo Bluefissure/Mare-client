@@ -862,6 +862,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         _uiShared.DrawHelpText("这将打开一个弹窗，方便您在成功添加独立配对用户时为其设置备注。");
 
+        var autoPopulateNotes = _configService.Current.AutoPopulateEmptyNotesFromCharaName;
+        if (ImGui.Checkbox("Automatically populate notes using player names", ref autoPopulateNotes))
+        {
+            _configService.Current.AutoPopulateEmptyNotesFromCharaName = autoPopulateNotes;
+            _configService.Save();
+        }
+        _uiShared.DrawHelpText("This will automatically populate user notes using the first encountered player name if the note was not set prior");
+
         ImGui.Separator();
         _uiShared.BigText("UI");
         var showNameInsteadOfNotes = _configService.Current.ShowCharacterNameInsteadOfNotesForVisible;
@@ -1472,6 +1480,13 @@ public class SettingsUi : WindowMediatorSubscriberBase
                             {
                                 _uiShared.DrawUIDComboForAuthentication(i, item, selectedServer.ServerUri, _logger);
                             }
+                            bool isAutoLogin = item.AutoLogin;
+                            if (ImGui.Checkbox("自动登录到Mare", ref isAutoLogin))
+                            {
+                                item.AutoLogin = isAutoLogin;
+                                _serverConfigurationManager.Save();
+                            }
+                            _uiShared.DrawHelpText("当该选项启用时, 登录本角色时会自动登录到当前Mare服务器.");
                             if (_uiShared.IconTextButton(FontAwesomeIcon.Trash, "删除角色") && UiSharedService.CtrlPressed())
                                 _serverConfigurationManager.RemoveCharacterFromServer(idx, item);
                             UiSharedService.AttachToolTip("按住CTRL键可删除此条目。");

@@ -328,8 +328,9 @@ public class CompactUi : WindowMediatorSubscriberBase
         {
             ImGui.SetCursorPosY(ImGui.GetCursorPosY() - ((userSize.Y + textSize.Y) / 2 + shardTextSize.Y) / 2 - ImGui.GetStyle().ItemSpacing.Y + buttonSize.Y / 2);
         }
-        var color = UiSharedService.GetBoolColor(!_serverManager.CurrentServer!.FullPause);
-        var connectedIcon = !_serverManager.CurrentServer.FullPause ? FontAwesomeIcon.Link : FontAwesomeIcon.Unlink;
+        bool isConnectingOrConnected = _apiController.ServerState is ServerState.Connected or ServerState.Connecting or ServerState.Reconnecting;
+        var color = UiSharedService.GetBoolColor(!isConnectingOrConnected);
+        var connectedIcon = isConnectingOrConnected ? FontAwesomeIcon.Unlink : FontAwesomeIcon.Link;
 
         ImGui.SameLine(ImGui.GetWindowContentRegionMin().X + UiSharedService.GetWindowContentRegionWidth() - buttonSize.X);
         if (printShard)
@@ -343,13 +344,22 @@ public class CompactUi : WindowMediatorSubscriberBase
             {
                 if (_uiSharedService.IconButton(connectedIcon))
                 {
-                    _serverManager.CurrentServer.FullPause = !_serverManager.CurrentServer.FullPause;
-                    _serverManager.Save();
+                    if (isConnectingOrConnected && !_serverManager.CurrentServer.FullPause)
+                    {
+                        _serverManager.CurrentServer.FullPause = true;
+                        _serverManager.Save();
+                    }
+                    else if (!isConnectingOrConnected && _serverManager.CurrentServer.FullPause)
+                    {
+                        _serverManager.CurrentServer.FullPause = false;
+                        _serverManager.Save();
+                    }
+
                     _ = _apiController.CreateConnectionsAsync();
                 }
             }
 
-            UiSharedService.AttachToolTip(!_serverManager.CurrentServer.FullPause ? "断开服务器：" + _serverManager.CurrentServer.ServerName : "连接服务器：" + _serverManager.CurrentServer.ServerName);
+            UiSharedService.AttachToolTip(isConnectingOrConnected ? "已断开连接 " + _serverManager.CurrentServer.ServerName : "已连接到 " + _serverManager.CurrentServer.ServerName);
         }
     }
 
@@ -607,11 +617,11 @@ public class CompactUi : WindowMediatorSubscriberBase
                 "您的插件或连接到的服务器已过期。请立即更新您的插件。如果您已经这样做了，请联系服务器提供商，将其服务器更新到最新版本。",
             ServerState.RateLimited => "您因过于频繁地重新连接而受到限制。请断开连接并等待10分钟，然后重试。",
             ServerState.Connected => string.Empty,
-
             ServerState.NoSecretKey => "您没有为当前角色设置密钥。使用下面的按钮或打开设置为当前角色设置密钥。您可以对多个角色使用同一密钥。",
             ServerState.MultiChara => "你的角色设置中有多个角色拥有相同的角色名和服务器. 在修正该问题前你将无法连接到服务器. 请删除重复的角色设置: 设置 -> 服务设置 -> 角色管理 并手动重连.",
             ServerState.OAuthMisconfigured => "OAuth2 已启用但未正确配置, 请检查 设置 -> 服务设置 中有OAuth连接, 并且, 你已为当前角色分配了一个UID.",
             ServerState.OAuthLoginTokenStale => "您的 OAuth2 登录令牌已过期，无法更新. 请前往 设置 -> 服务设置 解除并重新设置OAuth令牌.",
+            ServerState.NoAutoLogon => "本角色已禁用Mare自动登录. 请点击连接按钮手动连接.",
             _ => string.Empty
         };
     }
@@ -633,6 +643,7 @@ public class CompactUi : WindowMediatorSubscriberBase
             ServerState.MultiChara => ImGuiColors.DalamudYellow,
             ServerState.OAuthMisconfigured => ImGuiColors.DalamudRed,
             ServerState.OAuthLoginTokenStale => ImGuiColors.DalamudRed,
+            ServerState.NoAutoLogon => ImGuiColors.DalamudYellow,
             _ => ImGuiColors.DalamudRed
         };
     }
@@ -641,7 +652,7 @@ public class CompactUi : WindowMediatorSubscriberBase
     {
         return _apiController.ServerState switch
         {
-            ServerState.Reconnecting => "正在重新连接",
+          ServerState.Reconnecting => "正在重新连接",
             ServerState.Connecting => "正在连接",
             ServerState.Disconnected => "已断开连接",
             ServerState.Disconnecting => "正在断开连接",
@@ -653,6 +664,7 @@ public class CompactUi : WindowMediatorSubscriberBase
             ServerState.MultiChara => "重复的角色",
             ServerState.OAuthMisconfigured => "OAuth2 设置错误",
             ServerState.OAuthLoginTokenStale => "OAuth2 过期",
+            ServerState.NoAutoLogon => "自动登录已禁用",
             ServerState.Connected => _apiController.DisplayName,
             _ => string.Empty
         };
