@@ -22,7 +22,7 @@ public class BanUserPopupHandler : IPopupHandler
         _uiSharedService = uiSharedService;
     }
 
-    public Vector2 PopupSize => new(500, 250);
+    public Vector2 PopupSize => new(500, 140);
 
     public bool ShowClose => true;
 

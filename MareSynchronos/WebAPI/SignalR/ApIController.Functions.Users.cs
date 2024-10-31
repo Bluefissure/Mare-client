@@ -90,6 +90,12 @@ public partial class ApiController
         await _mareHub!.SendAsync(nameof(UserRemovePair), userDto).ConfigureAwait(false);
     }
 
+    public async Task UserReportProfile(UserProfileReportDto userDto)
+    {
+        if (!IsConnected) return;
+        await _mareHub!.SendAsync(nameof(UserReportProfile), userDto).ConfigureAwait(false);
+    }
+
     public async Task UserSetPairPermissions(UserPermissionsDto userPermissions)
     {
         await SetBulkPermissions(new(new(StringComparer.Ordinal)
@@ -125,7 +131,7 @@ public partial class ApiController
         Logger.LogDebug("Chara data contained: {nl} {data}", Environment.NewLine, sb.ToString());
 
         CensusDataDto? censusDto = null;
-        if (_serverManager.SendCensusData && _lastCensus != null)
+        if (/*_serverManager.SendCensusData &&*/ _lastCensus != null)
         {
             var world = await _dalamudUtil.GetWorldIdAsync().ConfigureAwait(false);
             censusDto = new((ushort)world, _lastCensus.RaceId, _lastCensus.TribeId, _lastCensus.Gender);

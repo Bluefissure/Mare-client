@@ -154,6 +154,18 @@ public class DrawUserPair
             _ = _apiController.UserSetPairPermissions(new UserPermissionsDto(_pair.UserData, permissions));
         }
         UiSharedService.AttachToolTip("修改与该用户的VFX同步权限设置." + (individual ? individualText : string.Empty));
+
+        if (!_pair.IsPaused)
+        {
+            ImGui.Separator();
+            ImGui.TextUnformatted("举报用户");
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.ExclamationTriangle, "举报用户", _menuWidth, true))
+            {
+                ImGui.CloseCurrentPopup();
+                _mediator.Publish(new OpenReportPopupMessage(_pair));
+            }
+            UiSharedService.AttachToolTip("向管理团队举报用户.");
+        }
     }
 
     private void DrawIndividualMenu()
