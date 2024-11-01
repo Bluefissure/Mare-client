@@ -2,6 +2,7 @@
 using Dalamud.Interface.Colors;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Utility.Raii;
+using Dalamud.Utility;
 using ImGuiNET;
 using MareSynchronos.API.Data.Enum;
 using MareSynchronos.API.Data.Extensions;
@@ -30,6 +31,7 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
     private Task<int>? _pruneTestTask;
     private Task<int>? _pruneTask;
     private int _pruneDays = 14;
+    private string _filter = "";
 
     public SyncshellAdminUI(ILogger<SyncshellAdminUI> logger, MareMediator mediator, ApiController apiController,
         UiSharedService uiSharedService, PairManager pairManager, GroupFullInfoDto groupFullInfo, PerformanceCollectorService performanceCollectorService)
@@ -126,6 +128,9 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
                     }
                     else
                     {
+                        ImGui.Text("筛选角色: ");
+                        ImGui.SameLine();
+                        ImGui.InputText("##筛选", ref _filter, 50);
                         using var table = ImRaii.Table("userList#" + GroupFullInfo.Group.GID, 4, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.ScrollY);
                         if (table)
                         {
@@ -137,6 +142,10 @@ public class SyncshellAdminUI : WindowMediatorSubscriberBase
 
                             var groupedPairs = new Dictionary<Pair, GroupPairUserInfo?>(pairs.Select(p => new KeyValuePair<Pair, GroupPairUserInfo?>(p,
                                 GroupFullInfo.GroupPairUserInfos.TryGetValue(p.UserData.UID, out GroupPairUserInfo value) ? value : null)));
+                            if (!_filter.IsNullOrEmpty())
+                            {
+                                groupedPairs = groupedPairs.Where(x => x.Key.UserData.UID.Contains(_filter) || (x.Key.UserData.Alias ?? "").Contains(_filter)).ToDictionary();
+                            }
 
                             foreach (var pair in groupedPairs.OrderBy(p =>
                             {
