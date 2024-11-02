@@ -1412,18 +1412,18 @@ public class SettingsUi : WindowMediatorSubscriberBase
                         if (hasSetSecretKeysButNoUid)
                         {
                             ImGui.Dummy(new(5f, 5f));
-                            UiSharedService.TextWrapped("Some entries have been detected that have previously been assigned secret keys but not UIDs. " +
-                                "Press this button below to attempt to convert those entries.");
+                            UiSharedService.TextWrapped("检测到部分角色已分配密钥但未设置UID. " +
+                                "点击下方按钮来自动分配.");
                             using (ImRaii.Disabled(_secretKeysConversionTask != null && !_secretKeysConversionTask.IsCompleted))
                             {
-                                if (_uiShared.IconTextButton(FontAwesomeIcon.ArrowsLeftRight, "Try to Convert Secret Keys to UIDs"))
+                                if (_uiShared.IconTextButton(FontAwesomeIcon.ArrowsLeftRight, "转换密钥到UID"))
                                 {
                                     _secretKeysConversionTask = ConvertSecretKeysToUIDs(selectedServer, _secretKeysConversionCts.Token);
                                 }
                             }
                             if (_secretKeysConversionTask != null && !_secretKeysConversionTask.IsCompleted)
                             {
-                                UiSharedService.ColorTextWrapped("Converting Secret Keys to UIDs", ImGuiColors.DalamudYellow);
+                                UiSharedService.ColorTextWrapped("正在转换密钥到UID", ImGuiColors.DalamudYellow);
                             }
                             if (_secretKeysConversionTask != null && _secretKeysConversionTask.IsCompletedSuccessfully)
                             {
@@ -1436,7 +1436,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                                 {
                                     textColor = ImGuiColors.DalamudRed;
                                 }
-                                string text = $"Conversion has completed: {_secretKeysConversionTask.Result.Result}";
+                                string text = $"转换完成: {_secretKeysConversionTask.Result.Result}";
                                 if (textColor != null)
                                 {
                                     UiSharedService.TextWrapped(text);
@@ -1447,7 +1447,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                                 }
                                 if (!_secretKeysConversionTask.Result.Success || _secretKeysConversionTask.Result.PartialSuccess)
                                 {
-                                    UiSharedService.TextWrapped("In case of conversion failures, please set the UIDs for the failed conversions manually.");
+                                    UiSharedService.TextWrapped("部分密钥转换失败, 请手工分配.");
                                 }
                             }
                         }
@@ -1478,7 +1478,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                             }
 
                             friendlyName = secretKey.FriendlyName;
-                            friendlyNameTranslation = "Secret Key";
+                            friendlyNameTranslation = "密钥";
                         }
                         else
                         {
@@ -1656,14 +1656,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     selectedServer.UseOAuth2 = useOauth;
                     _serverConfigurationManager.Save();
                 }
-                _uiShared.DrawHelpText("使用 Discord OAuth2 Authentication 而非密钥登录来服务器");
+                _uiShared.DrawHelpText("使用 Discord OAuth2 而非密钥登录来服务器");
                 if (useOauth)
                 {
                     _uiShared.DrawOAuth(selectedServer);
                     if (!string.IsNullOrEmpty(_serverConfigurationManager.GetDiscordUserFromToken(selectedServer))
                         && selectedServer.Authentications.TrueForAll(u => string.IsNullOrEmpty(u.UID)))
                     {
-                        UiSharedService.ColorTextWrapped("You have enabled OAuth2 but no characters configured. Set the correct UIDs for your characters in \"Character Management\".",
+                        UiSharedService.ColorTextWrapped("你已经启用了OAuth2登录, 但并未为当前角色分配UID. 请在 \"角色管理\"中进行分配.",
                             ImGuiColors.DalamudRed);
                     }
                 }
@@ -1791,7 +1791,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         if (secretKeyMapping.Count == 0)
         {
-            return (false, false, $"Failed to convert {failedConversions.Count} entries: " + string.Join(", ", failedConversions.Select(k => k.CharacterName)));
+            return (false, false, $"{failedConversions.Count} 个条目转换失败: " + string.Join(", ", failedConversions.Select(k => k.CharacterName)));
         }
 
         using HttpClient client = new();
@@ -1805,7 +1805,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             (await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false), cancellationToken: token).ConfigureAwait(false);
         if (secretKeyUidMapping == null)
         {
-            return (false, false, $"Failed to parse the server response. Failed to convert all entries.");
+            return (false, false, $"获取数据失败, 没有进行转换.");
         }
 
         foreach (var entry in secretKeyMapping)
@@ -1827,11 +1827,11 @@ public class SettingsUi : WindowMediatorSubscriberBase
             _serverConfigurationManager.Save();
 
         StringBuilder sb = new();
-        sb.Append("Conversion complete. ");
-        sb.Append($"Successfully converted {successfulConversions.Count} entries.");
+        sb.Append("转换完成. ");
+        sb.Append($"成功转换了 {successfulConversions.Count} 个条目.");
         if (failedConversions.Count > 0)
         {
-            sb.Append($" Failed to convert {successfulConversions.Count} entries, assign those manually: ");
+            sb.Append($" 转换失败 {successfulConversions.Count} 个条目, 请手动分配: ");
             sb.Append(string.Join(", ", failedConversions.Select(k => k.CharacterName)));
         }
 
