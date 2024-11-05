@@ -157,12 +157,12 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         var ret = ImGui.ColorEdit3("###foreground", ref foregroundColor, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel | ImGuiColorEditFlags.Uint8);
         if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("Foreground Color - Set to pure black (#000000) to use the default color");
+            ImGui.SetTooltip("字体颜色 - 设置为纯黑 (#000000) 使用默认颜色");
 
         ImGui.SameLine(0.0f, innerSpacing);
         ret |= ImGui.ColorEdit3("###glow", ref glowColor, ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.NoLabel | ImGuiColorEditFlags.Uint8);
         if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("Glow Color - Set to pure black (#000000) to use the default color");
+            ImGui.SetTooltip("发光颜色 - 设置为纯黑 (#000000) 使用默认颜色");
 
         ImGui.SameLine(0.0f, innerSpacing);
         ImGui.TextUnformatted(label);
@@ -1428,7 +1428,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                             if (_secretKeysConversionTask != null && _secretKeysConversionTask.IsCompletedSuccessfully)
                             {
                                 Vector4? textColor = null;
-                                if (!_secretKeysConversionTask.Result.PartialSuccess)
+                                if (_secretKeysConversionTask.Result.PartialSuccess)
                                 {
                                     textColor = ImGuiColors.DalamudYellow;
                                 }
@@ -1437,7 +1437,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                                     textColor = ImGuiColors.DalamudRed;
                                 }
                                 string text = $"转换完成: {_secretKeysConversionTask.Result.Result}";
-                                if (textColor != null)
+                                if (textColor == null)
                                 {
                                     UiSharedService.TextWrapped(text);
                                 }
@@ -1827,11 +1827,11 @@ public class SettingsUi : WindowMediatorSubscriberBase
             _serverConfigurationManager.Save();
 
         StringBuilder sb = new();
-        sb.Append("转换完成. ");
-        sb.Append($"成功转换了 {successfulConversions.Count} 个条目.");
+        sb.Append("转换结束." + Environment.NewLine);
+        sb.Append($"成功转换了 {successfulConversions.Count} 个条目." + Environment.NewLine);
         if (failedConversions.Count > 0)
         {
-            sb.Append($" 转换失败 {successfulConversions.Count} 个条目, 请手动分配: ");
+            sb.Append($"转换失败 {failedConversions.Count} 个条目, 请手动分配: ");
             sb.Append(string.Join(", ", failedConversions.Select(k => k.CharacterName)));
         }
 

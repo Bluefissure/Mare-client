@@ -448,7 +448,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     private async Task LoadOnlinePairsAsync()
     {
         CensusDataDto? dto = null;
-        if (_serverManager.SendCensusData && _lastCensus != null)
+        if (/*_serverManager.SendCensusData && */_lastCensus != null)
         {
             var world = await _dalamudUtil.GetWorldIdAsync().ConfigureAwait(false);
             dto = new((ushort)world, _lastCensus.RaceId, _lastCensus.TribeId, _lastCensus.Gender);
