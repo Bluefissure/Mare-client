@@ -55,8 +55,8 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         _performanceCollector = performanceCollector;
         WorldData = new(() =>
         {
-            return gameData.GetExcelSheet<Lumina.Excel.Sheets.World>(Dalamud.Game.ClientLanguage.English)!
-                .Where(w => !w.Name.IsEmpty && w.DataCenter.RowId != 0 && (w.IsPublic || char.IsUpper(w.Name.ToString()[0])))
+            return gameData.GetExcelSheet<Lumina.Excel.Sheets.World>()!
+                .Where(w => !w.Name.IsEmpty && w.DataCenter.RowId != 0 && (w.IsPublic || char.IsUpper(w.Name.ToString()[0]) || w is { Region: 5, RowId: >= 1000 }))
                 .ToDictionary(w => (ushort)w.RowId, w => w.Name.ToString());
         });
         mediator.Subscribe<TargetPairMessage>(this, (msg) =>
