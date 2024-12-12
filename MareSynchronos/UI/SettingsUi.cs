@@ -446,34 +446,34 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGuiHelpers.ScaledDummy(5);
             ImGui.Separator();
             ImGuiHelpers.ScaledDummy(10);
-            using var tree = ImRaii.TreeNode("Speed Test to Servers");
+            using var tree = ImRaii.TreeNode("服务器测速(国服未开放)");
             if (tree)
             {
                 if (_downloadServersTask == null || ((_downloadServersTask?.IsCompleted ?? false) && (!_downloadServersTask?.IsCompletedSuccessfully ?? false)))
                 {
-                    if (_uiShared.IconTextButton(FontAwesomeIcon.GroupArrowsRotate, "Update Download Server List"))
+                    if (_uiShared.IconTextButton(FontAwesomeIcon.GroupArrowsRotate, "更新下载服务器列表"))
                     {
                         _downloadServersTask = GetDownloadServerList();
                     }
                 }
                 if (_downloadServersTask != null && _downloadServersTask.IsCompleted && !_downloadServersTask.IsCompletedSuccessfully)
                 {
-                    UiSharedService.ColorTextWrapped("Failed to get download servers from service, see /xllog for more information", ImGuiColors.DalamudRed);
+                    UiSharedService.ColorTextWrapped("更新下载服务器列表失败, 查看 /xllog 获取更多信息", ImGuiColors.DalamudRed);
                 }
                 if (_downloadServersTask != null && _downloadServersTask.IsCompleted && _downloadServersTask.IsCompletedSuccessfully)
                 {
                     if (_speedTestTask == null || _speedTestTask.IsCompleted)
                     {
-                        if (_uiShared.IconTextButton(FontAwesomeIcon.ArrowRight, "Start Speedtest"))
+                        if (_uiShared.IconTextButton(FontAwesomeIcon.ArrowRight, "开始测速"))
                         {
                             _speedTestTask = RunSpeedTest(_downloadServersTask.Result!, _speedTestCts?.Token ?? CancellationToken.None);
                         }
                     }
                     else if (!_speedTestTask.IsCompleted)
                     {
-                        UiSharedService.ColorTextWrapped("Running Speedtest to File Servers...", ImGuiColors.DalamudYellow);
-                        UiSharedService.ColorTextWrapped("Please be patient, depending on usage and load this can take a while.", ImGuiColors.DalamudYellow);
-                        if (_uiShared.IconTextButton(FontAwesomeIcon.Ban, "Cancel speedtest"))
+                        UiSharedService.ColorTextWrapped("正在测速...", ImGuiColors.DalamudYellow);
+                        UiSharedService.ColorTextWrapped("请稍后, 基于服务器状态和连接速度这可能需要一段时间...", ImGuiColors.DalamudYellow);
+                        if (_uiShared.IconTextButton(FontAwesomeIcon.Ban, "取消测速"))
                         {
                             _speedTestCts?.Cancel();
                             _speedTestCts?.Dispose();
@@ -491,7 +491,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                         }
                         else
                         {
-                            UiSharedService.ColorTextWrapped("Speedtest completed with no results", ImGuiColors.DalamudYellow);
+                            UiSharedService.ColorTextWrapped("测速完成, 无结果", ImGuiColors.DalamudYellow);
                         }
                     }
                 }
@@ -610,10 +610,10 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 }
                 catch (OperationCanceledException)
                 {
-                    _logger.LogWarning("Speedtest to {server} cancelled", server);
+                    _logger.LogWarning("对 {server} 的测速已取消", server);
                 }
                 st.Stop();
-                _logger.LogInformation("Downloaded {bytes} from {server} in {time}", UiSharedService.ByteToString(readBytes), server, st.Elapsed);
+                _logger.LogInformation("下载了 {bytes} 自 {server} 在 {time}", UiSharedService.ByteToString(readBytes), server, st.Elapsed);
                 var bps = (long)((readBytes) / st.Elapsed.TotalSeconds);
                 speedTestResults.Add($"{server}: ~{UiSharedService.ByteToString(bps)}/s");
             }
@@ -627,12 +627,12 @@ public class SettingsUi : WindowMediatorSubscriberBase
             }
             catch (OperationCanceledException)
             {
-                _logger.LogWarning("Speedtest on {server} cancelled", server);
-                speedTestResults.Add($"{server}: Cancelled by user");
+                _logger.LogWarning("对 {server} 的测速已取消", server);
+                speedTestResults.Add($"{server}: 用户手动取消");
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Some exception");
+                _logger.LogWarning(ex, "出现错误");
             }
             finally
             {
@@ -652,7 +652,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to get download server list");
+            _logger.LogWarning(ex, "获取下载服务器列表失败");
             throw;
         }
     }
