@@ -28,15 +28,16 @@ public unsafe class BlockedCharacterHandler
     public bool IsCharacterBlocked(nint ptr, out bool firstTime)
     {
         firstTime = false;
-        var combined = GetIdsFromPlayerPointer(ptr);
-        if (_blockedCharacterCache.TryGetValue(combined, out var isBlocked))
-            return isBlocked;
-
-        firstTime = true;
-        var blockStatus = InfoProxyBlacklist.Instance()->GetBlockResultType(combined.AccId, combined.ContentId);
-        _logger.LogTrace("CharaPtr {ptr} is BlockStatus: {status}", ptr, blockStatus);
-        if ((int)blockStatus == 0) 
-            return false;
-        return _blockedCharacterCache[combined] = blockStatus != InfoProxyBlacklist.BlockResultType.NotBlocked;
+        // var combined = GetIdsFromPlayerPointer(ptr);
+        // if (_blockedCharacterCache.TryGetValue(combined, out var isBlocked))
+        //     return isBlocked;
+        //
+        // firstTime = true;
+        // var blockStatus = InfoProxyBlacklist.Instance()->GetBlockResultType(combined.AccId, combined.ContentId);
+        // _logger.LogTrace("CharaPtr {ptr} is BlockStatus: {status}", ptr, blockStatus);
+        // if ((int)blockStatus == 0)
+        //     return false;
+        // return _blockedCharacterCache[combined] = blockStatus != InfoProxyBlacklist.BlockResultType.NotBlocked;
+        return false;
     }
 }
