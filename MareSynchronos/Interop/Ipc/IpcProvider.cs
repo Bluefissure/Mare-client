@@ -1,8 +1,10 @@
 ﻿using Dalamud.Game.ClientState.Objects.Types;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Ipc;
+using MareSynchronos.API.Dto.User;
 using MareSynchronos.PlayerData.Export;
 using MareSynchronos.PlayerData.Handlers;
+using MareSynchronos.PlayerData.Pairs;
 using MareSynchronos.Services;
 using MareSynchronos.Services.Mediator;
 using Microsoft.Extensions.Hosting;
@@ -21,17 +23,21 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
     private ICallGateProvider<List<nint>>? _handledGameAddresses;
     private readonly List<GameObjectHandler> _activeGameObjectHandlers = [];
 
+    private readonly PairManager  _pairManager;
+    private ICallGateProvider<string, string, List<MoodlesStatusInfo>, bool, object?>? _applyStatusesToPairRequest;
+
     public MareMediator Mediator { get; init; }
 
     public IpcProvider(ILogger<IpcProvider> logger, IDalamudPluginInterface pi,
         MareCharaFileManager mareCharaFileManager, DalamudUtilService dalamudUtil,
-        MareMediator mareMediator)
+        MareMediator mareMediator, PairManager  pairManager)
     {
         _logger = logger;
         _pi = pi;
         _mareCharaFileManager = mareCharaFileManager;
         _dalamudUtil = dalamudUtil;
         Mediator = mareMediator;
+        _pairManager = pairManager;
 
         Mediator.Subscribe<GameObjectHandlerCreatedMessage>(this, (msg) =>
         {
@@ -54,6 +60,10 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
         _loadFileAsyncProvider.RegisterFunc(LoadMcdfAsync);
         _handledGameAddresses = _pi.GetIpcProvider<List<nint>>("MareSynchronos.GetHandledAddresses");
         _handledGameAddresses.RegisterFunc(GetHandledAddresses);
+
+        _applyStatusesToPairRequest = _pi.GetIpcProvider<string, string, List<MoodlesStatusInfo>, bool, object?>("MareSynchronos.ApplyStatusesToMarePlayers");
+        _applyStatusesToPairRequest.RegisterAction(HandleApplyStatusesToPairRequest);
+
         _logger.LogInformation("Started IpcProviderService");
         return Task.CompletedTask;
     }
@@ -64,6 +74,7 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
         _loadFileProvider?.UnregisterFunc();
         _loadFileAsyncProvider?.UnregisterFunc();
         _handledGameAddresses?.UnregisterFunc();
+        _applyStatusesToPairRequest?.UnregisterAction();
         Mediator.UnsubscribeAll(this);
         return Task.CompletedTask;
     }
@@ -108,5 +119,34 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
     private List<nint> GetHandledAddresses()
     {
         return _activeGameObjectHandlers.Where(g => g.Address != nint.Zero).Select(g => g.Address).Distinct().ToList();
+    }
+
+        /// <summary>
+    /// Handles the request from our clients moodles plugin to update another one of our pairs status.
+    /// </summary>
+    /// <param name="requester">The name of the player requesting the apply (SHOULD ALWAYS BE OUR CLIENT PLAYER) </param>
+    /// <param name="recipient">The name of the player to apply the status to. (SHOULD ALWAYS BE A PAIR) </param>
+    /// <param name="statuses">The list of statuses to apply to the recipient. </param>
+    private void HandleApplyStatusesToPairRequest(string requester, string recipient, List<MoodlesStatusInfo> statuses, bool isPreset)
+    {
+        try
+        {
+            var pairUser = _pairManager.GetOnlineUserPairs().Find(p => p.PlayerName == recipient.Split('@')[0] && p.IsVisible)?.UserData;
+            if (pairUser == null)
+            {
+                _logger.LogWarning("Received ApplyStatusesToPairRequest for {recipient} but could not find the UID for the pair", recipient);
+                return;
+            }
+            // fetch the UID for the pair to apply for.
+            _logger.LogDebug("Received ApplyStatusesToPair request to {recipient}, applying statuses", recipient);
+            var dto = new ApplyMoodlesByStatusDto(pairUser, statuses, (isPreset ? MoodlesIpcToggleType.MoodlesPreset : MoodlesIpcToggleType.MoodlesStatus));
+            Mediator.Publish(new MoodlesApplyStatusToPair(dto));
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Failure handling ApplyStatusesToPairRequest: ");
+            throw;
+        }
+
     }
 }

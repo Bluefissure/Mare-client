@@ -1,5 +1,6 @@
 ﻿using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects;
+using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Plugin.Services;
 using Dalamud.Utility;
@@ -190,6 +191,29 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     {
         EnsureIsOnFramework();
         return _clientState.LocalPlayer?.Name.ToString() ?? "--";
+    }
+
+    public string GetPlayerNameWithWorld()
+    {
+        EnsureIsOnFramework();
+        return _clientState.LocalPlayer?.Name + "@" + _clientState.LocalPlayer?.HomeWorld.Value.Name.ExtractText();
+    }
+
+    public IPlayerCharacter? SearchPlayerByName(string name)
+    {
+        EnsureIsOnFramework();
+        var result = _objectTable.FirstOrDefault(x => x.ObjectKind == ObjectKind.Player && x.Name.TextValue == name);
+        return (IPlayerCharacter?)result;
+    }
+
+    public async Task<IPlayerCharacter?> SearchPlayerByNameAsync(string name)
+    {
+        return await RunOnFrameworkThread(() =>SearchPlayerByName(name)).ConfigureAwait(false);
+    }
+
+    public async Task<string> GetPlayerNameWithWorldAsync()
+    {
+        return await RunOnFrameworkThread(GetPlayerNameWithWorld).ConfigureAwait(false);
     }
 
     public async Task<string> GetPlayerNameAsync()

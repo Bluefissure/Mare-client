@@ -18,6 +18,8 @@ public sealed class IpcCallerMoodles : IIpcCaller
     private readonly DalamudUtilService _dalamudUtil;
     private readonly MareMediator _mareMediator;
 
+    private readonly ICallGateSubscriber<string,string, List<MoodlesStatusInfo>, object> _applyStatusesFromPair;
+
     public IpcCallerMoodles(ILogger<IpcCallerMoodles> logger, IDalamudPluginInterface pi, DalamudUtilService dalamudUtil,
         MareMediator mareMediator)
     {
@@ -30,6 +32,8 @@ public sealed class IpcCallerMoodles : IIpcCaller
         _moodlesGetStatus = pi.GetIpcSubscriber<nint, string>("Moodles.GetStatusManagerByPtr");
         _moodlesSetStatus = pi.GetIpcSubscriber<nint, string, object>("Moodles.SetStatusManagerByPtr");
         _moodlesRevertStatus = pi.GetIpcSubscriber<nint, object>("Moodles.ClearStatusManagerByPtr");
+
+        _applyStatusesFromPair = pi.GetIpcSubscriber<string, string, List<MoodlesStatusInfo>, object>("Moodles.ApplyStatusesFromMarePlayers");
 
         _moodlesOnChange.Subscribe(OnMoodlesChange);
 
@@ -99,6 +103,20 @@ public sealed class IpcCallerMoodles : IIpcCaller
         catch (Exception e)
         {
             _logger.LogWarning(e, "Could not Set Moodles Status");
+        }
+    }
+
+    /// <summary> This method applies the statuses from a pair to the client </summary>
+    public async Task ApplyStatusesFromPairToSelf(string applierNameWithWorld, string recipientNameWithWorld, List<MoodlesStatusInfo> statuses)
+    {
+        if (!APIAvailable) return;
+        try
+        {
+            await _dalamudUtil.RunOnFrameworkThread(() => _applyStatusesFromPair.InvokeAction(applierNameWithWorld, recipientNameWithWorld, statuses)).ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            _logger.LogWarning(e,"Could not Apply Moodles Status:");
         }
     }
 }

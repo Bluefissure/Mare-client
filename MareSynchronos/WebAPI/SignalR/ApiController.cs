@@ -4,10 +4,12 @@ using MareSynchronos.API.Data.Extensions;
 using MareSynchronos.API.Dto;
 using MareSynchronos.API.Dto.User;
 using MareSynchronos.API.SignalR;
+using MareSynchronos.Interop.Ipc;
 using MareSynchronos.MareConfiguration;
 using MareSynchronos.MareConfiguration.Models;
 using MareSynchronos.PlayerData.Pairs;
 using MareSynchronos.Services;
+using MareSynchronos.Services.Events;
 using MareSynchronos.Services.Mediator;
 using MareSynchronos.Services.ServerConfiguration;
 using MareSynchronos.WebAPI.SignalR;
@@ -39,10 +41,11 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     private HubConnection? _mareHub;
     private ServerState _serverState;
     private CensusUpdateMessage? _lastCensus;
+    private IpcManager _ipcManager;
 
     public ApiController(ILogger<ApiController> logger, HubFactory hubFactory, DalamudUtilService dalamudUtil,
         PairManager pairManager, ServerConfigurationManager serverManager, MareMediator mediator,
-        TokenProvider tokenProvider, MareConfigService mareConfigService) : base(logger, mediator)
+        TokenProvider tokenProvider, MareConfigService mareConfigService, IpcManager ipcManager) : base(logger, mediator)
     {
         _hubFactory = hubFactory;
         _dalamudUtil = dalamudUtil;
@@ -51,6 +54,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         _tokenProvider = tokenProvider;
         _mareConfigService = mareConfigService;
         _connectionCancellationTokenSource = new CancellationTokenSource();
+        _ipcManager = ipcManager;
 
         Mediator.Subscribe<DalamudLoginMessage>(this, (_) => DalamudUtilOnLogIn());
         Mediator.Subscribe<DalamudLogoutMessage>(this, (_) => DalamudUtilOnLogOut());
@@ -67,6 +71,16 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         {
             DalamudUtilOnLogIn();
         }
+
+        // Called whenever we are requesting to apply a set of moodles from our clients Moodle Statuses, to another pair.
+        Mediator.Subscribe<MoodlesApplyStatusToPair>(this, (msg) =>
+        {
+            Logger.LogDebug("Applying List of your Statuses from your Moodles to {msg}",msg.StatusDto.User.AliasOrUID);
+            _ = Task.Run(async () =>
+            {
+                await UserApplyMoodlesByStatus(msg.StatusDto).ConfigureAwait(false);
+            });
+        });
     }
 
     public string AuthFailureMessage { get; private set; } = string.Empty;
@@ -103,6 +117,12 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     public async Task<bool> CheckClientHealth()
     {
         return await _mareHub!.InvokeAsync<bool>(nameof(CheckClientHealth)).ConfigureAwait(false);
+    }
+
+    public async Task<bool> UserApplyMoodlesByStatus(ApplyMoodlesByStatusDto dto)
+    {
+        if (!IsConnected) return false;
+        return await _mareHub!.InvokeAsync<bool>(nameof(UserApplyMoodlesByStatus), dto).ConfigureAwait(false);
     }
 
     public async Task CreateConnectionsAsync()
@@ -422,6 +442,8 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         OnGroupSendInfo((dto) => _ = Client_GroupSendInfo(dto));
         OnGroupChangeUserPairPermissions((dto) => _ = Client_GroupChangeUserPairPermissions(dto));
 
+        OnUserApplyMoodlesByStatus(dto => _ = Client_UserApplyMoodlesByStatus(dto));
+
         _healthCheckTokenSource?.Cancel();
         _healthCheckTokenSource?.Dispose();
         _healthCheckTokenSource = new CancellationTokenSource();
@@ -566,6 +588,44 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         }
 
         ServerState = state;
+    }
+
+    public Task Client_UserApplyMoodlesByStatus(ApplyMoodlesByStatusDto dto)
+    {
+            // obtain the local player name and world
+            string NameWithWorld = _dalamudUtil.GetPlayerNameWithWorldAsync().GetAwaiter().GetResult();
+            ExecuteSafely(() => ApplyStatusesToSelf(dto, NameWithWorld));
+            return Task.CompletedTask;
+    }
+
+    public async void ApplyStatusesToSelf(ApplyMoodlesByStatusDto dto, string clientPlayerNameWithWorld)
+    {
+        var matchedPair = _pairManager.GetOnlineUserPairs().Find(x => x.UserData.UID == dto.User.UID);
+        if (matchedPair is null)
+        {
+            Logger.LogError($"[ApplyStatusesToSelf] Received a moodles request from {dto.User.UID} but not paired.");
+            return;
+        }
+
+        if (matchedPair.PlayerName.IsNullOrEmpty())
+        {
+            Logger.LogError("[ApplyStatusesToSelf] Paired player name is null.");
+            return;
+        }
+
+        var player = _dalamudUtil.SearchPlayerByNameAsync(matchedPair.PlayerName).Result;
+        if (player is null)
+        {
+            Logger.LogError($"[ApplyStatusesToSelf] {matchedPair.PlayerName} is not found.");
+            return;
+        }
+
+        var applierNameWithWorld = player.Name + "@" + player.HomeWorld.Value.Name.ExtractText();
+
+        Logger.LogDebug($"[ApplyStatusesToSelf] Calling Moodles to apply {dto.Statuses.Count} status from {applierNameWithWorld} to {clientPlayerNameWithWorld}.");
+        await _ipcManager.Moodles.ApplyStatusesFromPairToSelf(applierNameWithWorld, clientPlayerNameWithWorld, dto.Statuses).ConfigureAwait(false);
+        // Log the Interaction Event.
+        Mediator.Publish(new EventMessage(new(player.Name.TextValue, dto.User, dto.User.UID, EventSeverity.Informational, "Moodle Status(s) Applied")));
     }
 }
 #pragma warning restore MA0040

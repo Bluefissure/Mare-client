@@ -318,6 +318,12 @@ public partial class ApiController
         _mareHub!.On(nameof(Client_UserUpdateSelfPairPermissions), act);
     }
 
+    public void OnUserApplyMoodlesByStatus(Action<ApplyMoodlesByStatusDto> act)
+    {
+        if (_initialized) return;
+        _mareHub!.On(nameof(Client_UserApplyMoodlesByStatus), act);
+    }
+
     private void ExecuteSafely(Action act)
     {
         try
