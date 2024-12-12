@@ -56,8 +56,8 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         _performanceCollector = performanceCollector;
         WorldData = new(() =>
         {
-            return gameData.GetExcelSheet<Lumina.Excel.Sheets.World>()!
-                .Where(w => !w.Name.IsEmpty && w.DataCenter.RowId != 0 && (w.IsPublic || char.IsUpper(w.Name.ToString()[0]) || w is { Region: 5, RowId: >= 1000 }))
+            return gameData.GetExcelSheet<Lumina.Excel.GeneratedSheets.World>(Dalamud.Game.ClientLanguage.English)!
+                .Where(w => !w.Name.RawData.IsEmpty && w.DataCenter.Row != 0 && (w.IsPublic || char.IsUpper((char)w.Name.RawData[0])) || w is { Region:5, RowId: >= 1000})
                 .ToDictionary(w => (ushort)w.RowId, w => w.Name.ToString());
         });
         mediator.Subscribe<TargetPairMessage>(this, (msg) =>
@@ -196,7 +196,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     public string GetPlayerNameWithWorld()
     {
         EnsureIsOnFramework();
-        return _clientState.LocalPlayer?.Name + "@" + _clientState.LocalPlayer?.HomeWorld.Value.Name.ExtractText();
+        return _clientState.LocalPlayer?.Name + "@" + _clientState.LocalPlayer?.HomeWorld.GameData?.Name.RawString;
     }
 
     public IPlayerCharacter? SearchPlayerByName(string name)
@@ -246,13 +246,13 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     public uint GetHomeWorldId()
     {
         EnsureIsOnFramework();
-        return _clientState.LocalPlayer!.HomeWorld.RowId;
+        return _clientState.LocalPlayer!.HomeWorld.Id;
     }
 
     public uint GetWorldId()
     {
         EnsureIsOnFramework();
-        return _clientState.LocalPlayer!.CurrentWorld.RowId;
+        return _clientState.LocalPlayer!.CurrentWorld.Id;
     }
 
     public async Task<uint> GetWorldIdAsync()
@@ -326,7 +326,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         _framework.Update += FrameworkOnUpdate;
         if (IsLoggedIn)
         {
-            _classJobId = _clientState.LocalPlayer!.ClassJob.RowId;
+            _classJobId = _clientState.LocalPlayer!.ClassJob.Id;
         }
 
         _logger.LogInformation("Started DalamudUtilService");
@@ -591,7 +591,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
             var localPlayer = _clientState.LocalPlayer;
             if (localPlayer != null)
             {
-                _classJobId = localPlayer.ClassJob.RowId;
+                _classJobId = localPlayer.ClassJob.Id;
             }
 
             if (!IsInCombatOrPerforming)
