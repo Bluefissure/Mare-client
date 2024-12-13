@@ -622,7 +622,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
         var applierNameWithWorld = player.Name + "@" + player.HomeWorld.GameData?.Name.RawString;
 
-        Logger.LogDebug($"[ApplyStatusesToSelf] Calling Moodles to apply {dto.Statuses.Count} status from {applierNameWithWorld} to {clientPlayerNameWithWorld}.");
+        Logger.LogDebug($"[ApplyStatusesToSelf] Calling Moodles to apply status from {applierNameWithWorld} to {clientPlayerNameWithWorld}.");
         await _ipcManager.Moodles.ApplyStatusesFromPairToSelf(applierNameWithWorld, clientPlayerNameWithWorld, dto.Statuses).ConfigureAwait(false);
         // Log the Interaction Event.
         Mediator.Publish(new EventMessage(new(player.Name.TextValue, dto.User, dto.User.UID, EventSeverity.Informational, "Moodle Status(s) Applied")));
