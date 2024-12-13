@@ -24,7 +24,7 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
     private readonly List<GameObjectHandler> _activeGameObjectHandlers = [];
 
     private readonly PairManager  _pairManager;
-    private ICallGateProvider<string, string, string, bool, object?>? _applyStatusesToPairRequest;
+    private ICallGateProvider<string, string, string, object?>? _applyStatusesToPairRequest;
 
     public MareMediator Mediator { get; init; }
 
@@ -61,7 +61,7 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
         _handledGameAddresses = _pi.GetIpcProvider<List<nint>>("MareSynchronos.GetHandledAddresses");
         _handledGameAddresses.RegisterFunc(GetHandledAddresses);
 
-        _applyStatusesToPairRequest = _pi.GetIpcProvider<string, string, string, bool, object?>("MareSynchronos.ApplyStatusesToMarePlayers");
+        _applyStatusesToPairRequest = _pi.GetIpcProvider<string, string, string, object?>("MareSynchronos.ApplyStatusesToMarePlayers");
         _applyStatusesToPairRequest.RegisterAction(HandleApplyStatusesToPairRequest);
 
         _logger.LogInformation("Started IpcProviderService");
@@ -127,7 +127,7 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
     /// <param name="requester">The name of the player requesting the apply (SHOULD ALWAYS BE OUR CLIENT PLAYER) </param>
     /// <param name="recipient">The name of the player to apply the status to. (SHOULD ALWAYS BE A PAIR) </param>
     /// <param name="statuses">The list of statuses to apply to the recipient. </param>
-    private void HandleApplyStatusesToPairRequest(string requester, string recipient, string statuses, bool isPreset)
+    private void HandleApplyStatusesToPairRequest(string requester, string recipient, string statuses)
     {
         try
         {
@@ -139,7 +139,7 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
             }
             // fetch the UID for the pair to apply for.
             _logger.LogDebug("Received ApplyStatusesToPair request to {recipient}, applying statuses", recipient);
-            var dto = new ApplyMoodlesByStatusDto(pairUser, statuses, (isPreset ? MoodlesIpcToggleType.MoodlesPreset : MoodlesIpcToggleType.MoodlesStatus));
+            var dto = new ApplyMoodlesByStatusDto(pairUser, statuses);
             Mediator.Publish(new MoodlesApplyStatusToPair(dto));
         }
         catch (Exception e)
