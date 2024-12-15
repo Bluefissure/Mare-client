@@ -21,7 +21,9 @@ using MareSynchronos.Services.Mediator;
 using MareSynchronos.Services.ServerConfiguration;
 using MareSynchronos.Utils;
 using MareSynchronos.WebAPI;
+using MareSynchronos.WebAPI.SignalR;
 using Microsoft.Extensions.Logging;
+using System.IdentityModel.Tokens.Jwt;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -56,6 +58,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     private readonly ITextureProvider _textureProvider;
     private readonly Dictionary<string, object?> _selectedComboItems = new(StringComparer.Ordinal);
     private readonly ServerConfigurationManager _serverConfigurationManager;
+    private readonly TokenProvider _tokenProvider;
     private bool _cacheDirectoryHasOtherFilesThanCache = false;
 
     private bool _cacheDirectoryIsValidPath = true;
@@ -79,13 +82,14 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     private bool _petNamesExists = false;
 
     private int _serverSelectionIndex = -1;
+    private Dictionary<string, DateTime> _oauthTokenExpiry = new();
 
     public UiSharedService(ILogger<UiSharedService> logger, IpcManager ipcManager, ApiController apiController,
         CacheMonitor cacheMonitor, FileDialogManager fileDialogManager,
         MareConfigService configService, DalamudUtilService dalamudUtil, IDalamudPluginInterface pluginInterface,
         ITextureProvider textureProvider,
         Dalamud.Localization localization,
-        ServerConfigurationManager serverManager, MareMediator mediator) : base(logger, mediator)
+        ServerConfigurationManager serverManager, TokenProvider tokenProvider, MareMediator mediator) : base(logger, mediator)
     {
         _ipcManager = ipcManager;
         _apiController = apiController;
@@ -97,6 +101,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
         _textureProvider = textureProvider;
         _localization = localization;
         _serverConfigurationManager = serverManager;
+        _tokenProvider = tokenProvider;
         _localization.SetupWithLangCode("en");
 
         _isDirectoryWritable = IsDirectoryWritable(_configService.Current.CacheFolder);
@@ -563,7 +568,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
             _selectedComboItems[comboName] = selectedItem;
         }
 
-        if (ImGui.BeginCombo(comboName, selectedItem == null ? "Unset Value" : toName((T?)selectedItem)))
+        if (ImGui.BeginCombo(comboName, selectedItem == null ? "未设置" : toName((T?)selectedItem)))
         {
             foreach (var item in comboItems)
             {
@@ -635,7 +640,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     {
         var check = FontAwesomeIcon.Check;
         var cross = FontAwesomeIcon.SquareXmark;
-        ImGui.TextUnformatted("Mandatory Plugins:");
+        ImGui.TextUnformatted("必要插件:");
 
         ImGui.SameLine();
         ImGui.TextUnformatted("Penumbra");
@@ -911,7 +916,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
     public void DrawOAuth(ServerStorage selectedServer)
     {
         var oauthToken = selectedServer.OAuthToken;
-        using var _ = ImRaii.PushIndent(10f);
+        _ = ImRaii.PushIndent(10f);
         if (oauthToken == null)
         {
             if (_discordOAuthCheck == null)
@@ -976,34 +981,84 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
         if (oauthToken != null)
         {
-            ColorTextWrapped($"OAuth2已启用, 连接到Discord用户: {_serverConfigurationManager.GetDiscordUserFromToken(selectedServer)}", ImGuiColors.HealerGreen);
-            if ((_discordOAuthUIDs == null || _discordOAuthUIDs.IsCompleted)
-                && IconTextButton(FontAwesomeIcon.Question, "检查Discord连接"))
+            if (!_oauthTokenExpiry.TryGetValue(oauthToken, out DateTime tokenExpiry))
             {
-                _discordOAuthUIDs = _serverConfigurationManager.GetUIDsWithDiscordToken(selectedServer.ServerUri, oauthToken);
-            }
-            else if (_discordOAuthUIDs != null)
-            {
-                if (!_discordOAuthUIDs.IsCompleted)
+                try
                 {
-                    ColorTextWrapped("检查服务器上的UID", ImGuiColors.DalamudYellow);
+                    var handler = new JwtSecurityTokenHandler();
+                    var jwt = handler.ReadJwtToken(oauthToken);
+                    tokenExpiry = _oauthTokenExpiry[oauthToken] = jwt.ValidTo;
                 }
-                else
+                catch (Exception ex)
                 {
-                    var foundUids = _discordOAuthUIDs.Result?.Count ?? 0;
-                    var primaryUid = _discordOAuthUIDs.Result?.FirstOrDefault() ?? new KeyValuePair<string, string>(string.Empty, string.Empty);
-                    var vanity = string.IsNullOrEmpty(primaryUid.Value) ? "-" : primaryUid.Value;
-                    if (foundUids > 0)
+                    Logger.LogWarning(ex, "Could not parse OAuth token, deleting");
+                    selectedServer.OAuthToken = null;
+                    _serverConfigurationManager.Save();
+                }
+            }
+
+            if (tokenExpiry > DateTime.UtcNow)
+            {
+                ColorTextWrapped($"OAuth2已启用, 连接到: Discord用户 {_serverConfigurationManager.GetDiscordUserFromToken(selectedServer)}", ImGuiColors.HealerGreen);
+                TextWrapped($"OAuth2令牌将于 {tokenExpiry:yyyy-MM-dd} 过期, 将于 {(tokenExpiry - TimeSpan.FromDays(7)):yyyy-MM-dd} 以及之后登陆时自动更新.");
+                using (ImRaii.Disabled(!CtrlPressed()))
+                {
+                    if (IconTextButton(FontAwesomeIcon.Exclamation, "手动刷新OAuth2令牌") && CtrlPressed())
                     {
-                        ColorTextWrapped($"找到与服务器关联的UID共 {foundUids} 个, 主UID: {primaryUid.Key} (个性UID: {vanity})",
-                            ImGuiColors.HealerGreen);
+                        _ = _tokenProvider.TryUpdateOAuth2LoginTokenAsync(selectedServer, forced: true)
+                            .ContinueWith((_) => _apiController.CreateConnectionsAsync());
+                    }
+                }
+                DrawHelpText("按住CTRL并点击来手动刷新你的OAuth2令牌. 你一般不需要这么做.");
+                ImGuiHelpers.ScaledDummy(10f);
+
+                if ((_discordOAuthUIDs == null || _discordOAuthUIDs.IsCompleted)
+                    && IconTextButton(FontAwesomeIcon.Question, "检查Discord连接"))
+                {
+                    _discordOAuthUIDs = _serverConfigurationManager.GetUIDsWithDiscordToken(selectedServer.ServerUri, oauthToken);
+                }
+                else if (_discordOAuthUIDs != null)
+                {
+                    if (!_discordOAuthUIDs.IsCompleted)
+                    {
+                        ColorTextWrapped("正在查找服务器上的UID", ImGuiColors.DalamudYellow);
                     }
                     else
                     {
-                        ColorTextWrapped($"服务器上未找到与该账户关联的UID", ImGuiColors.DalamudRed);
+                        var foundUids = _discordOAuthUIDs.Result?.Count ?? 0;
+                        var primaryUid = _discordOAuthUIDs.Result?.FirstOrDefault() ?? new KeyValuePair<string, string>(string.Empty, string.Empty);
+                        var vanity = string.IsNullOrEmpty(primaryUid.Value) ? "-" : primaryUid.Value;
+                        if (foundUids > 0)
+                        {
+                            ColorTextWrapped($"在服务器上找到 {foundUids} 个UID, 主UID: {primaryUid.Key} (个性UID: {vanity})",
+                                ImGuiColors.HealerGreen);
+                        }
+                        else
+                        {
+                            ColorTextWrapped($"未找到与OAuth2关联的UID", ImGuiColors.DalamudRed);
+                        }
                     }
                 }
             }
+            else
+            {
+                ColorTextWrapped("OAuth2令牌已过期. 请更新OAuth2连接.", ImGuiColors.DalamudRed);
+                if (IconTextButton(FontAwesomeIcon.Exclamation, "更新OAuth2连接"))
+                {
+                    selectedServer.OAuthToken = null;
+                    _serverConfigurationManager.Save();
+                    _ = _serverConfigurationManager.CheckDiscordOAuth(selectedServer.ServerUri)
+                        .ContinueWith(async (urlTask) =>
+                        {
+                            var url = await urlTask.ConfigureAwait(false);
+                            var token = await _serverConfigurationManager.GetDiscordOAuthToken(url!, selectedServer.ServerUri, CancellationToken.None).ConfigureAwait(false);
+                            selectedServer.OAuthToken = token;
+                            _serverConfigurationManager.Save();
+                            await _apiController.CreateConnectionsAsync().ConfigureAwait(false);
+                        });
+                }
+            }
+
             DrawUnlinkOAuthButton(selectedServer);
         }
     }
