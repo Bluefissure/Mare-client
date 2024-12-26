@@ -27,6 +27,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Numerics;
 using System.Text;
@@ -41,6 +42,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private readonly MareConfigService _configService;
     private readonly ConcurrentDictionary<GameObjectHandler, Dictionary<string, FileDownloadStatus>> _currentDownloads = new();
     private readonly DalamudUtilService _dalamudUtilService;
+    private readonly HttpClient _httpClient;
     private readonly FileCacheManager _fileCacheManager;
     private readonly FileCompactor _fileCompactor;
     private readonly FileUploadManager _fileTransferManager;
@@ -88,7 +90,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         FileCacheManager fileCacheManager,
         FileCompactor fileCompactor, ApiController apiController,
         IpcManager ipcManager, CacheMonitor cacheMonitor,
-        DalamudUtilService dalamudUtilService) : base(logger, mediator, "Mare设置", performanceCollector)
+        DalamudUtilService dalamudUtilService, HttpClient httpClient) : base(logger, mediator, "Mare设置", performanceCollector)
     {
         _configService = configService;
         _mareCharaFileManager = mareCharaFileManager;
@@ -103,6 +105,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         _ipcManager = ipcManager;
         _cacheMonitor = cacheMonitor;
         _dalamudUtilService = dalamudUtilService;
+        _httpClient = httpClient;
         _fileCompactor = fileCompactor;
         _uiShared = uiShared;
         AllowClickthrough = false;
@@ -1550,7 +1553,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                         " 请确保输入正确的角色名称或使用底部的“添加当前角色”按钮。", ImGuiColors.DalamudYellow);
                     int i = 0;
                     _uiShared.DrawUpdateOAuthUIDsButton(selectedServer);
-                    if (selectedServer.UseOAuth2 && selectedServer.OAuthToken != null)
+                    if (selectedServer.UseOAuth2 && !string.IsNullOrEmpty(selectedServer.OAuthToken))
                     {
                         bool hasSetSecretKeysButNoUid = selectedServer.Authentications.Exists(u => u.SecretKeyIdx != -1 && string.IsNullOrEmpty(u.UID));
                         if (hasSetSecretKeysButNoUid)
@@ -1938,13 +1941,14 @@ public class SettingsUi : WindowMediatorSubscriberBase
             return (false, false, $"{failedConversions.Count} 个条目转换失败: " + string.Join(", ", failedConversions.Select(k => k.CharacterName)));
         }
 
-        using HttpClient client = new();
         var baseUri = serverStorage.ServerUri.Replace("wss://", "https://").Replace("ws://", "http://");
         var oauthCheckUri = MareAuth.GetUIDsBasedOnSecretKeyFullPath(new Uri(baseUri));
-        client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", serverStorage.OAuthToken);
-
         var requestContent = JsonContent.Create(secretKeyMapping.Select(k => k.Key).ToList());
-        using var response = await client.PostAsync(oauthCheckUri, requestContent, token).ConfigureAwait(false);
+        HttpRequestMessage requestMessage = new(HttpMethod.Post, oauthCheckUri);
+        requestMessage.Headers.Authorization = new AuthenticationHeaderValue("Bearer", serverStorage.OAuthToken);
+        requestMessage.Content = requestContent;
+
+        using var response = await _httpClient.SendAsync(requestMessage, token).ConfigureAwait(false);
         Dictionary<string, string>? secretKeyUidMapping = await JsonSerializer.DeserializeAsync<Dictionary<string, string>>
             (await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false), cancellationToken: token).ConfigureAwait(false);
         if (secretKeyUidMapping == null)

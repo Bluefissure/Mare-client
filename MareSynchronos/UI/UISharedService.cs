@@ -862,14 +862,38 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
 
     public void DrawUpdateOAuthUIDsButton(ServerStorage selectedServer)
     {
-        using (ImRaii.Disabled(selectedServer.OAuthToken == null))
+        if (!selectedServer.UseOAuth2)
+            return;
+
+        using (ImRaii.Disabled(string.IsNullOrEmpty(selectedServer.OAuthToken)))
         {
             if ((_discordOAuthUIDs == null || _discordOAuthUIDs.IsCompleted)
                 && IconTextButton(FontAwesomeIcon.ArrowsSpin, "从服务器更新UID")
-                && selectedServer.OAuthToken != null)
+                && !string.IsNullOrEmpty(selectedServer.OAuthToken))
             {
                 _discordOAuthUIDs = _serverConfigurationManager.GetUIDsWithDiscordToken(selectedServer.ServerUri, selectedServer.OAuthToken);
             }
+        }
+        DateTime tokenExpiry = DateTime.MinValue;
+        if (!string.IsNullOrEmpty(selectedServer.OAuthToken) && !_oauthTokenExpiry.TryGetValue(selectedServer.OAuthToken, out tokenExpiry))
+        {
+            try
+            {
+                var handler = new JwtSecurityTokenHandler();
+                var jwt = handler.ReadJwtToken(selectedServer.OAuthToken);
+                tokenExpiry = _oauthTokenExpiry[selectedServer.OAuthToken] = jwt.ValidTo;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Could not parse OAuth token, deleting");
+                selectedServer.OAuthToken = null;
+                _serverConfigurationManager.Save();
+                tokenExpiry = DateTime.MinValue;
+            }
+        }
+        if (string.IsNullOrEmpty(selectedServer.OAuthToken) || tokenExpiry < DateTime.UtcNow)
+        {
+            ColorTextWrapped("You have no OAuth token or the OAuth token is expired. Please use the Service Settings to (re)link your OAuth account.", ImGuiColors.DalamudRed);
         }
     }
 
@@ -907,6 +931,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 },
                 aliasPairs.Find(f => string.Equals(f.UID, item.UID, StringComparison.Ordinal)) ?? default);
         }
+
         if (_discordOAuthUIDs == null)
         {
             AttachToolTip("请先从服务器获取UID再尝试分配.");

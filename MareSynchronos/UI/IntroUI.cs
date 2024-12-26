@@ -284,7 +284,7 @@ public partial class IntroUi : WindowMediatorSubscriberBase
             }
             else
             {
-                if (selectedServer.OAuthToken == null)
+                if (string.IsNullOrEmpty(selectedServer.OAuthToken))
                 {
                     UiSharedService.TextWrapped("点击此按钮检查服务器是否允许OAuth2登录. 然后, 在打开的浏览器中用Discord登录.");
                     _uiShared.DrawOAuth(selectedServer);
