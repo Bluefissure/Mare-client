@@ -1,9 +1,10 @@
 ﻿using MareSynchronos.API.Data;
 using MareSynchronos.FileCache;
+using MareSynchronos.Services.CharaData.Models;
 
-namespace MareSynchronos.PlayerData.Export;
+namespace MareSynchronos.Services.CharaData;
 
-internal sealed class MareCharaFileDataFactory
+public sealed class MareCharaFileDataFactory
 {
     private readonly FileCacheManager _fileCacheManager;
 

@@ -373,7 +373,7 @@ public class DrawUserPair
 
             if (individualAnimDisabled || individualSoundsDisabled || individualVFXDisabled || individualIsSticky)
             {
-                currentRightSide -= (_uiSharedService.GetIconData(individualIcon).X + spacingX);
+                currentRightSide -= (_uiSharedService.GetIconSize(individualIcon).X + spacingX);
 
                 ImGui.SameLine(currentRightSide);
                 using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudYellow, individualAnimDisabled || individualSoundsDisabled || individualVFXDisabled))
@@ -475,7 +475,7 @@ public class DrawUserPair
 
             if (!string.IsNullOrEmpty(text))
             {
-                currentRightSide -= (_uiSharedService.GetIconData(icon).X + spacingX);
+                currentRightSide -= (_uiSharedService.GetIconSize(icon).X + spacingX);
                 ImGui.SameLine(currentRightSide);
                 _uiSharedService.IconText(icon);
                 UiSharedService.AttachToolTip(text);

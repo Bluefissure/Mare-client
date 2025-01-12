@@ -11,7 +11,6 @@ using MareSynchronos.FileCache;
 using MareSynchronos.Interop.Ipc;
 using MareSynchronos.MareConfiguration;
 using MareSynchronos.MareConfiguration.Models;
-using MareSynchronos.PlayerData.Export;
 using MareSynchronos.PlayerData.Handlers;
 using MareSynchronos.PlayerData.Pairs;
 using MareSynchronos.Services;
@@ -48,7 +47,6 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private readonly FileUploadManager _fileTransferManager;
     private readonly FileTransferOrchestrator _fileTransferOrchestrator;
     private readonly IpcManager _ipcManager;
-    private readonly MareCharaFileManager _mareCharaFileManager;
     private readonly PairManager _pairManager;
     private readonly PerformanceCollectorService _performanceCollector;
     private readonly PlayerPerformanceConfigService _playerPerformanceConfigService;
@@ -58,13 +56,10 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private (int, int, FileCacheEntity) _currentProgress;
     private bool _deleteAccountPopupModalShown = false;
     private bool _deleteFilesPopupModalShown = false;
-    private string _exportDescription = string.Empty;
-    private Task? _exportTask;
     private string _lastTab = string.Empty;
     private bool? _notesSuccessfullyApplied = null;
     private bool _overwriteExistingLabels = false;
     private bool _readClearCache = false;
-    private bool _readExport = false;
     private int _selectedEntry = -1;
     private string _uidToAddForIgnore = string.Empty;
     private CancellationTokenSource? _validationCts;
@@ -81,7 +76,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     private bool _wasOpen = false;
     public SettingsUi(ILogger<SettingsUi> logger,
         UiSharedService uiShared, MareConfigService configService,
-        MareCharaFileManager mareCharaFileManager, PairManager pairManager,
+        PairManager pairManager,
         ServerConfigurationManager serverConfigurationManager,
         PlayerPerformanceConfigService playerPerformanceConfigService,
         MareMediator mediator, PerformanceCollectorService performanceCollector,
@@ -93,7 +88,6 @@ public class SettingsUi : WindowMediatorSubscriberBase
         DalamudUtilService dalamudUtilService, HttpClient httpClient) : base(logger, mediator, "Mare设置", performanceCollector)
     {
         _configService = configService;
-        _mareCharaFileManager = mareCharaFileManager;
         _pairManager = pairManager;
         _serverConfigurationManager = serverConfigurationManager;
         _playerPerformanceConfigService = playerPerformanceConfigService;
@@ -730,63 +724,21 @@ public class SettingsUi : WindowMediatorSubscriberBase
 
         _uiShared.BigText("导出MCDF");
 
-        UiSharedService.TextWrapped("此功能允许您将角色导出到MCDF文件中，并手动将其发送给其他人。MCDF文件只能在集体动作期间通过月海同步器导入。 " +
-            "请注意，他人可以自制一个非官方的导出工具来提取其中包含的数据，存在这种可能。");
+        ImGuiHelpers.ScaledDummy(10);
 
-        ImGui.Checkbox("##readExport", ref _readExport);
+        UiSharedService.ColorTextWrapped("导出 MCDF 功能已被移动.", ImGuiColors.DalamudYellow);
+        ImGuiHelpers.ScaledDummy(5);
+        UiSharedService.TextWrapped("它被移动到了主界面下的 \"你的角色\" 菜单中 (");
         ImGui.SameLine();
-        UiSharedService.TextWrapped("我已了解，导出我的角色数据并将其发送给其他人会不可避免地泄露我当前的角色外观。与我共享数据的人可以不受限制地与其他人共享我的数据。");
-
-        if (_readExport)
+        _uiShared.IconText(FontAwesomeIcon.UserCog);
+        ImGui.SameLine();
+        UiSharedService.TextWrapped(") -> \"角色数据中心\".");
+        if (_uiShared.IconTextButton(FontAwesomeIcon.Running, "打开Mare角色数据中心"))
         {
-            ImGui.Indent();
-
-            if (!_mareCharaFileManager.CurrentlyWorking)
-            {
-                ImGui.InputTextWithHint("导出描述器", "此描述将在加载数据时显示", ref _exportDescription, 255);
-                if (_uiShared.IconTextButton(FontAwesomeIcon.Save, "导出角色为MCDF文件"))
-                {
-                    string defaultFileName = string.IsNullOrEmpty(_exportDescription)
-                        ? "export.mcdf"
-                        : string.Join('_', $"{_exportDescription}.mcdf".Split(Path.GetInvalidFileNameChars()));
-                    _uiShared.FileDialogManager.SaveFileDialog("导出角色数据文件", ".mcdf", defaultFileName, ".mcdf", (success, path) =>
-                    {
-                        if (!success) return;
-
-                        _configService.Current.ExportFolder = Path.GetDirectoryName(path) ?? string.Empty;
-                        _configService.Save();
-
-                        _exportTask = Task.Run(() =>
-                        {
-                            var desc = _exportDescription;
-                            _exportDescription = string.Empty;
-                            _mareCharaFileManager.SaveMareCharaFile(LastCreatedCharacterData, desc, path);
-                        });
-                    }, Directory.Exists(_configService.Current.ExportFolder) ? _configService.Current.ExportFolder : null);
-                }
-                UiSharedService.ColorTextWrapped("注意：为了获得最佳效果，请确保您拥有想要共享的所有内容以及正确的角色外观，" +
-                    " 并在导出之前重新绘制角色。", ImGuiColors.DalamudYellow);
-            }
-            else
-            {
-                UiSharedService.ColorTextWrapped("正在导出", ImGuiColors.DalamudYellow);
-            }
-
-            if (_exportTask?.IsFaulted ?? false)
-            {
-                UiSharedService.ColorTextWrapped("导出错误, 查看 /xllog 寻找原因.", ImGuiColors.DalamudRed);
-            }
-
-            ImGui.Unindent();
+            Mediator.Publish(new UiToggleMessage(typeof(CharaDataHubUi)));
         }
-        bool openInGpose = _configService.Current.OpenGposeImportOnGposeStart;
-        if (ImGui.Checkbox("当GPose加载时打开MCDF导入窗口", ref openInGpose))
-        {
-            _configService.Current.OpenGposeImportOnGposeStart = openInGpose;
-            _configService.Save();
-        }
-        _uiShared.DrawHelpText("这将在加载到Gpose时自动打开导入菜单。如果未选中，您可以使用“/mare gpose”手动打开菜单");
-
+        UiSharedService.TextWrapped("注意: 本入口将在未来被移除. 请从主界面打开角色数据中心.");
+        ImGuiHelpers.ScaledDummy(5);
         ImGui.Separator();
 
         _uiShared.BigText("存储");
@@ -1386,7 +1338,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         ImGui.SameLine();
         using (ImRaii.Disabled(string.IsNullOrEmpty(_uidToAddForIgnore)))
         {
-            if (_uiShared.IconTextButton(FontAwesomeIcon.Plus, "将UID添加到白名单"))
+            if (_uiShared.IconTextButton(FontAwesomeIcon.Plus, "将UID/个性UID添加到白名单"))
             {
                 if (!_playerPerformanceConfigService.Current.UIDsToIgnore.Contains(_uidToAddForIgnore, StringComparer.Ordinal))
                 {
@@ -2025,7 +1977,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 ImGui.EndTabItem();
             }
 
-            if (ImGui.BeginTabItem("导出&存储"))
+            if (ImGui.BeginTabItem("存储"))
             {
                 DrawFileStorageSettings();
                 ImGui.EndTabItem();

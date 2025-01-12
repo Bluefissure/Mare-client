@@ -497,6 +497,10 @@ public class TopTabMenu
             _mareMediator.Publish(new UiToggleMessage(typeof(DataAnalysisUi)));
         }
         UiSharedService.AttachToolTip("查看并分析你当前的角色数据");
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Running, "角色数据中心", availableWidth))
+        {
+            _mareMediator.Publish(new UiToggleMessage(typeof(CharaDataHubUi)));
+        }
     }
 
     private async Task GlobalControlCountdown(int countdown)

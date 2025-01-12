@@ -26,7 +26,7 @@ public record DelayedFrameworkUpdateMessage : SameThreadMessage;
 public record ZoneSwitchStartMessage : MessageBase;
 public record ZoneSwitchEndMessage : MessageBase;
 public record CutsceneStartMessage : MessageBase;
-public record GposeStartMessage : MessageBase;
+public record GposeStartMessage : SameThreadMessage;
 public record GposeEndMessage : MessageBase;
 public record CutsceneEndMessage : MessageBase;
 public record CutsceneFrameworkUpdateMessage : SameThreadMessage;
@@ -91,5 +91,6 @@ public record PenumbraRedrawCharacterMessage(ICharacter Character) : SameThreadM
 public record GameObjectHandlerCreatedMessage(GameObjectHandler GameObjectHandler, bool OwnedObject) : SameThreadMessage;
 public record GameObjectHandlerDestroyedMessage(GameObjectHandler GameObjectHandler, bool OwnedObject) : SameThreadMessage;
 public record MoodlesApplyStatusToPair(ApplyMoodlesByStatusDto StatusDto) : MessageBase;
+public record HaltCharaDataCreation(bool Resume = false) : SameThreadMessage;
 #pragma warning restore S2094
 #pragma warning restore MA0048 // File name must match type name
