@@ -2,7 +2,6 @@
 using Dalamud.Plugin;
 using Dalamud.Plugin.Ipc;
 using MareSynchronos.API.Dto.User;
-using MareSynchronos.PlayerData.Export;
 using MareSynchronos.PlayerData.Handlers;
 using MareSynchronos.PlayerData.Pairs;
 using MareSynchronos.Services;
@@ -28,8 +27,7 @@ public class IpcProvider : IHostedService, IMediatorSubscriber
     public MareMediator Mediator { get; init; }
 
     public IpcProvider(ILogger<IpcProvider> logger, IDalamudPluginInterface pi,
-        MareCharaFileManager mareCharaFileManager, DalamudUtilService dalamudUtil,
-        MareMediator mareMediator, PairManager  pairManager)
+        DalamudUtilService dalamudUtil, PairManager  pairManager,
         CharaDataManager charaDataManager, MareMediator mareMediator)
     {
         _logger = logger;

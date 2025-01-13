@@ -10,7 +10,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
-using Lumina.Excel.Sheets;
+using Lumina.Excel.GeneratedSheets;
 using MareSynchronos.API.Dto.CharaData;
 using MareSynchronos.Interop;
 using MareSynchronos.PlayerData.Handlers;
@@ -68,13 +68,13 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         });
         TerritoryData = new(() =>
         {
-            return gameData.GetExcelSheet<Lumina.Excel.Sheets.TerritoryType>(Dalamud.Game.ClientLanguage.English)!
+            return gameData.GetExcelSheet<Lumina.Excel.GeneratedSheets.TerritoryType>(Dalamud.Game.ClientLanguage.English)!
             .Where(w => w.RowId != 0)
             .ToDictionary(w => w.RowId, w =>
             {
                 StringBuilder sb = new();
                 sb.Append(w.PlaceNameRegion.Value.Name);
-                if (w.PlaceName.ValueNullable != null)
+                if (w.PlaceName.Value != null)
                 {
                     sb.Append(" - ");
                     sb.Append(w.PlaceName.Value.Name);
@@ -84,18 +84,18 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         });
         MapData = new(() =>
         {
-            return gameData.GetExcelSheet<Lumina.Excel.Sheets.Map>(Dalamud.Game.ClientLanguage.English)!
+            return gameData.GetExcelSheet<Lumina.Excel.GeneratedSheets.Map>(Dalamud.Game.ClientLanguage.English)!
             .Where(w => w.RowId != 0)
             .ToDictionary(w => w.RowId, w =>
             {
                 StringBuilder sb = new();
                 sb.Append(w.PlaceNameRegion.Value.Name);
-                if (w.PlaceName.ValueNullable != null)
+                if (w.PlaceName.Value != null)
                 {
                     sb.Append(" - ");
                     sb.Append(w.PlaceName.Value.Name);
                 }
-                if (w.PlaceNameSub.ValueNullable != null && !string.IsNullOrEmpty(w.PlaceNameSub.Value.Name.ToString()))
+                if (w.PlaceNameSub.Value != null && !string.IsNullOrEmpty(w.PlaceNameSub.Value.Name.ToString()))
                 {
                     sb.Append(" - ");
                     sb.Append(w.PlaceNameSub.Value.Name);
@@ -136,7 +136,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     public uint ClassJobId => _classJobId!.Value;
     public Lazy<Dictionary<ushort, string>> WorldData { get; private set; }
     public Lazy<Dictionary<uint, string>> TerritoryData { get; private set; }
-    public Lazy<Dictionary<uint, (Lumina.Excel.Sheets.Map Map, string MapName)>> MapData { get; private set; }
+    public Lazy<Dictionary<uint, (Lumina.Excel.GeneratedSheets.Map Map, string MapName)>> MapData { get; private set; }
 
     public MareMediator Mediator { get; }
 
@@ -326,7 +326,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         var houseMan = HousingManager.Instance();
         uint serverId = 0;
         if (_clientState.LocalPlayer == null) serverId = 0;
-        else serverId = _clientState.LocalPlayer.CurrentWorld.RowId;
+        else serverId = _clientState.LocalPlayer.CurrentWorld.Id;
         uint mapId = agentMap == null ? 0 : agentMap->CurrentMapId;
         uint territoryId = agentMap == null ? 0 : agentMap->CurrentTerritoryId;
         uint divisionId = houseMan == null ? 0 : (uint)(houseMan->GetCurrentDivision());
@@ -343,7 +343,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         houseId = (uint)tempHouseId;
         if (houseId != 0)
         {
-            territoryId = HousingManager.GetOriginalHouseTerritoryTypeId();
+            //territoryId = HousingManager.GetOriginalHouseTerritoryTypeId();
         }
         uint roomId = houseMan == null ? 0 : (uint)(houseMan->GetCurrentRoom());
 
@@ -365,7 +365,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         var agentMap = AgentMap.Instance();
         if (agentMap == null) return;
         agentMap->OpenMapByMapId(map.RowId);
-        agentMap->SetFlagMapMarker(map.TerritoryType.RowId, map.RowId, position);
+        agentMap->SetFlagMapMarker(map.TerritoryType.Row, map.RowId, position);
     }
 
     public async Task<LocationInfo> GetMapDataAsync()

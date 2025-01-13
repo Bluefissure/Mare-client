@@ -1,5 +1,5 @@
 ﻿using Dalamud.Utility;
-using Lumina.Excel.Sheets;
+using Lumina.Excel.GeneratedSheets;
 using MareSynchronos.API.Dto.CharaData;
 using System.Globalization;
 using System.Numerics;
