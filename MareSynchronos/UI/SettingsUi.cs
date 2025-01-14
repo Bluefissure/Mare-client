@@ -586,7 +586,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             Stopwatch? st = null;
             try
             {
-                result = await _fileTransferOrchestrator.SendRequestAsync(HttpMethod.Get, new Uri(new Uri(server), "speedtest/run"), token, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+                result = await _fileTransferOrchestrator.SendRequestAsync(HttpMethod.Get, new Uri(new Uri(server.Replace("files/","")), "speedtest/run"), token, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
                 result.EnsureSuccessStatusCode();
                 using CancellationTokenSource speedtestTimeCts = new();
                 speedtestTimeCts.CancelAfter(TimeSpan.FromSeconds(10));
@@ -643,7 +643,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
     {
         try
         {
-            var result = await _fileTransferOrchestrator.SendRequestAsync(HttpMethod.Get, new Uri(_fileTransferOrchestrator.FilesCdnUri!, "files/downloadServers"), CancellationToken.None).ConfigureAwait(false);
+            var result = await _fileTransferOrchestrator.SendRequestAsync(HttpMethod.Get, new Uri(_fileTransferOrchestrator.FilesCdnUri!, "downloadServers"), CancellationToken.None).ConfigureAwait(false);
             result.EnsureSuccessStatusCode();
             return await JsonSerializer.DeserializeAsync<List<string>>(await result.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
         }
