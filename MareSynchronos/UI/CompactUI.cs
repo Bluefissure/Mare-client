@@ -114,11 +114,11 @@ public class CompactUi : WindowMediatorSubscriberBase
 #if DEBUG
         string dev = "测试版";
         var ver = Assembly.GetExecutingAssembly().GetName().Version!;
-        WindowName = $"月海同步器 {dev} ({ver.Major}.{ver.Minor}.{ver.Build})###MareSynchronosMainUI";
+        WindowName = $"月海同步器 {dev} ({ver.Major}.{ver.Minor}.{ver.Build}.{ver.Revision})###MareSynchronosMainUI";
         Toggle();
 #else
         var ver = Assembly.GetExecutingAssembly().GetName().Version;
-        WindowName = "月海同步器 " + ver.Major + "." + ver.Minor + "." + ver.Build + "###MareSynchronosMainUI";
+        WindowName = "月海同步器 " + ver.Major + "." + ver.Minor + "." + ver.Build + "." + ver.Revision + "###MareSynchronosMainUI";
 #endif
         Mediator.Subscribe<SwitchToMainUiMessage>(this, (_) => IsOpen = true);
         Mediator.Subscribe<SwitchToIntroUiMessage>(this, (_) => IsOpen = false);
