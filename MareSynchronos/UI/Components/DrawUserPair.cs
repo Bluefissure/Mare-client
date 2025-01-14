@@ -356,12 +356,20 @@ public class DrawUserPair
         if (_uiSharedService.IconButton(pauseIcon))
         {
             var perm = _pair.UserPair!.OwnPermissions;
+
+            if (UiSharedService.CtrlPressed() && !perm.IsPaused())
+            {
+                perm.SetSticky(true);
+            }
             perm.SetPaused(!perm.IsPaused());
             _ = _apiController.UserSetPairPermissions(new(_pair.UserData, perm));
         }
         UiSharedService.AttachToolTip(!_pair.UserPair!.OwnPermissions.IsPaused()
-            ? "暂停与 " + _pair.UserData.AliasOrUID + " 的配对"
-            : "暂停与 " + _pair.UserData.AliasOrUID + " 的配对");
+            ? ("暂停与 " + _pair.UserData.AliasOrUID + " 的配对"
+                + (_pair.UserPair!.OwnPermissions.IsSticky()
+                    ? string.Empty
+                    : UiSharedService.TooltipSeparator + "按住CTRL以应用独立配对设置." + Environment.NewLine + "这将暂停与目标的配对, 即使配对贝中存在目标角色."))
+            : "恢复与" + _pair.UserData.AliasOrUID + " 的配对");
 
         if (_pair.IsPaired)
         {

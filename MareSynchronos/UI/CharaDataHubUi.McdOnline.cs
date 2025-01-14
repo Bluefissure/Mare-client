@@ -124,11 +124,11 @@ internal sealed partial class CharaDataHubUi
         }
         _uiSharedService.DrawHelpText("You can control who has access to your character data based on the access restrictions." + UiSharedService.TooltipSeparator
             + "Specified: Only people and syncshells you directly specify in 'Specific Individuals / Syncshells' can access this character data" + Environment.NewLine
-            + "Close Pairs: Only people you have directly paired can access this character data" + Environment.NewLine
+            + "Direct Pairs: Only people you have directly paired can access this character data" + Environment.NewLine
             + "All Pairs: All people you have paired can access this character data" + Environment.NewLine
             + "Everyone: Everyone can access this character data" + UiSharedService.TooltipSeparator
             + "Note: To access your character data the person in question requires to have the code. Exceptions for 'Shared' data, see 'Sharing' below." + Environment.NewLine
-            + "Note: For 'Close' and 'All Pairs' the pause state plays a role. Paused people will not be able to access your character data." + Environment.NewLine
+            + "Note: For 'Direct' and 'All Pairs' the pause state plays a role. Paused people will not be able to access your character data." + Environment.NewLine
             + "Note: Directly specified Individuals or Syncshells in the 'Specific Individuals / Syncshells' list will be able to access your character data regardless of pause or pair state.");
 
         DrawSpecific(updateDto);
@@ -693,6 +693,7 @@ internal sealed partial class CharaDataHubUi
             _selectedDtoId = _charaDataManager.OwnCharaData.Last().Value.Id;
             _selectNewEntry = false;
         }
+        _dataEntries = _charaDataManager.OwnCharaData.Count;
 
         _ = _charaDataManager.OwnCharaData.TryGetValue(_selectedDtoId, out var dto);
         DrawEditCharaData(dto);
@@ -709,8 +710,8 @@ internal sealed partial class CharaDataHubUi
             {
                 using (ImRaii.Group())
                 {
-                    ImGui.SetNextItemWidth(200);
-                    ImGui.InputText("##AliasToAdd", ref _specificIndividualAdd, 20);
+                    InputComboHybrid("##AliasToAdd", "##AliasToAddPicker", ref _specificIndividualAdd, _pairManager.PairsWithGroups.Keys,
+                        static pair => (pair.UserData.UID, pair.UserData.Alias, pair.UserData.AliasOrUID, pair.GetNote()));
                     ImGui.SameLine();
                     using (ImRaii.Disabled(string.IsNullOrEmpty(_specificIndividualAdd)
                         || updateDto.UserList.Any(f => string.Equals(f.UID, _specificIndividualAdd, StringComparison.Ordinal) || string.Equals(f.Alias, _specificIndividualAdd, StringComparison.Ordinal))))
@@ -756,8 +757,8 @@ internal sealed partial class CharaDataHubUi
             {
                 using (ImRaii.Group())
                 {
-                    ImGui.SetNextItemWidth(200);
-                    ImGui.InputText("##GroupAliasToAdd", ref _specificGroupAdd, 20);
+                    InputComboHybrid("##GroupAliasToAdd", "##GroupAliasToAddPicker", ref _specificGroupAdd, _pairManager.Groups.Keys,
+                        group => (group.GID, group.Alias, group.AliasOrGID, _serverConfigurationManager.GetNoteForGid(group.GID)));
                     ImGui.SameLine();
                     using (ImRaii.Disabled(string.IsNullOrEmpty(_specificGroupAdd)
                         || updateDto.GroupList.Any(f => string.Equals(f.GID, _specificGroupAdd, StringComparison.Ordinal) || string.Equals(f.Alias, _specificGroupAdd, StringComparison.Ordinal))))
@@ -799,5 +800,47 @@ internal sealed partial class CharaDataHubUi
             ImGui.Separator();
             ImGuiHelpers.ScaledDummy(5);
         });
+    }
+
+    private void InputComboHybrid<T>(string inputId, string comboId, ref string value, IEnumerable<T> comboEntries,
+        Func<T, (string Id, string? Alias, string AliasOrId, string? Note)> parseEntry)
+    {
+        const float ComponentWidth = 200;
+        ImGui.SetNextItemWidth(ComponentWidth - ImGui.GetFrameHeight());
+        ImGui.InputText(inputId, ref value, 20);
+        ImGui.SameLine(0.0f, 0.0f);
+
+        using var combo = ImRaii.Combo(comboId, string.Empty, ImGuiComboFlags.NoPreview | ImGuiComboFlags.PopupAlignLeft);
+        if (!combo)
+        {
+            return;
+        }
+
+        if (_openComboHybridEntries is null || !string.Equals(_openComboHybridId, comboId, StringComparison.Ordinal))
+        {
+            var valueSnapshot = value;
+            _openComboHybridEntries = comboEntries
+                .Select(parseEntry)
+                .Where(entry => entry.Id.Contains(valueSnapshot, StringComparison.OrdinalIgnoreCase)
+                    || (entry.Alias is not null && entry.Alias.Contains(valueSnapshot, StringComparison.OrdinalIgnoreCase))
+                    || (entry.Note is not null && entry.Note.Contains(valueSnapshot, StringComparison.OrdinalIgnoreCase)))
+                .OrderBy(entry => entry.Note is null ? entry.AliasOrId : $"{entry.Note} ({entry.AliasOrId})", StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            _openComboHybridId = comboId;
+        }
+        _comboHybridUsedLastFrame = true;
+
+        // Is there a better way to handle this?
+        var width = ComponentWidth - 2 * ImGui.GetStyle().FramePadding.X - (_openComboHybridEntries.Length > 8 ? ImGui.GetStyle().ScrollbarSize : 0);
+        foreach (var (id, alias, aliasOrId, note) in _openComboHybridEntries)
+        {
+            var selected = !string.IsNullOrEmpty(value)
+                && (string.Equals(id, value, StringComparison.Ordinal) || string.Equals(alias, value, StringComparison.Ordinal));
+            using var font = ImRaii.PushFont(UiBuilder.MonoFont, note is null);
+            if (ImGui.Selectable(note is null ? aliasOrId : $"{note} ({aliasOrId})", selected, ImGuiSelectableFlags.None, new(width, 0)))
+            {
+                value = aliasOrId;
+            }
+        }
     }
 }
