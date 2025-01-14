@@ -612,7 +612,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                 st.Stop();
                 _logger.LogInformation("下载了 {bytes} 自 {server} 在 {time}", UiSharedService.ByteToString(readBytes), server, st.Elapsed);
                 var bps = (long)((readBytes) / st.Elapsed.TotalSeconds);
-                speedTestResults.Add($"{server}: ~{UiSharedService.ByteToString(bps)}/s");
+                speedTestResults.Add($"{server}: 下载速度 ~{UiSharedService.ByteToString(bps)}/s");
             }
             catch (HttpRequestException ex)
             {
