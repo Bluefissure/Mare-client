@@ -74,7 +74,7 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
             return locallyMissingFiles;
         }
 
-        progress.Report($"Starting upload for {filesPresentLocally.Count} files");
+        progress.Report($"正在上传 {filesPresentLocally.Count} 个文件");
 
         var filesToUpload = await FilesSend([.. filesPresentLocally], [], ct ?? CancellationToken.None).ConfigureAwait(false);
 
@@ -87,7 +87,7 @@ public sealed class FileUploadManager : DisposableMediatorSubscriberBase
         int i = 1;
         foreach (var file in filesToUpload)
         {
-            progress.Report($"Uploading file {i++}/{filesToUpload.Count}. Please wait until the upload is completed.");
+            progress.Report($"正在上传 {i++}/{filesToUpload.Count}. 请耐心等待.");
             Logger.LogDebug("[{hash}] Compressing", file);
             var data = await _fileDbManager.GetCompressedFileData(file.Hash, ct ?? CancellationToken.None).ConfigureAwait(false);
             Logger.LogDebug("[{hash}] Starting upload for {filePath}", data.Item1, _fileDbManager.GetFileCacheByHash(data.Item1)!.ResolvedFilepath);
