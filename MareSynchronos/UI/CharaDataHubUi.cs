@@ -58,7 +58,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                          CharaDataManager charaDataManager, CharaDataNearbyManager charaDataNearbyManager, CharaDataConfigService configService,
                          UiSharedService uiSharedService, ServerConfigurationManager serverConfigurationManager,
                          DalamudUtilService dalamudUtilService, FileDialogManager fileDialogManager)
-        : base(logger, mediator, "Mare Synchronos Character Data Hub###MareSynchronosCharaDataUI", performanceCollectorService)
+        : base(logger, mediator, "Mare角色数据中心###MareSynchronosCharaDataUI", performanceCollectorService)
     {
         SetWindowSizeConstraints();
 
@@ -129,7 +129,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         if (!_charaDataManager.BrioAvailable)
         {
             ImGuiHelpers.ScaledDummy(3);
-            UiSharedService.DrawGroupedCenteredColorText("To utilize any features related to posing or spawning characters you require to have Brio installed.", ImGuiColors.DalamudRed);
+            UiSharedService.DrawGroupedCenteredColorText("要使用生成角色或姿势相关功能, 需要安装Brio.", ImGuiColors.DalamudRed);
             UiSharedService.DistanceSeparator();
         }
 
@@ -140,9 +140,9 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             if (_charaDataManager.DataApplicationTask != null)
             {
                 ImGui.AlignTextToFramePadding();
-                ImGui.TextUnformatted("Applying Data to Actor");
+                ImGui.TextUnformatted("应用数据到角色");
                 ImGui.SameLine();
-                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Ban, "Cancel Application"))
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Ban, "取消应用"))
                 {
                     _charaDataManager.CancelDataApplication();
                 }
@@ -153,7 +153,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             }
             if (_charaDataManager.DataApplicationTask != null)
             {
-                UiSharedService.ColorTextWrapped("WARNING: During the data application avoid interacting with this actor to prevent potential crashes.", ImGuiColors.DalamudRed);
+                UiSharedService.ColorTextWrapped("警告: 应用数据过程中应避免与该对象交互, 以防止游戏崩溃.", ImGuiColors.DalamudRed);
                 ImGuiHelpers.ScaledDummy(5);
                 ImGui.Separator();
             }
@@ -165,7 +165,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         _isHandlingSelf = _charaDataManager.HandledCharaData.Any(c => c.IsSelf);
         if (_isHandlingSelf) _openMcdOnlineOnNextRun = false;
 
-        using (var applicationTabItem = ImRaii.TabItem("Data Application"))
+        using (var applicationTabItem = ImRaii.TabItem("应用数据"))
         {
             if (applicationTabItem)
             {
@@ -174,7 +174,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
                 using (ImRaii.Disabled(!_uiSharedService.IsInGpose))
                 {
-                    using (var gposeTabItem = ImRaii.TabItem("GPose Actors"))
+                    using (var gposeTabItem = ImRaii.TabItem("GPose角色"))
                     {
                         if (gposeTabItem)
                         {
@@ -184,9 +184,9 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                     }
                 }
                 if (!_uiSharedService.IsInGpose)
-                    UiSharedService.AttachToolTip("Only available in GPose");
+                    UiSharedService.AttachToolTip("仅在GPose中可用");
 
-                using (var nearbyPosesTabItem = ImRaii.TabItem("Poses Nearby"))
+                using (var nearbyPosesTabItem = ImRaii.TabItem("附近的姿势"))
                 {
                     if (nearbyPosesTabItem)
                     {
@@ -201,7 +201,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                     }
                 }
 
-                using (var gposeTabItem = ImRaii.TabItem("Apply Data"))
+                using (var gposeTabItem = ImRaii.TabItem("应用数据"))
                 {
                     if (gposeTabItem)
                     {
@@ -226,7 +226,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 _openMcdOnlineOnNextRun = false;
             }
 
-            using (var creationTabItem = ImRaii.TabItem("Data Creation", flagsTopLevel))
+            using (var creationTabItem = ImRaii.TabItem("创建数据", flagsTopLevel))
             {
                 if (creationTabItem)
                 {
@@ -238,7 +238,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                         flags = ImGuiTabItemFlags.SetSelected;
                         _openMcdOnlineOnNextRun = false;
                     }
-                    using (var mcdOnlineTabItem = ImRaii.TabItem("MCD Online", flags))
+                    using (var mcdOnlineTabItem = ImRaii.TabItem("在线MCD", flags))
                     {
                         if (mcdOnlineTabItem)
                         {
@@ -247,7 +247,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                         }
                     }
 
-                    using (var mcdfTabItem = ImRaii.TabItem("MCDF Export"))
+                    using (var mcdfTabItem = ImRaii.TabItem("导出MCDF"))
                     {
                         if (mcdfTabItem)
                         {
@@ -260,10 +260,10 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         }
         if (_isHandlingSelf)
         {
-            UiSharedService.AttachToolTip("Cannot use creation tools while having Character Data applied to self.");
+            UiSharedService.AttachToolTip("将角色数据应用于自身时无法使用创作工具.");
         }
 
-        using (var settingsTabItem = ImRaii.TabItem("Settings"))
+        using (var settingsTabItem = ImRaii.TabItem("设置"))
         {
             if (settingsTabItem)
             {
@@ -293,13 +293,13 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         if (_configService.Current.FavoriteCodes.ContainsKey(id))
         {
             _uiSharedService.IconText(FontAwesomeIcon.Star, ImGuiColors.ParsedGold);
-            UiSharedService.AttachToolTip($"Custom Description: {favorite?.CustomDescription ?? string.Empty}" + UiSharedService.TooltipSeparator
-                + "Click to remove from Favorites");
+            UiSharedService.AttachToolTip($"自定义描述: {favorite?.CustomDescription ?? string.Empty}" + UiSharedService.TooltipSeparator
+                + "单击以从收藏夹删除");
         }
         else
         {
             _uiSharedService.IconText(FontAwesomeIcon.Star, ImGuiColors.DalamudGrey);
-            UiSharedService.AttachToolTip("Click to add to Favorites");
+            UiSharedService.AttachToolTip("单击以添加到收藏夹");
         }
         if (ImGui.IsItemClicked(ImGuiMouseButton.Left))
         {
@@ -311,7 +311,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
     private void DrawGposeControls()
     {
-        _uiSharedService.BigText("GPose Actors");
+        _uiSharedService.BigText("GPose 角色");
         ImGuiHelpers.ScaledDummy(5);
         using var indent = ImRaii.PushIndent(10f);
 
@@ -329,7 +329,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                     }
                 }
                 ImGui.SameLine();
-                UiSharedService.AttachToolTip($"Target the GPose Character {CharaName(actor.Name.TextValue)}");
+                UiSharedService.AttachToolTip($"选中GPose角色 {CharaName(actor.Name.TextValue)}");
                 ImGui.AlignTextToFramePadding();
                 var pos = ImGui.GetCursorPosX();
                 using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.HealerGreen, actor.Address == (_dalamudUtilService.GposeTargetGameObject?.Address ?? nint.Zero)))
@@ -342,7 +342,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 {
                     _uiSharedService.IconText(FontAwesomeIcon.InfoCircle);
                     var id = string.IsNullOrEmpty(handled?.MetaInfo.Uploader.UID) ? handled?.MetaInfo.Id : handled.MetaInfo.FullId;
-                    UiSharedService.AttachToolTip($"Applied Data: {id ?? "No data applied"}");
+                    UiSharedService.AttachToolTip($"已应用的数据: {id ?? "无数据"}");
 
                     ImGui.SameLine();
                     // maybe do this better, check with brio for handled charas or sth
@@ -352,14 +352,14 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                         {
                             _charaDataManager.RemoveChara(actor.Name.TextValue);
                         }
-                        UiSharedService.AttachToolTip($"Remove character {CharaName(actor.Name.TextValue)}");
+                        UiSharedService.AttachToolTip($"移除角色 {CharaName(actor.Name.TextValue)}");
                     }
                     ImGui.SameLine();
                     if (_uiSharedService.IconButton(FontAwesomeIcon.Undo))
                     {
                         _charaDataManager.RevertChara(handled);
                     }
-                    UiSharedService.AttachToolTip($"Revert applied data from {CharaName(actor.Name.TextValue)}");
+                    UiSharedService.AttachToolTip($"撤销 {CharaName(actor.Name.TextValue)} 的变更");
                     ImGui.SetCursorPosX(pos);
                     DrawPoseData(handled?.MetaInfo, actor.Name.TextValue, true);
                 }
@@ -371,13 +371,13 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
     private void DrawDataApplication()
     {
-        _uiSharedService.BigText("Apply Character Appearance");
+        _uiSharedService.BigText("应用角色外貌");
 
         ImGuiHelpers.ScaledDummy(5);
 
         if (_uiSharedService.IsInGpose)
         {
-            ImGui.TextUnformatted("GPose Target");
+            ImGui.TextUnformatted("GPose 目标");
             ImGui.SameLine(200);
             UiSharedService.ColorText(CharaName(_gposeTarget), UiSharedService.GetBoolColor(_hasValidGposeTarget));
         }
@@ -385,14 +385,14 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         if (!_hasValidGposeTarget)
         {
             ImGuiHelpers.ScaledDummy(3);
-            UiSharedService.DrawGroupedCenteredColorText("Applying data is only available in GPose with a valid selected GPose target.", ImGuiColors.DalamudYellow, 350);
+            UiSharedService.DrawGroupedCenteredColorText("仅在选中了有效的Gpose目标时才能使用本功能.", ImGuiColors.DalamudYellow, 350);
         }
 
         ImGuiHelpers.ScaledDummy(10);
 
         using var tabs = ImRaii.TabBar("Tabs");
 
-        using (var byFavoriteTabItem = ImRaii.TabItem("Favorites"))
+        using (var byFavoriteTabItem = ImRaii.TabItem("收藏夹"))
         {
             if (byFavoriteTabItem)
             {
@@ -401,16 +401,16 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 ImGuiHelpers.ScaledDummy(5);
 
                 var max = ImGui.GetWindowContentRegionMax();
-                UiSharedService.DrawTree("Filters", () =>
+                UiSharedService.DrawTree("过滤", () =>
                 {
                     var maxIndent = ImGui.GetWindowContentRegionMax();
                     ImGui.SetNextItemWidth(maxIndent.X - ImGui.GetCursorPosX());
-                    ImGui.InputTextWithHint("##ownFilter", "Code/Owner Filter", ref _filterCodeNote, 100);
+                    ImGui.InputTextWithHint("##ownFilter", "代码/拥有者", ref _filterCodeNote, 100);
                     ImGui.SetNextItemWidth(maxIndent.X - ImGui.GetCursorPosX());
-                    ImGui.InputTextWithHint("##descFilter", "Custom Description Filter", ref _filterDescription, 100);
-                    ImGui.Checkbox("Only show entries with pose data", ref _filterPoseOnly);
-                    ImGui.Checkbox("Only show entries with world data", ref _filterWorldOnly);
-                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Ban, "Reset Filter"))
+                    ImGui.InputTextWithHint("##descFilter", "自定义描述", ref _filterDescription, 100);
+                    ImGui.Checkbox("仅显示有姿势数据的条目", ref _filterPoseOnly);
+                    ImGui.Checkbox("仅显示有位置数据的条目", ref _filterWorldOnly);
+                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Ban, "重置"))
                     {
                         _filterCodeNote = string.Empty;
                         _filterDescription = string.Empty;
@@ -459,21 +459,21 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                             _uiSharedService.BooleanToColoredIcon(metaInfo != null, false);
                             if (metaInfo != null)
                             {
-                                UiSharedService.AttachToolTip("Metainfo present" + UiSharedService.TooltipSeparator
-                                    + $"Last Updated: {metaInfo!.UpdatedDate}" + Environment.NewLine
-                                    + $"Description: {metaInfo!.Description}" + Environment.NewLine
-                                    + $"Poses: {metaInfo!.PoseData.Count}");
+                                UiSharedService.AttachToolTip("元数据" + UiSharedService.TooltipSeparator
+                                    + $"最后更新于: {metaInfo!.UpdatedDate}" + Environment.NewLine
+                                    + $"描述: {metaInfo!.Description}" + Environment.NewLine
+                                    + $"姿势: {metaInfo!.PoseData.Count}");
                             }
                             else
                             {
-                                UiSharedService.AttachToolTip("Metainfo could not be downloaded." + UiSharedService.TooltipSeparator
-                                    + "The data associated with the code is either not present on the server anymore or you have no access to it");
+                                UiSharedService.AttachToolTip("无法下载元数据." + UiSharedService.TooltipSeparator
+                                    + "数据不存在或你没有足够的权限进行访问");
                             }
                         }
                         else
                         {
                             _uiSharedService.IconText(FontAwesomeIcon.QuestionCircle, ImGuiColors.DalamudGrey);
-                            UiSharedService.AttachToolTip("Unknown accessibility state. Click the button on the right to refresh.");
+                            UiSharedService.AttachToolTip("未知的访问状态. 点击右侧按钮刷新.");
                         }
 
                         ImGui.SameLine();
@@ -486,8 +486,8 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                                 UpdateFilteredItems();
                             }
                         }
-                        UiSharedService.AttachToolTip(isInTimeout ? "Timeout for refreshing active, please wait before refreshing again."
-                            : "Refresh data for this entry from the Server.");
+                        UiSharedService.AttachToolTip(isInTimeout ? "刷新超时, 请稍后重试."
+                            : "从服务器刷新本条目的数据.");
 
                         ImGui.SameLine();
                         GposeMetaInfoAction((meta) =>
@@ -496,7 +496,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                             {
                                 _ = _charaDataManager.ApplyCharaDataToGposeTarget(metaInfo!);
                             }
-                        }, "Apply Character Data to GPose Target", metaInfo, _hasValidGposeTarget, false);
+                        }, "对GPose目标应用数据", metaInfo, _hasValidGposeTarget, false);
                         ImGui.SameLine();
                         GposeMetaInfoAction((meta) =>
                         {
@@ -504,7 +504,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                             {
                                 _ = _charaDataManager.SpawnAndApplyData(meta!);
                             }
-                        }, "Spawn Actor with Brio and apply Character Data", metaInfo, _hasValidGposeTarget, true);
+                        }, "使用Brio生成角色并应用数据", metaInfo, _hasValidGposeTarget, true);
 
                         string uidText = string.Empty;
                         var uid = favorite.Key.Split(":")[0];
@@ -524,13 +524,13 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                         }
                         ImGui.TextUnformatted(uidText);
 
-                        ImGui.TextUnformatted("Last Use: ");
+                        ImGui.TextUnformatted("最后使用于: ");
                         ImGui.SameLine();
-                        ImGui.TextUnformatted(favorite.Value.Favorite.LastDownloaded == DateTime.MaxValue ? "Never" : favorite.Value.Favorite.LastDownloaded.ToString());
+                        ImGui.TextUnformatted(favorite.Value.Favorite.LastDownloaded == DateTime.MaxValue ? "从未" : favorite.Value.Favorite.LastDownloaded.ToString());
 
                         var desc = favorite.Value.Favorite.CustomDescription;
                         ImGui.SetNextItemWidth(maxPos - xPos);
-                        if (ImGui.InputTextWithHint("##desc", "Custom Description for Favorite", ref desc, 100))
+                        if (ImGui.InputTextWithHint("##desc", "收藏夹自定义描述", ref desc, 100))
                         {
                             favorite.Value.Favorite.CustomDescription = desc;
                             _configService.Save();
@@ -544,48 +544,48 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
                 if (_configService.Current.FavoriteCodes.Count == 0)
                 {
-                    UiSharedService.ColorTextWrapped("You have no favorites added. Add Favorites through the other tabs before you can use this tab.", ImGuiColors.DalamudYellow);
+                    UiSharedService.ColorTextWrapped("收藏夹中没有数据. 请先添加数据.", ImGuiColors.DalamudYellow);
                 }
             }
         }
 
-        using (var byCodeTabItem = ImRaii.TabItem("Code"))
+        using (var byCodeTabItem = ImRaii.TabItem("代码"))
         {
             using var id = ImRaii.PushId("byCodeTab");
             if (byCodeTabItem)
             {
                 using var child = ImRaii.Child("sharedWithYouByCode", new(0, 0), false, ImGuiWindowFlags.AlwaysAutoResize);
-                DrawHelpFoldout("You can apply character data you have a code for in this tab. Provide the code in it's given format \"OwnerUID:DataId\" into the field below and click on " +
-                                "\"Get Info from Code\". This will provide you basic information about the data behind the code. Afterwards select an actor in GPose and press on \"Download and apply to <actor>\"." + Environment.NewLine + Environment.NewLine
-                                + "Description: as set by the owner of the code to give you more or additional information of what this code may contain." + Environment.NewLine
-                                + "Last Update: the date and time the owner of the code has last updated the data." + Environment.NewLine
-                                + "Is Downloadable: whether or not the code is downloadable and applicable. If the code is not downloadable, contact the owner so they can attempt to fix it." + Environment.NewLine + Environment.NewLine
-                                + "To download a code the code requires correct access permissions to be set by the owner. If getting info from the code fails, contact the owner to make sure they set their Access Permissions for the code correctly.");
+                DrawHelpFoldout("你可以在本标签中应用代码中的数据. 按照 \"所有者UID:数据Id\" 的格式将代码填入下方并点击 " +
+                                "\"获取代码数据\". 这将从服务器获取代码的基本数据. 之后在GPose中选择一个目标并点击 \"下载并应用到 <actor>\"." + Environment.NewLine + Environment.NewLine
+                                + "描述: 由所有者填写的描述文字." + Environment.NewLine
+                                + "最后更新于: 数据最后更新的时间." + Environment.NewLine
+                                + "可下载: 数据是否可被下载. 若代码中的数据无法下载, 请联系其所有者请他们进行修复." + Environment.NewLine + Environment.NewLine
+                                + "你需要拥有所有者给予的对应权限才能下载数据. 如果无法获取代码基本数据, 请联系所有者并确认他们正确的设置了访问权限.");
 
                 ImGuiHelpers.ScaledDummy(5);
-                ImGui.InputTextWithHint("##importCode", "Enter Data Code", ref _importCode, 100);
+                ImGui.InputTextWithHint("##importCode", "输入数据代码", ref _importCode, 100);
                 using (ImRaii.Disabled(string.IsNullOrEmpty(_importCode)))
                 {
-                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowCircleDown, "Get Info from Code"))
+                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowCircleDown, "获取代码数据"))
                     {
                         _charaDataManager.DownloadMetaInfo(_importCode);
                     }
                 }
                 GposeMetaInfoAction((meta) =>
                 {
-                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowRight, $"Download and Apply"))
+                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowRight, $"下载并应用"))
                     {
                         _ = _charaDataManager.ApplyCharaDataToGposeTarget(meta!);
                     }
-                }, "Apply this Character Data to the current GPose actor", _charaDataManager.LastDownloadedMetaInfo, _hasValidGposeTarget, false);
+                }, "应用数据到当前的GPose目标", _charaDataManager.LastDownloadedMetaInfo, _hasValidGposeTarget, false);
                 ImGui.SameLine();
                 GposeMetaInfoAction((meta) =>
                 {
-                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Plus, $"Download and Spawn"))
+                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Plus, $"下载并生成"))
                     {
                         _ = _charaDataManager.SpawnAndApplyData(meta!);
                     }
-                }, "Spawn a new Brio actor and apply this Character Data", _charaDataManager.LastDownloadedMetaInfo, _hasValidGposeTarget, true);
+                }, "使用Brio生成一个角色并应用数据", _charaDataManager.LastDownloadedMetaInfo, _hasValidGposeTarget, true);
                 ImGui.SameLine();
                 ImGui.AlignTextToFramePadding();
                 DrawAddOrRemoveFavorite(_charaDataManager.LastDownloadedMetaInfo);
@@ -593,7 +593,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 ImGui.NewLine();
                 if (!_charaDataManager.DownloadMetaInfoTask?.IsCompleted ?? false)
                 {
-                    UiSharedService.ColorTextWrapped("Downloading meta info. Please wait.", ImGuiColors.DalamudYellow);
+                    UiSharedService.ColorTextWrapped("正在下载元数据. 请稍后.", ImGuiColors.DalamudYellow);
                 }
                 if ((_charaDataManager.DownloadMetaInfoTask?.IsCompleted ?? false) && !_charaDataManager.DownloadMetaInfoTask.Result.Success)
                 {
@@ -604,16 +604,16 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 {
                     ImGuiHelpers.ScaledDummy(5);
                     var metaInfo = _charaDataManager.LastDownloadedMetaInfo;
-                    ImGui.TextUnformatted("Description");
+                    ImGui.TextUnformatted("描述");
                     ImGui.SameLine(150);
                     UiSharedService.TextWrapped(string.IsNullOrEmpty(metaInfo?.Description) ? "-" : metaInfo.Description);
-                    ImGui.TextUnformatted("Last Update");
+                    ImGui.TextUnformatted("最后更新于");
                     ImGui.SameLine(150);
                     ImGui.TextUnformatted(metaInfo?.UpdatedDate.ToLocalTime().ToString() ?? "-");
-                    ImGui.TextUnformatted("Is Downloadable");
+                    ImGui.TextUnformatted("可下载");
                     ImGui.SameLine(150);
                     _uiSharedService.BooleanToColoredIcon(metaInfo?.CanBeDownloaded ?? false, inline: false);
-                    ImGui.TextUnformatted("Poses");
+                    ImGui.TextUnformatted("姿势");
                     ImGui.SameLine(150);
                     if (metaInfo?.HasPoses ?? false)
                         DrawPoseData(metaInfo, _gposeTarget, _hasValidGposeTarget);
@@ -623,27 +623,27 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             }
         }
 
-        using (var yourOwnTabItem = ImRaii.TabItem("Your Own"))
+        using (var yourOwnTabItem = ImRaii.TabItem("你拥有的"))
         {
             using var id = ImRaii.PushId("yourOwnTab");
             if (yourOwnTabItem)
             {
-                DrawHelpFoldout("You can apply character data you created yourself in this tab. If the list is not populated press on \"Download your Character Data\"." + Environment.NewLine + Environment.NewLine
-                                 + "To create new and edit your existing character data use the \"MCD Online\" tab.");
+                DrawHelpFoldout("你可以在本标签页应用你拥有的角色数据. 如果列表未能完全显示, 请点击 \"下载你的角色数据\"." + Environment.NewLine + Environment.NewLine
+                                 + "要新建或管理角色数据, 请使用 \"在线MCD\" 标签.");
 
                 ImGuiHelpers.ScaledDummy(5);
 
                 using (ImRaii.Disabled(_charaDataManager.GetAllDataTask != null
                     || (_charaDataManager.DataGetTimeoutTask != null && !_charaDataManager.DataGetTimeoutTask.IsCompleted)))
                 {
-                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowCircleDown, "Download your Character Data"))
+                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowCircleDown, "下载你的角色数据"))
                     {
                         _ = _charaDataManager.GetAllData(_disposalCts.Token);
                     }
                 }
                 if (_charaDataManager.DataGetTimeoutTask != null && !_charaDataManager.DataGetTimeoutTask.IsCompleted)
                 {
-                    UiSharedService.AttachToolTip("You can only refresh all character data from server every minute. Please wait.");
+                    UiSharedService.AttachToolTip("每分钟仅能刷新角色数据一次. 请稍后.");
                 }
 
                 ImGuiHelpers.ScaledDummy(5);
@@ -662,35 +662,35 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             }
         }
 
-        using (var sharedWithYouTabItem = ImRaii.TabItem("Shared With You"))
+        using (var sharedWithYouTabItem = ImRaii.TabItem("与你共享"))
         {
             using var id = ImRaii.PushId("sharedWithYouTab");
             if (sharedWithYouTabItem)
             {
-                DrawHelpFoldout("You can apply character data shared with you implicitly in this tab. Shared Character Data are Character Data entries that have \"Sharing\" set to \"Shared\" and you have access through those by meeting the access restrictions, " +
-                                "i.e. you were specified by your UID to gain access or are paired with the other user according to the Access Restrictions setting." + Environment.NewLine + Environment.NewLine
-                                + "Filter if needed to find a specific entry, then just press on \"Apply to <actor>\" and it will download and apply the Character Data to the currently targeted GPose actor." + Environment.NewLine + Environment.NewLine
-                                + "Note: Shared Data of Pairs you have paused will not be shown here.");
+                DrawHelpFoldout("你可以在本标签中应用其他人与你共享的角色数据. 你仅可以查看 \"共享权限\" 为 \"共享\" 且你有访问权限的数据, " +
+                                "举例: 你与所有者直接配对或所有者在角色数据设置中添加了你的UID." + Environment.NewLine + Environment.NewLine
+                                + "你可以通过过滤器筛选数据, 点击 \"应用到 <目标>\" 将下载数据并将数据应用到Gpose目标." + Environment.NewLine + Environment.NewLine
+                                + "注意: 被暂停的配对的数据不会显示.");
 
                 ImGuiHelpers.ScaledDummy(5);
 
                 DrawUpdateSharedDataButton();
 
 
-                UiSharedService.DrawTree("Filters", () =>
+                UiSharedService.DrawTree("过滤", () =>
                 {
                     var filterWidth = ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X;
                     ImGui.SetNextItemWidth(filterWidth);
-                    if (ImGui.InputTextWithHint("##filter", "Filter by UID/Note", ref _sharedWithYouOwnerFilter, 30))
+                    if (ImGui.InputTextWithHint("##filter", "UID/笔记", ref _sharedWithYouOwnerFilter, 30))
                     {
                         UpdateFilteredItems();
                     }
                     ImGui.SetNextItemWidth(filterWidth);
-                    if (ImGui.InputTextWithHint("##filterDesc", "Filter by Description", ref _sharedWithYouDescriptionFilter, 50))
+                    if (ImGui.InputTextWithHint("##filterDesc", "描述", ref _sharedWithYouDescriptionFilter, 50))
                     {
                         UpdateFilteredItems();
                     }
-                    if (ImGui.Checkbox("Only show downloadable", ref _sharedWithYouDownloadableFilter))
+                    if (ImGui.Checkbox("仅显示可下载", ref _sharedWithYouDownloadableFilter))
                     {
                         UpdateFilteredItems();
                     }
@@ -716,7 +716,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 ImGuiHelpers.ScaledDummy(5);
                 foreach (var entry in _filteredDict ?? [])
                 {
-                    UiSharedService.DrawTree($"{entry.Key} - [{entry.Value.Count} Character Data Sets]##{entry.Key}", () =>
+                    UiSharedService.DrawTree($"{entry.Key} - [{entry.Value.Count} 角色数据集]##{entry.Key}", () =>
                     {
                         foreach (var data in entry.Value)
                         {
@@ -728,24 +728,24 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             }
         }
 
-        using (var mcdfTabItem = ImRaii.TabItem("From MCDF"))
+        using (var mcdfTabItem = ImRaii.TabItem("MCDF导入"))
         {
             using var id = ImRaii.PushId("applyMcdfTab");
             if (mcdfTabItem)
             {
                 using var child = ImRaii.Child("applyMcdf", new(0, 0), false, ImGuiWindowFlags.AlwaysAutoResize);
-                DrawHelpFoldout("You can apply character data shared with you using a MCDF file in this tab." + Environment.NewLine + Environment.NewLine
-                                + "Load the MCDF first via the \"Load MCDF\" button which will give you the basic description that the owner has set during export." + Environment.NewLine
-                                + "You can then apply it to any handled GPose actor." + Environment.NewLine + Environment.NewLine
-                                + "MCDF to share with others can be generated using the \"MCDF Export\" tab at the top.");
+                DrawHelpFoldout("你可以在本标签中应用MDCF文件的角色数据." + Environment.NewLine + Environment.NewLine
+                                + "点击 \"加载MCDF\" 按钮, 将显示MDCF制作者添加的描述内容." + Environment.NewLine
+                                + "你可以将其应用到任何有效的GPose对象." + Environment.NewLine + Environment.NewLine
+                                + "点击创建数据标签中的 \"导出MCDF\" 子标签以导出可分享的MDCF文件.");
 
                 ImGuiHelpers.ScaledDummy(5);
 
                 if (_charaDataManager.LoadedMcdfHeader == null || _charaDataManager.LoadedMcdfHeader.IsCompleted)
                 {
-                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.FolderOpen, "Load MCDF"))
+                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.FolderOpen, "加载MCDF"))
                     {
-                        _fileDialogManager.OpenFileDialog("Pick MCDF file", ".mcdf", (success, paths) =>
+                        _fileDialogManager.OpenFileDialog("选择MCDF文件", ".mcdf", (success, paths) =>
                         {
                             if (!success) return;
                             if (paths.FirstOrDefault() is not string path) return;
@@ -756,13 +756,13 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                             _charaDataManager.LoadMcdf(path);
                         }, 1, Directory.Exists(_configService.Current.LastSavedCharaDataLocation) ? _configService.Current.LastSavedCharaDataLocation : null);
                     }
-                    UiSharedService.AttachToolTip("Load MCDF Metadata into memory");
+                    UiSharedService.AttachToolTip("加载MCDF元数据");
                     if ((_charaDataManager.LoadedMcdfHeader?.IsCompleted ?? false))
                     {
-                        ImGui.TextUnformatted("Loaded file");
+                        ImGui.TextUnformatted("加载的文件");
                         ImGui.SameLine(200);
                         UiSharedService.TextWrapped(_charaDataManager.LoadedMcdfHeader.Result.LoadedFile.FilePath);
-                        ImGui.Text("Description");
+                        ImGui.Text("描述");
                         ImGui.SameLine(200);
                         UiSharedService.TextWrapped(_charaDataManager.LoadedMcdfHeader.Result.LoadedFile.CharaFileData.Description);
 
@@ -770,15 +770,15 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
                         using (ImRaii.Disabled(!_hasValidGposeTarget))
                         {
-                            if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowRight, "Apply"))
+                            if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowRight, "应用"))
                             {
                                 _charaDataManager.McdfApplyToGposeTarget();
                             }
-                            UiSharedService.AttachToolTip($"Apply to {_gposeTarget}");
+                            UiSharedService.AttachToolTip($"应用到 {_gposeTarget}");
                             ImGui.SameLine();
                             using (ImRaii.Disabled(!_charaDataManager.BrioAvailable))
                             {
-                                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Plus, "Spawn Actor and Apply"))
+                                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Plus, "生成角色并应用"))
                                 {
                                     _charaDataManager.McdfSpawnApplyToGposeTarget();
                                 }
@@ -787,15 +787,15 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                     }
                     if ((_charaDataManager.LoadedMcdfHeader?.IsFaulted ?? false) || (_charaDataManager.McdfApplicationTask?.IsFaulted ?? false))
                     {
-                        UiSharedService.ColorTextWrapped("Failure to read MCDF file. MCDF file is possibly corrupt. Re-export the MCDF file and try again.",
+                        UiSharedService.ColorTextWrapped("读取MCDF文件失败. MCDF文件可能已损坏. 请重新导入文件并重试.",
                             ImGuiColors.DalamudRed);
-                        UiSharedService.ColorTextWrapped("Note: if this is your MCDF, try redrawing yourself, wait and re-export the file. " +
-                            "If you received it from someone else have them do the same.", ImGuiColors.DalamudYellow);
+                        UiSharedService.ColorTextWrapped("注意: 如果这是你的MCDF, 请尝试重绘自己, 然后重新导出文件. " +
+                            "如果是其他人的文件请让他们重绘后重新导出.", ImGuiColors.DalamudYellow);
                     }
                 }
                 else
                 {
-                    UiSharedService.ColorTextWrapped("Loading Character...", ImGuiColors.DalamudYellow);
+                    UiSharedService.ColorTextWrapped("正在加载角色...", ImGuiColors.DalamudYellow);
                 }
             }
         }
@@ -803,28 +803,28 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
     private void DrawMcdfExport()
     {
-        _uiSharedService.BigText("Mare Character Data File Export");
+        _uiSharedService.BigText("Mare角色数据导出");
 
-        DrawHelpFoldout("This feature allows you to pack your character into a MCDF file and manually send it to other people. MCDF files can officially only be imported during GPose through Mare. " +
-            "Be aware that the possibility exists that people write unofficial custom exporters to extract the containing data.");
+        DrawHelpFoldout("此功能允许您将角色导出到MCDF文件中, 并手动将其发送给其他人. MCDF文件只能在集体动作期间通过月海同步器导入." +
+            "请注意, 存在他人自制非官方的导出工具来提取其中包含的数据的可能. ");
 
         ImGuiHelpers.ScaledDummy(5);
 
         ImGui.Checkbox("##readExport", ref _readExport);
         ImGui.SameLine();
-        UiSharedService.TextWrapped("I understand that by exporting my character data into a file and sending it to other people I am giving away my current character appearance irrevocably. People I am sharing my data with have the ability to share it with other people without limitations.");
+        UiSharedService.TextWrapped("我已了解, 导出我的角色数据并将其发送给其他人会不可避免地泄露我当前的角色外观. 与我共享数据的人可以不受限制地与其他人共享我的数据. ");
 
         if (_readExport)
         {
             ImGui.Indent();
 
-            ImGui.InputTextWithHint("Export Descriptor", "This description will be shown on loading the data", ref _exportDescription, 255);
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, "Export Character as MCDF"))
+            ImGui.InputTextWithHint("导出描述", "描述将在文件加载时显示", ref _exportDescription, 255);
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, "导出为MCDF"))
             {
                 string defaultFileName = string.IsNullOrEmpty(_exportDescription)
                     ? "export.mcdf"
                     : string.Join('_', $"{_exportDescription}.mcdf".Split(Path.GetInvalidFileNameChars()));
-                _uiSharedService.FileDialogManager.SaveFileDialog("Export Character to file", ".mcdf", defaultFileName, ".mcdf", (success, path) =>
+                _uiSharedService.FileDialogManager.SaveFileDialog("导出至文件", ".mcdf", defaultFileName, ".mcdf", (success, path) =>
                 {
                     if (!success) return;
 
@@ -835,8 +835,8 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                     _exportDescription = string.Empty;
                 }, Directory.Exists(_configService.Current.LastSavedCharaDataLocation) ? _configService.Current.LastSavedCharaDataLocation : null);
             }
-            UiSharedService.ColorTextWrapped("Note: For best results make sure you have everything you want to be shared as well as the correct character appearance" +
-                " equipped and redraw your character before exporting.", ImGuiColors.DalamudYellow);
+            UiSharedService.ColorTextWrapped("注意：为了获得最佳效果, 请确保您拥有想要共享的所有内容以及正确的角色外观, " +
+                " 并在导出之前重新绘制角色. ", ImGuiColors.DalamudYellow);
 
             ImGui.Unindent();
         }
@@ -861,7 +861,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             UiSharedService.ColorText(data.FullId, UiSharedService.GetBoolColor(data.CanBeDownloaded));
             if (!data.CanBeDownloaded)
             {
-                UiSharedService.AttachToolTip("This data is incomplete on the server and cannot be downloaded. Contact the owner so they can fix it. If you are the owner, review the data in the MCD Online tab.");
+                UiSharedService.AttachToolTip("服务器上的文件不完整. 请联系所有者修复. 如果你就是所有者, 在在线MCD标签查看数据.");
             }
 
             var offsetFromRight = availableWidth - _uiSharedService.GetIconSize(FontAwesomeIcon.Calendar).X - _uiSharedService.GetIconButtonSize(FontAwesomeIcon.ArrowRight).X
@@ -870,7 +870,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             ImGui.SameLine();
             ImGui.SetCursorPosX(offsetFromRight);
             _uiSharedService.IconText(FontAwesomeIcon.Calendar);
-            UiSharedService.AttachToolTip($"Last Update: {data.UpdatedDate}");
+            UiSharedService.AttachToolTip($"最后更新于: {data.UpdatedDate}");
 
             ImGui.SameLine();
             GposeMetaInfoAction((meta) =>
@@ -879,7 +879,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 {
                     _ = _charaDataManager.ApplyCharaDataToGposeTarget(meta!);
                 }
-            }, $"Apply Character data to {CharaName(selectedGposeActor)}", data, hasValidGposeTarget, false);
+            }, $"应用数据到 {CharaName(selectedGposeActor)}", data, hasValidGposeTarget, false);
             ImGui.SameLine();
             GposeMetaInfoAction((meta) =>
             {
@@ -887,7 +887,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 {
                     _ = _charaDataManager.SpawnAndApplyData(meta!);
                 }
-            }, "Spawn and Apply Character data", data, hasValidGposeTarget, true);
+            }, "生成并应用", data, hasValidGposeTarget, true);
 
             using var indent = ImRaii.PushIndent(favPos - startPos);
 
@@ -895,7 +895,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             {
                 using (ImRaii.Disabled(_isHandlingSelf))
                 {
-                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Edit, "Open in MCD Online Editor"))
+                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Edit, "在在线MCD编辑器打开"))
                     {
                         _selectedDtoId = data.Id;
                         _openMcdOnlineOnNextRun = true;
@@ -903,13 +903,13 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 }
                 if (_isHandlingSelf)
                 {
-                    UiSharedService.AttachToolTip("Cannot use MCD Online while having Character Data applied to self.");
+                    UiSharedService.AttachToolTip("无法在对自身应用了数据的情况下使用在线MCD功能.");
                 }
             }
 
             if (string.IsNullOrEmpty(data.Description))
             {
-                UiSharedService.ColorTextWrapped("No description set", ImGuiColors.DalamudGrey, availableWidth);
+                UiSharedService.ColorTextWrapped("无描述", ImGuiColors.DalamudGrey, availableWidth);
             }
             else
             {
@@ -950,11 +950,11 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 return ImGui.GetCursorPosX();
             }
 
-            string tooltip = string.IsNullOrEmpty(item.Description) ? "No description set" : "Pose Description: " + item.Description;
+            string tooltip = string.IsNullOrEmpty(item.Description) ? "无描述" : "姿势描述: " + item.Description;
             if (!isInGpose)
             {
                 start = DrawIcon(start);
-                UiSharedService.AttachToolTip(tooltip + UiSharedService.TooltipSeparator + (item.HasWorldData ? GetWorldDataTooltipText(item) + UiSharedService.TooltipSeparator + "Click to show on Map" : string.Empty));
+                UiSharedService.AttachToolTip(tooltip + UiSharedService.TooltipSeparator + (item.HasWorldData ? GetWorldDataTooltipText(item) + UiSharedService.TooltipSeparator + "点击以在地图上显示" : string.Empty));
                 if (item.HasWorldData && ImGui.IsItemClicked(ImGuiMouseButton.Left))
                 {
                     _dalamudUtilService.SetMarkerAndOpenMap(item.Position, item.Map);
@@ -962,9 +962,9 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             }
             else
             {
-                tooltip += UiSharedService.TooltipSeparator + $"Left Click: Apply this pose to {CharaName(actor)}";
-                if (item.HasWorldData) tooltip += Environment.NewLine + $"CTRL+Right Click: Apply world position to {CharaName(actor)}."
-                        + UiSharedService.TooltipSeparator + "!!! CAUTION: Applying world position will likely yeet this actor into nirvana. Use at your own risk !!!";
+                tooltip += UiSharedService.TooltipSeparator + $"左键点击: 应用姿势到 {CharaName(actor)}";
+                if (item.HasWorldData) tooltip += Environment.NewLine + $"CTRL+右键点击: 应用位置到 {CharaName(actor)}."
+                        + UiSharedService.TooltipSeparator + "!!! 警告: 应用位置数据可能会让角色处于错误状态. 风险自负 !!!";
                 GposePoseAction(() =>
                 {
                     start = DrawIcon(start);
@@ -986,44 +986,44 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
     private void DrawSettings()
     {
         ImGuiHelpers.ScaledDummy(5);
-        _uiSharedService.BigText("Settings");
+        _uiSharedService.BigText("设置");
         ImGuiHelpers.ScaledDummy(5);
         bool openInGpose = _configService.Current.OpenMareHubOnGposeStart;
-        if (ImGui.Checkbox("Open Character Data Hub when GPose loads", ref openInGpose))
+        if (ImGui.Checkbox("进入GPose时打开角色数据中心", ref openInGpose))
         {
             _configService.Current.OpenMareHubOnGposeStart = openInGpose;
             _configService.Save();
         }
-        _uiSharedService.DrawHelpText("This will automatically open the import menu when loading into Gpose. If unchecked you can open the menu manually with /mare gpose");
+        _uiSharedService.DrawHelpText("这将在加载到Gpose时自动打开导入菜单. 如果未选中, 您可以使用“/mare gpose”手动打开菜单");
         bool downloadDataOnConnection = _configService.Current.DownloadMcdDataOnConnection;
-        if (ImGui.Checkbox("Download MCD Online Data on connecting", ref downloadDataOnConnection))
+        if (ImGui.Checkbox("自动下载MCD数据", ref downloadDataOnConnection))
         {
             _configService.Current.DownloadMcdDataOnConnection = downloadDataOnConnection;
             _configService.Save();
         }
-        _uiSharedService.DrawHelpText("This will automatically download MCD Online data (Your Own and Shared with You) once a connection is established to the server.");
+        _uiSharedService.DrawHelpText("这将在你连接到服务器时自动下载所有你拥有访问权限的角色数据.");
 
         bool showHelpTexts = _configService.Current.ShowHelpTexts;
-        if (ImGui.Checkbox("Show \"What is this? (Explanation / Help)\" foldouts", ref showHelpTexts))
+        if (ImGui.Checkbox("显示 \"这是什么? (说明 / 帮助)\" 内容", ref showHelpTexts))
         {
             _configService.Current.ShowHelpTexts = showHelpTexts;
             _configService.Save();
         }
 
-        ImGui.Checkbox("Abbreviate Chara Names", ref _abbreviateCharaName);
-        _uiSharedService.DrawHelpText("This setting will abbreviate displayed names. This setting is not persistent and will reset between restarts.");
+        // ImGui.Checkbox("Abbreviate Chara Names", ref _abbreviateCharaName);
+        // _uiSharedService.DrawHelpText("This setting will abbreviate displayed names. This setting is not persistent and will reset between restarts.");
 
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted("Last Export Folder");
+        ImGui.TextUnformatted("最近导出目录");
         ImGui.SameLine(300);
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(string.IsNullOrEmpty(_configService.Current.LastSavedCharaDataLocation) ? "Not set" : _configService.Current.LastSavedCharaDataLocation);
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Ban, "Clear Last Export Folder"))
+        ImGui.TextUnformatted(string.IsNullOrEmpty(_configService.Current.LastSavedCharaDataLocation) ? "无" : _configService.Current.LastSavedCharaDataLocation);
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Ban, "清除最近导出目录"))
         {
             _configService.Current.LastSavedCharaDataLocation = string.Empty;
             _configService.Save();
         }
-        _uiSharedService.DrawHelpText("Use this if the Load or Save MCDF file dialog does not open");
+        _uiSharedService.DrawHelpText("如果加载/保存MCDF文件对话框无法显示, 点击这里");
     }
 
     private void DrawHelpFoldout(string text)
@@ -1031,7 +1031,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         if (_configService.Current.ShowHelpTexts)
         {
             ImGuiHelpers.ScaledDummy(5);
-            UiSharedService.DrawTree("What is this? (Explanation / Help)", () =>
+            UiSharedService.DrawTree("这是什么? (说明 / 帮助)", () =>
             {
                 UiSharedService.TextWrapped(text);
             });
