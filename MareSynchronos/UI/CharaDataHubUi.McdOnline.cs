@@ -122,14 +122,14 @@ internal sealed partial class CharaDataHubUi
 
             ImGui.EndCombo();
         }
-        _uiSharedService.DrawHelpText("You can control who has access to your character data based on the access restrictions." + UiSharedService.TooltipSeparator
-            + "Specified: Only people and syncshells you directly specify in 'Specific Individuals / Syncshells' can access this character data" + Environment.NewLine
-            + "Direct Pairs: Only people you have directly paired can access this character data" + Environment.NewLine
-            + "All Pairs: All people you have paired can access this character data" + Environment.NewLine
-            + "Everyone: Everyone can access this character data" + UiSharedService.TooltipSeparator
-            + "Note: To access your character data the person in question requires to have the code. Exceptions for 'Shared' data, see 'Sharing' below." + Environment.NewLine
-            + "Note: For 'Direct' and 'All Pairs' the pause state plays a role. Paused people will not be able to access your character data." + Environment.NewLine
-            + "Note: Directly specified Individuals or Syncshells in the 'Specific Individuals / Syncshells' list will be able to access your character data regardless of pause or pair state.");
+        _uiSharedService.DrawHelpText("你可以对访问权限进行设置." + UiSharedService.TooltipSeparator
+            + "特定: 仅在 '特定角色 / 同步贝' 中设置的角色和同步贝用户可以访问本数据" + Environment.NewLine
+            + "直接配对: 仅与你直接配对的用户可以访问本数据" + Environment.NewLine
+            + "所有配对: 所有和你处于配对状态的用户可以访问本数据" + Environment.NewLine
+            + "所有人: 所有人都可以可以访问本数据" + UiSharedService.TooltipSeparator
+            + "注意: 要访问非 '共享' 状态的数据, 需要拥有对应代码." + Environment.NewLine
+            + "注意: 在 '直接配对' 和 '所有配对' 状态下, 暂停配对的用户无法访问数据." + Environment.NewLine
+            + "注意: '特定角色 / 同步贝' 中设置的角色和同步贝用户可以访问本数据, 无论你是否暂停了配对.");
 
         DrawSpecific(updateDto);
 
@@ -150,10 +150,10 @@ internal sealed partial class CharaDataHubUi
                 ImGui.EndCombo();
             }
         }
-        _uiSharedService.DrawHelpText("This regulates how you want to distribute this character data." + UiSharedService.TooltipSeparator
-            + "Code Only: People require to have the code to download this character data" + Environment.NewLine
-            + "Shared: People that are allowed through 'Access Restrictions' will have this character data entry displayed in 'Shared with You' (it can also be accessed through the code)" + UiSharedService.TooltipSeparator
-            + "Note: Shared is incompatible with Access Restriction 'Everyone'");
+        _uiSharedService.DrawHelpText("如何共享你的数据." + UiSharedService.TooltipSeparator
+            + "仅代码: 仅拥有对应代码的用户可以访问数据" + Environment.NewLine
+            + "共享: 满足 '访问权限' 设置的用户可以在 '与你共享' 标签中访问数据 (也可以通过代码访问)" + UiSharedService.TooltipSeparator
+            + "注意: 共享状态下, 访问权限不可设置为 '所有人'");
 
         ImGuiHelpers.ScaledDummy(10f);
     }
