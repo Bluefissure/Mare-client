@@ -14,12 +14,12 @@ internal sealed partial class CharaDataHubUi
 {
     private void DrawEditCharaData(CharaDataFullExtendedDto? dataDto)
     {
-        using var imguiid = ImRaii.PushId(dataDto?.Id ?? "NoData");
+        using var imguiid = ImRaii.PushId(dataDto?.Id ?? "无数据");
 
         if (dataDto == null)
         {
             ImGuiHelpers.ScaledDummy(5);
-            UiSharedService.DrawGroupedCenteredColorText("Select an entry above to edit its data.", ImGuiColors.DalamudYellow);
+            UiSharedService.DrawGroupedCenteredColorText("选择条目以编辑.", ImGuiColors.DalamudYellow);
             return;
         }
 
@@ -27,7 +27,7 @@ internal sealed partial class CharaDataHubUi
 
         if (updateDto == null)
         {
-            UiSharedService.DrawGroupedCenteredColorText("Something went awfully wrong and there's no update DTO. Try updating Character Data via the button above.", ImGuiColors.DalamudYellow);
+            UiSharedService.DrawGroupedCenteredColorText("更新DTO时发生了错误. 请点击上方按钮更新角色数据.", ImGuiColors.DalamudYellow);
             return;
         }
 
@@ -45,23 +45,23 @@ internal sealed partial class CharaDataHubUi
                 if (canUpdate)
                 {
                     ImGui.AlignTextToFramePadding();
-                    UiSharedService.ColorTextWrapped("Warning: You have unsaved changes!", ImGuiColors.DalamudRed);
+                    UiSharedService.ColorTextWrapped("警告: 有未保存的变更!", ImGuiColors.DalamudRed);
                     ImGui.SameLine();
                     using (ImRaii.Disabled(_charaDataManager.CharaUpdateTask != null && !_charaDataManager.CharaUpdateTask.IsCompleted))
                     {
-                        if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowCircleUp, "Save to Server"))
+                        if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowCircleUp, "保存到服务器"))
                         {
                             _charaDataManager.UploadCharaData(dataDto.Id);
                         }
                         ImGui.SameLine();
-                        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Undo, "Undo all changes"))
+                        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Undo, "撤销变更"))
                         {
                             updateDto.UndoChanges();
                         }
                     }
                     if (_charaDataManager.CharaUpdateTask != null && !_charaDataManager.CharaUpdateTask.IsCompleted)
                     {
-                        UiSharedService.ColorTextWrapped("Updating data on server, please wait.", ImGuiColors.DalamudYellow);
+                        UiSharedService.ColorTextWrapped("正在上传数据, 请稍后.", ImGuiColors.DalamudYellow);
                     }
                 }
 
@@ -73,7 +73,7 @@ internal sealed partial class CharaDataHubUi
                         {
                             UiSharedService.ColorTextWrapped(_charaDataManager.UploadProgress.Value ?? string.Empty, ImGuiColors.DalamudYellow);
                         }
-                        if ((!_charaDataManager.UploadTask?.IsCompleted ?? false) && _uiSharedService.IconTextButton(FontAwesomeIcon.Ban, "Cancel Upload"))
+                        if ((!_charaDataManager.UploadTask?.IsCompleted ?? false) && _uiSharedService.IconTextButton(FontAwesomeIcon.Ban, "取消上传"))
                         {
                             _charaDataManager.CancelUpload();
                         }
@@ -106,11 +106,11 @@ internal sealed partial class CharaDataHubUi
 
     private void DrawEditCharaDataAccessAndSharing(CharaDataExtendedUpdateDto updateDto)
     {
-        _uiSharedService.BigText("Access and Sharing");
+        _uiSharedService.BigText("访问权限设置");
 
         ImGui.SetNextItemWidth(200);
         var dtoAccessType = updateDto.AccessType;
-        if (ImGui.BeginCombo("Access Restrictions", GetAccessTypeString(dtoAccessType)))
+        if (ImGui.BeginCombo("访问权限", GetAccessTypeString(dtoAccessType)))
         {
             foreach (var accessType in Enum.GetValues(typeof(AccessTypeDto)).Cast<AccessTypeDto>())
             {
@@ -137,7 +137,7 @@ internal sealed partial class CharaDataHubUi
         var dtoShareType = updateDto.ShareType;
         using (ImRaii.Disabled(dtoAccessType == AccessTypeDto.Public))
         {
-            if (ImGui.BeginCombo("Sharing", GetShareTypeString(dtoShareType)))
+            if (ImGui.BeginCombo("共享", GetShareTypeString(dtoShareType)))
             {
                 foreach (var shareType in Enum.GetValues(typeof(ShareTypeDto)).Cast<ShareTypeDto>())
                 {
@@ -160,31 +160,31 @@ internal sealed partial class CharaDataHubUi
 
     private void DrawEditCharaDataAppearance(CharaDataFullExtendedDto dataDto, CharaDataExtendedUpdateDto updateDto)
     {
-        _uiSharedService.BigText("Appearance");
+        _uiSharedService.BigText("外貌");
 
-        if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowRight, "Set Appearance to Current Appearance"))
+        if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowRight, "设置为当前外貌"))
         {
             _charaDataManager.SetAppearanceData(dataDto.Id);
         }
-        _uiSharedService.DrawHelpText("This will overwrite the appearance data currently stored in this Character Data entry with your current appearance.");
+        _uiSharedService.DrawHelpText("这将使用你当前的外貌数据覆盖已保存的数据.");
         ImGui.SameLine();
         using (ImRaii.Disabled(dataDto.HasMissingFiles || !updateDto.IsAppearanceEqual || _charaDataManager.DataApplicationTask != null))
         {
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.CheckCircle, "Preview Saved Apperance on Self"))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.CheckCircle, "预览已保存的外貌数据"))
             {
                 _charaDataManager.ApplyDataToSelf(dataDto);
             }
         }
-        _uiSharedService.DrawHelpText("This will download and apply the saved character data to yourself. Once loaded it will automatically revert itself within 15 seconds." + UiSharedService.TooltipSeparator
-            + "Note: Weapons will not be displayed correctly unless using the same job as the saved data.");
+        _uiSharedService.DrawHelpText("将下载并在你的角色应用外貌数据. 将在15秒后恢复到原状态." + UiSharedService.TooltipSeparator
+            + "注意: 职业不同的情况下无法佩戴对应武器.");
 
-        ImGui.TextUnformatted("Contains Glamourer Data");
+        ImGui.TextUnformatted("包含Glamourer数据");
         ImGui.SameLine();
         bool hasGlamourerdata = !string.IsNullOrEmpty(updateDto.GlamourerData);
         ImGui.SameLine(200);
         _uiSharedService.BooleanToColoredIcon(hasGlamourerdata, false);
 
-        ImGui.TextUnformatted("Contains Files");
+        ImGui.TextUnformatted("包含文件");
         var hasFiles = (updateDto.FileGamePaths ?? []).Any() || (dataDto.OriginalFiles.Any());
         ImGui.SameLine(200);
         _uiSharedService.BooleanToColoredIcon(hasFiles, false);
@@ -196,25 +196,25 @@ internal sealed partial class CharaDataHubUi
             var pos = ImGui.GetCursorPosX();
             ImGui.NewLine();
             ImGui.SameLine(pos);
-            ImGui.TextUnformatted($"{dataDto.FileGamePaths.DistinctBy(k => k.HashOrFileSwap).Count()} unique file hashes (original upload: {dataDto.OriginalFiles.DistinctBy(k => k.HashOrFileSwap).Count()} file hashes)");
+            ImGui.TextUnformatted($"{dataDto.FileGamePaths.DistinctBy(k => k.HashOrFileSwap).Count()} 文件hash (原始上传: {dataDto.OriginalFiles.DistinctBy(k => k.HashOrFileSwap).Count()} 文件hash)");
             ImGui.NewLine();
             ImGui.SameLine(pos);
-            ImGui.TextUnformatted($"{dataDto.FileGamePaths.Count} associated game paths");
+            ImGui.TextUnformatted($"{dataDto.FileGamePaths.Count} 相关路径");
             ImGui.NewLine();
             ImGui.SameLine(pos);
-            ImGui.TextUnformatted($"{dataDto.FileSwaps!.Count} file swaps");
+            ImGui.TextUnformatted($"{dataDto.FileSwaps!.Count} 文件替换");
             ImGui.NewLine();
             ImGui.SameLine(pos);
             if (!dataDto.HasMissingFiles)
             {
-                UiSharedService.ColorTextWrapped("All files to download this character data are present on the server", ImGuiColors.HealerGreen);
+                UiSharedService.ColorTextWrapped("所有文件均存在", ImGuiColors.HealerGreen);
             }
             else
             {
-                UiSharedService.ColorTextWrapped($"{dataDto.MissingFiles.DistinctBy(k => k.HashOrFileSwap).Count()} files to download this character data are missing on the server", ImGuiColors.DalamudRed);
+                UiSharedService.ColorTextWrapped($"服务器缺少 {dataDto.MissingFiles.DistinctBy(k => k.HashOrFileSwap).Count()} 个文件数据", ImGuiColors.DalamudRed);
                 ImGui.NewLine();
                 ImGui.SameLine(pos);
-                if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowCircleUp, "Attempt to upload missing files and restore Character Data"))
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowCircleUp, "上传缺失文件以修复数据"))
                 {
                     _charaDataManager.UploadMissingFiles(dataDto.Id);
                 }
@@ -225,15 +225,15 @@ internal sealed partial class CharaDataHubUi
             ImGui.SameLine();
             ImGuiHelpers.ScaledDummy(20, 1);
             ImGui.SameLine();
-            UiSharedService.ColorTextWrapped("New data was set. It may contain files that require to be uploaded (will happen on Saving to server)", ImGuiColors.DalamudYellow);
+            UiSharedService.ColorTextWrapped("新数据已设置. 可能包含需要上传的文件 (将在保存时上传)", ImGuiColors.DalamudYellow);
         }
 
-        ImGui.TextUnformatted("Contains Manipulation Data");
+        ImGui.TextUnformatted("包含 Manipulation 数据");
         bool hasManipData = !string.IsNullOrEmpty(updateDto.ManipulationData);
         ImGui.SameLine(200);
         _uiSharedService.BooleanToColoredIcon(hasManipData, false);
 
-        ImGui.TextUnformatted("Contains Customize+ Data");
+        ImGui.TextUnformatted("包含 Customize+ 数据");
         ImGui.SameLine();
         bool hasCustomizeData = !string.IsNullOrEmpty(updateDto.CustomizeData);
         ImGui.SameLine(200);
@@ -242,7 +242,7 @@ internal sealed partial class CharaDataHubUi
 
     private void DrawEditCharaDataGeneral(CharaDataFullExtendedDto dataDto, CharaDataExtendedUpdateDto updateDto)
     {
-        _uiSharedService.BigText("General");
+        _uiSharedService.BigText("通用");
         string code = dataDto.FullId;
         using (ImRaii.Disabled())
         {
@@ -250,13 +250,13 @@ internal sealed partial class CharaDataHubUi
             ImGui.InputText("##CharaDataCode", ref code, 255, ImGuiInputTextFlags.ReadOnly);
         }
         ImGui.SameLine();
-        ImGui.TextUnformatted("Chara Data Code");
+        ImGui.TextUnformatted("角色数据代码");
         ImGui.SameLine();
         if (_uiSharedService.IconButton(FontAwesomeIcon.Copy))
         {
             ImGui.SetClipboardText(code);
         }
-        UiSharedService.AttachToolTip("Copy Code to Clipboard");
+        UiSharedService.AttachToolTip("复制到剪切板");
 
         string creationTime = dataDto.CreatedDate.ToLocalTime().ToString();
         string updateTime = dataDto.UpdatedDate.ToLocalTime().ToString();
@@ -267,7 +267,7 @@ internal sealed partial class CharaDataHubUi
             ImGui.InputText("##CreationDate", ref creationTime, 255, ImGuiInputTextFlags.ReadOnly);
         }
         ImGui.SameLine();
-        ImGui.TextUnformatted("Creation Date");
+        ImGui.TextUnformatted("新建数据");
         ImGui.SameLine();
         ImGuiHelpers.ScaledDummy(20);
         ImGui.SameLine();
@@ -277,7 +277,7 @@ internal sealed partial class CharaDataHubUi
             ImGui.InputText("##LastUpdate", ref updateTime, 255, ImGuiInputTextFlags.ReadOnly);
         }
         ImGui.SameLine();
-        ImGui.TextUnformatted("Last Update Date");
+        ImGui.TextUnformatted("最后更新于");
         ImGui.SameLine();
         ImGuiHelpers.ScaledDummy(23);
         ImGui.SameLine();
@@ -287,7 +287,7 @@ internal sealed partial class CharaDataHubUi
             ImGui.InputText("##DlCount", ref downloadCount, 255, ImGuiInputTextFlags.ReadOnly);
         }
         ImGui.SameLine();
-        ImGui.TextUnformatted("Download Count");
+        ImGui.TextUnformatted("下载量");
 
         string description = updateDto.Description;
         ImGui.SetNextItemWidth(735);
@@ -296,22 +296,22 @@ internal sealed partial class CharaDataHubUi
             updateDto.Description = description;
         }
         ImGui.SameLine();
-        ImGui.TextUnformatted("Description");
-        _uiSharedService.DrawHelpText("Description for this Character Data." + UiSharedService.TooltipSeparator
-            + "Note: the description will be visible to anyone who can access this character data. See 'Access Restrictions' and 'Sharing' below.");
+        ImGui.TextUnformatted("描述");
+        _uiSharedService.DrawHelpText("MCD描述." + UiSharedService.TooltipSeparator
+            + "注意: 所有拥有访问权限的用户都将可以看到本描述. 查看 '访问权限' 和 '共享' 部分.");
 
         var expiryDate = updateDto.ExpiryDate;
         bool isExpiring = expiryDate != DateTime.MaxValue;
-        if (ImGui.Checkbox("Expires", ref isExpiring))
+        if (ImGui.Checkbox("过期", ref isExpiring))
         {
             updateDto.SetExpiry(isExpiring);
         }
-        _uiSharedService.DrawHelpText("If expiration is enabled, the uploaded character data will be automatically deleted from the server at the specified date.");
+        _uiSharedService.DrawHelpText("如果启用, 将自动于设定的日期删除对应数据.");
         using (ImRaii.Disabled(!isExpiring))
         {
             ImGui.SameLine();
             ImGui.SetNextItemWidth(100);
-            if (ImGui.BeginCombo("Year", expiryDate.Year.ToString()))
+            if (ImGui.BeginCombo("年", expiryDate.Year.ToString()))
             {
                 for (int year = DateTime.UtcNow.Year; year < DateTime.UtcNow.Year + 4; year++)
                 {
@@ -326,7 +326,7 @@ internal sealed partial class CharaDataHubUi
 
             int daysInMonth = DateTime.DaysInMonth(expiryDate.Year, expiryDate.Month);
             ImGui.SetNextItemWidth(100);
-            if (ImGui.BeginCombo("Month", expiryDate.Month.ToString()))
+            if (ImGui.BeginCombo("月", expiryDate.Month.ToString()))
             {
                 for (int month = 1; month <= 12; month++)
                 {
@@ -340,7 +340,7 @@ internal sealed partial class CharaDataHubUi
             ImGui.SameLine();
 
             ImGui.SetNextItemWidth(100);
-            if (ImGui.BeginCombo("Day", expiryDate.Day.ToString()))
+            if (ImGui.BeginCombo("日", expiryDate.Day.ToString()))
             {
                 for (int day = 1; day <= daysInMonth; day++)
                 {
@@ -356,7 +356,7 @@ internal sealed partial class CharaDataHubUi
 
         using (ImRaii.Disabled(!UiSharedService.CtrlPressed()))
         {
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "Delete Character Data"))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "删除角色数据"))
             {
                 _ = _charaDataManager.DeleteCharaData(dataDto);
                 _selectedDtoId = string.Empty;
@@ -364,24 +364,24 @@ internal sealed partial class CharaDataHubUi
         }
         if (!UiSharedService.CtrlPressed())
         {
-            UiSharedService.AttachToolTip("Hold CTRL and click to delete the current data. This operation is irreversible.");
+            UiSharedService.AttachToolTip("按住CTRL并点击以删除. 无法撤销该操作.");
         }
     }
 
     private void DrawEditCharaDataPoses(CharaDataExtendedUpdateDto updateDto)
     {
-        _uiSharedService.BigText("Poses");
+        _uiSharedService.BigText("姿势");
         var poseCount = updateDto.PoseList.Count();
         using (ImRaii.Disabled(poseCount >= maxPoses))
         {
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Plus, "Add new Pose"))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Plus, "添加新姿势"))
             {
                 updateDto.AddPose();
             }
         }
         ImGui.SameLine();
         using (ImRaii.PushColor(ImGuiCol.Text, ImGuiColors.DalamudYellow, poseCount == maxPoses))
-            ImGui.TextUnformatted($"{poseCount}/{maxPoses} poses attached");
+            ImGui.TextUnformatted($"{poseCount}/{maxPoses} 姿势已添加");
         ImGuiHelpers.ScaledDummy(5);
 
         using var indent = ImRaii.PushIndent(10f);
@@ -390,13 +390,13 @@ internal sealed partial class CharaDataHubUi
         if (!_uiSharedService.IsInGpose && _charaDataManager.BrioAvailable)
         {
             ImGuiHelpers.ScaledDummy(5);
-            UiSharedService.DrawGroupedCenteredColorText("To attach pose and world data you need to be in GPose.", ImGuiColors.DalamudYellow);
+            UiSharedService.DrawGroupedCenteredColorText("请先进入Gpose.", ImGuiColors.DalamudYellow);
             ImGuiHelpers.ScaledDummy(5);
         }
         else if (!_charaDataManager.BrioAvailable)
         {
             ImGuiHelpers.ScaledDummy(5);
-            UiSharedService.DrawGroupedCenteredColorText("To attach pose and world data Brio requires to be installed.", ImGuiColors.DalamudRed);
+            UiSharedService.DrawGroupedCenteredColorText("请先安装Brio.", ImGuiColors.DalamudRed);
             ImGuiHelpers.ScaledDummy(5);
         }
 
@@ -410,7 +410,7 @@ internal sealed partial class CharaDataHubUi
             {
                 ImGui.SameLine(50);
                 _uiSharedService.IconText(FontAwesomeIcon.Plus, ImGuiColors.DalamudYellow);
-                UiSharedService.AttachToolTip("This pose has not been added to the server yet. Save changes to upload this Pose data.");
+                UiSharedService.AttachToolTip("姿势还未保存到服务器. 保存后将进行上传.");
             }
 
             bool poseHasChanges = updateDto.PoseHasChanges(pose);
@@ -418,24 +418,24 @@ internal sealed partial class CharaDataHubUi
             {
                 ImGui.SameLine(50);
                 _uiSharedService.IconText(FontAwesomeIcon.ExclamationTriangle, ImGuiColors.DalamudYellow);
-                UiSharedService.AttachToolTip("This pose has changes that have not been saved to the server yet.");
+                UiSharedService.AttachToolTip("姿势变更还未保存到服务器.");
             }
 
             ImGui.SameLine(75);
             if (pose.Description == null && pose.WorldData == null && pose.PoseData == null)
             {
-                UiSharedService.ColorText("Pose scheduled for deletion", ImGuiColors.DalamudYellow);
+                UiSharedService.ColorText("计划删除姿势", ImGuiColors.DalamudYellow);
             }
             else
             {
                 var desc = pose.Description;
-                if (ImGui.InputTextWithHint("##description", "Description", ref desc, 100))
+                if (ImGui.InputTextWithHint("##description", "描述", ref desc, 100))
                 {
                     pose.Description = desc;
                     updateDto.UpdatePoseList();
                 }
                 ImGui.SameLine();
-                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "Delete"))
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "删除"))
                 {
                     updateDto.RemovePose(pose);
                 }
@@ -446,8 +446,8 @@ internal sealed partial class CharaDataHubUi
                 bool hasPoseData = !string.IsNullOrEmpty(pose.PoseData);
                 _uiSharedService.IconText(FontAwesomeIcon.Running, UiSharedService.GetBoolColor(hasPoseData));
                 UiSharedService.AttachToolTip(hasPoseData
-                    ? "This Pose entry has pose data attached"
-                    : "This Pose entry has no pose data attached");
+                    ? "本条目包含姿势数据"
+                    : "本条目未包含姿势数据");
                 ImGui.SameLine();
 
                 using (ImRaii.Disabled(!_uiSharedService.IsInGpose || !(_charaDataManager.AttachingPoseTask?.IsCompleted ?? true) || !_charaDataManager.BrioAvailable))
@@ -457,7 +457,7 @@ internal sealed partial class CharaDataHubUi
                     {
                         _charaDataManager.AttachPoseData(pose, updateDto);
                     }
-                    UiSharedService.AttachToolTip("Apply current pose data to pose");
+                    UiSharedService.AttachToolTip("应用当前姿势到数据");
                 }
                 ImGui.SameLine();
                 using (ImRaii.Disabled(!hasPoseData))
@@ -477,10 +477,10 @@ internal sealed partial class CharaDataHubUi
                 var worldData = pose.WorldData;
                 bool hasWorldData = (worldData ?? default) != default;
                 _uiSharedService.IconText(FontAwesomeIcon.Globe, UiSharedService.GetBoolColor(hasWorldData));
-                var tooltipText = !hasWorldData ? "This Pose has no world data attached." : "This Pose has world data attached.";
+                var tooltipText = !hasWorldData ? "姿势中未包含位置数据." : "姿势中包含了位置数据.";
                 if (hasWorldData)
                 {
-                    tooltipText += UiSharedService.TooltipSeparator + "Click to show location on map";
+                    tooltipText += UiSharedService.TooltipSeparator + "点击以在地图显示";
                 }
                 UiSharedService.AttachToolTip(tooltipText);
                 if (hasWorldData && ImGui.IsItemClicked(ImGuiMouseButton.Left))
@@ -496,7 +496,7 @@ internal sealed partial class CharaDataHubUi
                     {
                         _charaDataManager.AttachWorldData(pose, updateDto);
                     }
-                    UiSharedService.AttachToolTip("Apply current world position data to pose");
+                    UiSharedService.AttachToolTip("应用当前位置信息到姿势");
                 }
                 ImGui.SameLine();
                 using (ImRaii.Disabled(!hasWorldData))
@@ -514,7 +514,7 @@ internal sealed partial class CharaDataHubUi
             if (poseHasChanges)
             {
                 ImGui.SameLine();
-                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Undo, "Undo"))
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.Undo, "撤销"))
                 {
                     updateDto.RevertDeletion(pose);
                 }
@@ -526,7 +526,7 @@ internal sealed partial class CharaDataHubUi
 
     private void DrawMcdOnline()
     {
-        _uiSharedService.BigText("Mare Character Data Online");
+        _uiSharedService.BigText("在线MCD");
 
         DrawHelpFoldout("In this tab you can create, view and edit your own Mare Character Data that is stored on the server." + Environment.NewLine + Environment.NewLine
             + "Mare Character Data Online functions similar to the previous MCDF standard for exporting your character, except that you do not have to send a file to the other person but solely a code." + Environment.NewLine + Environment.NewLine
@@ -537,33 +537,33 @@ internal sealed partial class CharaDataHubUi
         using (ImRaii.Disabled((!_charaDataManager.GetAllDataTask?.IsCompleted ?? false)
             || (_charaDataManager.DataGetTimeoutTask != null && !_charaDataManager.DataGetTimeoutTask.IsCompleted)))
         {
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowCircleDown, "Download your Character Data from Server"))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowCircleDown, "请求你的MCD数据"))
             {
                 _ = _charaDataManager.GetAllData(_disposalCts.Token);
             }
         }
         if (_charaDataManager.DataGetTimeoutTask != null && !_charaDataManager.DataGetTimeoutTask.IsCompleted)
         {
-            UiSharedService.AttachToolTip("You can only refresh all character data from server every minute. Please wait.");
+            UiSharedService.AttachToolTip("每分钟仅能进行一次请求. 请稍后.");
         }
 
-        using (var table = ImRaii.Table("Own Character Data", 12, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.ScrollY,
+        using (var table = ImRaii.Table("拥有的数据", 12, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.ScrollY,
             new Vector2(ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X, 100)))
         {
             if (table)
             {
                 ImGui.TableSetupColumn("", ImGuiTableColumnFlags.WidthFixed, 18);
                 ImGui.TableSetupColumn("", ImGuiTableColumnFlags.WidthFixed, 18);
-                ImGui.TableSetupColumn("Code");
-                ImGui.TableSetupColumn("Description", ImGuiTableColumnFlags.WidthStretch);
-                ImGui.TableSetupColumn("Created");
-                ImGui.TableSetupColumn("Updated");
-                ImGui.TableSetupColumn("Download Count", ImGuiTableColumnFlags.WidthFixed, 18);
-                ImGui.TableSetupColumn("Downloadable", ImGuiTableColumnFlags.WidthFixed, 18);
-                ImGui.TableSetupColumn("Files", ImGuiTableColumnFlags.WidthFixed, 32);
+                ImGui.TableSetupColumn("代码");
+                ImGui.TableSetupColumn("描述", ImGuiTableColumnFlags.WidthStretch);
+                ImGui.TableSetupColumn("创建于");
+                ImGui.TableSetupColumn("更新于");
+                ImGui.TableSetupColumn("下载量", ImGuiTableColumnFlags.WidthFixed, 18);
+                ImGui.TableSetupColumn("可下载", ImGuiTableColumnFlags.WidthFixed, 18);
+                ImGui.TableSetupColumn("文件", ImGuiTableColumnFlags.WidthFixed, 32);
                 ImGui.TableSetupColumn("Glamourer", ImGuiTableColumnFlags.WidthFixed, 18);
                 ImGui.TableSetupColumn("Customize+", ImGuiTableColumnFlags.WidthFixed, 18);
-                ImGui.TableSetupColumn("Expires", ImGuiTableColumnFlags.WidthFixed, 18);
+                ImGui.TableSetupColumn("过期", ImGuiTableColumnFlags.WidthFixed, 18);
                 ImGui.TableSetupScrollFreeze(0, 1);
                 ImGui.TableHeadersRow();
                 foreach (var entry in _charaDataManager.OwnCharaData.Values)
@@ -581,7 +581,7 @@ internal sealed partial class CharaDataHubUi
                     if (uDto?.HasChanges ?? false)
                     {
                         UiSharedService.ColorText(idText, ImGuiColors.DalamudYellow);
-                        UiSharedService.AttachToolTip("This entry has unsaved changes");
+                        UiSharedService.AttachToolTip("条目有未保存的变更");
                     }
                     else
                     {
@@ -611,25 +611,25 @@ internal sealed partial class CharaDataHubUi
                         && !string.IsNullOrEmpty(entry.GlamourerData);
                     _uiSharedService.BooleanToColoredIcon(isDownloadable, false);
                     if (ImGui.IsItemClicked()) _selectedDtoId = entry.Id;
-                    UiSharedService.AttachToolTip(isDownloadable ? "Can be downloaded by others" : "Cannot be downloaded: Has missing files or data, please review this entry manually");
+                    UiSharedService.AttachToolTip(isDownloadable ? "可被下载" : "无法下载: 缺失文件或数据, 请手动浏览该条目");
 
                     ImGui.TableNextColumn();
                     var count = entry.FileGamePaths.Concat(entry.FileSwaps).Count();
                     ImGui.TextUnformatted(count.ToString());
                     if (ImGui.IsItemClicked()) _selectedDtoId = entry.Id;
-                    UiSharedService.AttachToolTip(count == 0 ? "No File data attached" : "Has File data attached");
+                    UiSharedService.AttachToolTip(count == 0 ? "无附加文件" : "有附加文件");
 
                     ImGui.TableNextColumn();
                     bool hasGlamourerData = !string.IsNullOrEmpty(entry.GlamourerData);
                     _uiSharedService.BooleanToColoredIcon(hasGlamourerData, false);
                     if (ImGui.IsItemClicked()) _selectedDtoId = entry.Id;
-                    UiSharedService.AttachToolTip(string.IsNullOrEmpty(entry.GlamourerData) ? "No Glamourer data attached" : "Has Glamourer data attached");
+                    UiSharedService.AttachToolTip(string.IsNullOrEmpty(entry.GlamourerData) ? "无Glamourer数据" : "有Glamourer数据");
 
                     ImGui.TableNextColumn();
                     bool hasCustomizeData = !string.IsNullOrEmpty(entry.CustomizeData);
                     _uiSharedService.BooleanToColoredIcon(hasCustomizeData, false);
                     if (ImGui.IsItemClicked()) _selectedDtoId = entry.Id;
-                    UiSharedService.AttachToolTip(string.IsNullOrEmpty(entry.CustomizeData) ? "No Customize+ data attached" : "Has Customize+ data attached");
+                    UiSharedService.AttachToolTip(string.IsNullOrEmpty(entry.CustomizeData) ? "无Customize+数据" : "有Customize+数据");
 
                     ImGui.TableNextColumn();
                     FontAwesomeIcon eIcon = FontAwesomeIcon.None;
@@ -639,7 +639,7 @@ internal sealed partial class CharaDataHubUi
                     if (ImGui.IsItemClicked()) _selectedDtoId = entry.Id;
                     if (eIcon != FontAwesomeIcon.None)
                     {
-                        UiSharedService.AttachToolTip($"This entry will expire on {entry.ExpiryDate.ToLocalTime()}");
+                        UiSharedService.AttachToolTip($"将于 {entry.ExpiryDate.ToLocalTime()} 过期");
                     }
                 }
             }
@@ -647,7 +647,7 @@ internal sealed partial class CharaDataHubUi
 
         using (ImRaii.Disabled(!_charaDataManager.Initialized || _charaDataManager.DataCreationTask != null || _charaDataManager.OwnCharaData.Count == _charaDataManager.MaxCreatableCharaData))
         {
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Plus, "New Character Data Entry"))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Plus, "新建MCD"))
             {
                 _charaDataManager.CreateCharaDataEntry(_closalCts.Token);
                 _selectNewEntry = true;
@@ -655,28 +655,28 @@ internal sealed partial class CharaDataHubUi
         }
         if (_charaDataManager.DataCreationTask != null)
         {
-            UiSharedService.AttachToolTip("You can only create new character data every few seconds. Please wait.");
+            UiSharedService.AttachToolTip("请求过于频繁. 请稍后.");
         }
         if (!_charaDataManager.Initialized)
         {
-            UiSharedService.AttachToolTip("Please use the button \"Get Own Chara Data\" once before you can add new data entries.");
+            UiSharedService.AttachToolTip("点击 \"获取角色数据\" 再尝试新建.");
         }
 
         if (_charaDataManager.Initialized)
         {
             ImGui.SameLine();
             ImGui.AlignTextToFramePadding();
-            UiSharedService.TextWrapped($"Chara Data Entries on Server: {_charaDataManager.OwnCharaData.Count}/{_charaDataManager.MaxCreatableCharaData}");
+            UiSharedService.TextWrapped($"服务器上的数据: {_charaDataManager.OwnCharaData.Count}/{_charaDataManager.MaxCreatableCharaData}");
             if (_charaDataManager.OwnCharaData.Count == _charaDataManager.MaxCreatableCharaData)
             {
                 ImGui.AlignTextToFramePadding();
-                UiSharedService.ColorTextWrapped("You have reached the maximum Character Data entries and cannot create more.", ImGuiColors.DalamudYellow);
+                UiSharedService.ColorTextWrapped("你无法创建更多MCD数据.", ImGuiColors.DalamudYellow);
             }
         }
 
         if (_charaDataManager.DataCreationTask != null && !_charaDataManager.DataCreationTask.IsCompleted)
         {
-            UiSharedService.ColorTextWrapped("Creating new character data entry on server...", ImGuiColors.DalamudYellow);
+            UiSharedService.ColorTextWrapped("正在创建...", ImGuiColors.DalamudYellow);
         }
         else if (_charaDataManager.DataCreationTask != null && _charaDataManager.DataCreationTask.IsCompleted)
         {
@@ -704,7 +704,7 @@ internal sealed partial class CharaDataHubUi
 
     private void DrawSpecific(CharaDataExtendedUpdateDto updateDto)
     {
-        UiSharedService.DrawTree("Access for Specific Individuals / Syncshells", () =>
+        UiSharedService.DrawTree("特定角色/同步贝访问权限", () =>
         {
             using (ImRaii.PushId("user"))
             {
@@ -723,11 +723,11 @@ internal sealed partial class CharaDataHubUi
                         }
                     }
                     ImGui.SameLine();
-                    ImGui.TextUnformatted("UID/Vanity UID to Add");
-                    _uiSharedService.DrawHelpText("Users added to this list will be able to access this character data regardless of your pause or pair state with them." + UiSharedService.TooltipSeparator
-                        + "Note: Mistyped entries will be automatically removed on updating data to server.");
+                    ImGui.TextUnformatted("添加UID/个性UID");
+                    _uiSharedService.DrawHelpText("添加到本列表中的角色无论你是否和他们配对都可以查看该MCD数据." + UiSharedService.TooltipSeparator
+                        + "注意: 错误输入将被自动清除.");
 
-                    using (var lb = ImRaii.ListBox("Allowed Individuals", new(200, 200)))
+                    using (var lb = ImRaii.ListBox("允许的UID", new(200, 200)))
                     {
                         foreach (var user in updateDto.UserList)
                         {
@@ -741,7 +741,7 @@ internal sealed partial class CharaDataHubUi
 
                     using (ImRaii.Disabled(string.IsNullOrEmpty(_selectedSpecificUserIndividual)))
                     {
-                        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "Remove selected User"))
+                        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "移除选中UID"))
                         {
                             updateDto.RemoveUserFromList(_selectedSpecificUserIndividual);
                             _selectedSpecificUserIndividual = string.Empty;
@@ -770,11 +770,11 @@ internal sealed partial class CharaDataHubUi
                         }
                     }
                     ImGui.SameLine();
-                    ImGui.TextUnformatted("GID/Vanity GID to Add");
-                    _uiSharedService.DrawHelpText("Users in Syncshells added to this list will be able to access this character data regardless of your pause or pair state with them." + UiSharedService.TooltipSeparator
-                        + "Note: Mistyped entries will be automatically removed on updating data to server.");
+                    ImGui.TextUnformatted("添加GID/个性GID");
+                    _uiSharedService.DrawHelpText("在该GID对应的配对贝中的所有用户将可以查看该MCD数据, 无论你是否暂停了配对." + UiSharedService.TooltipSeparator
+                        + "注意: 错误输入将被自动清除.");
 
-                    using (var lb = ImRaii.ListBox("Allowed Syncshells", new(200, 200)))
+                    using (var lb = ImRaii.ListBox("允许的配对贝", new(200, 200)))
                     {
                         foreach (var group in updateDto.GroupList)
                         {
@@ -788,7 +788,7 @@ internal sealed partial class CharaDataHubUi
 
                     using (ImRaii.Disabled(string.IsNullOrEmpty(_selectedSpecificGroupIndividual)))
                     {
-                        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "Remove selected Syncshell"))
+                        if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "移除选中贝"))
                         {
                             updateDto.RemoveGroupFromList(_selectedSpecificGroupIndividual);
                             _selectedSpecificGroupIndividual = string.Empty;

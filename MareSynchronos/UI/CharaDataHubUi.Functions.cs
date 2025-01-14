@@ -10,21 +10,21 @@ internal sealed partial class CharaDataHubUi
 {
 	private static string GetAccessTypeString(AccessTypeDto dto) => dto switch
 	{
-		AccessTypeDto.AllPairs => "All Pairs",
-		AccessTypeDto.ClosePairs => "Direct Pairs",
-		AccessTypeDto.Individuals => "Specified",
-		AccessTypeDto.Public => "Everyone"
+		AccessTypeDto.AllPairs => "所有配对",
+		AccessTypeDto.ClosePairs => "直接配对",
+		AccessTypeDto.Individuals => "特定",
+		AccessTypeDto.Public => "所有人"
 	};
 
 	private static string GetShareTypeString(ShareTypeDto dto) => dto switch
 	{
-		ShareTypeDto.Private => "Code Only",
-		ShareTypeDto.Shared => "Shared"
+		ShareTypeDto.Private => "仅代码",
+		ShareTypeDto.Shared => "公开"
 	};
 
 	private static string GetWorldDataTooltipText(PoseEntryExtended poseEntry)
 	{
-		if (!poseEntry.HasWorldData) return "This Pose has no world data attached.";
+		if (!poseEntry.HasWorldData) return "姿势中不包含位置数据.";
 		return poseEntry.WorldDataDescriptor;
 	}
 
@@ -39,37 +39,37 @@ internal sealed partial class CharaDataHubUi
 		void AddErrorStart(StringBuilder sb)
 		{
 			sb.Append(UiSharedService.TooltipSeparator);
-			sb.AppendLine("Cannot execute:");
+			sb.AppendLine("无法执行:");
 		}
 
 		if (dto == null)
 		{
 			if (!isDisabled) AddErrorStart(sb);
-			sb.AppendLine("- No metainfo present");
+			sb.AppendLine("- 未找到元数据");
 			isDisabled = true;
 		}
 		if (!dto?.CanBeDownloaded ?? false)
 		{
 			if (!isDisabled) AddErrorStart(sb);
-			sb.AppendLine("- Character is not downloadable");
+			sb.AppendLine("- 角色无法下载");
 			isDisabled = true;
 		}
 		if (!_uiSharedService.IsInGpose)
 		{
 			if (!isDisabled) AddErrorStart(sb);
-			sb.AppendLine("- Requires to be in GPose");
+			sb.AppendLine("- 需要在GPose中");
 			isDisabled = true;
 		}
 		if (!hasValidGposeTarget && !isSpawning)
 		{
 			if (!isDisabled) AddErrorStart(sb);
-			sb.AppendLine("- Requires a valid GPose target");
+			sb.AppendLine("- GPose目标无效");
 			isDisabled = true;
 		}
 		if (isSpawning && !_charaDataManager.BrioAvailable)
 		{
 			if (!isDisabled) AddErrorStart(sb);
-			sb.AppendLine("- Requires Brio to be installed.");
+			sb.AppendLine("- 需要安装Brio.");
 			isDisabled = true;
 		}
 
@@ -94,25 +94,25 @@ internal sealed partial class CharaDataHubUi
 		void AddErrorStart(StringBuilder sb)
 		{
 			sb.Append(UiSharedService.TooltipSeparator);
-			sb.AppendLine("Cannot execute:");
+			sb.AppendLine("无法执行:");
 		}
 
 		if (!_uiSharedService.IsInGpose)
 		{
 			if (!isDisabled) AddErrorStart(sb);
-			sb.AppendLine("- Requires to be in GPose");
+			sb.AppendLine("- 需要在GPose中.");
 			isDisabled = true;
 		}
 		if (!hasValidGposeTarget)
 		{
 			if (!isDisabled) AddErrorStart(sb);
-			sb.AppendLine("- Requires a valid GPose target");
+			sb.AppendLine("- GPose目标无效.");
 			isDisabled = true;
 		}
 		if (!_charaDataManager.BrioAvailable)
 		{
 			if (!isDisabled) AddErrorStart(sb);
-			sb.AppendLine("- Requires Brio to be installed.");
+			sb.AppendLine("- 需要安装Brio.");
 			isDisabled = true;
 		}
 
