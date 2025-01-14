@@ -443,7 +443,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
             ImGuiHelpers.ScaledDummy(5);
             ImGui.Separator();
             ImGuiHelpers.ScaledDummy(10);
-            using var tree = ImRaii.TreeNode("服务器测速(国服未开放)");
+            using var tree = ImRaii.TreeNode("服务器测速");
             if (tree)
             {
                 if (_downloadServersTask == null || ((_downloadServersTask?.IsCompleted ?? false) && (!_downloadServersTask?.IsCompletedSuccessfully ?? false)))
