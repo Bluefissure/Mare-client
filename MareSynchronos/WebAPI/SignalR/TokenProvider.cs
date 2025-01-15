@@ -83,8 +83,7 @@ public sealed class TokenProvider : IDisposable, IMediatorSubscriber
                     HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, tokenUri.ToString());
                     request.Content = new FormUrlEncodedContent([
                         new KeyValuePair<string, string>("uid", identifier.UID),
-                        new KeyValuePair<string, string>("charaIdent", identifier.CharaHash),
-                        new KeyValuePair<string, string>("machineId", Dalamud.Utility.DeviceUtils.GetDeviceId().GetHash256())
+                        new KeyValuePair<string, string>("charaIdent", identifier.CharaHash)
                         ]);
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", identifier.SecretKeyOrOAuth);
                     _logger.LogInformation("Sending OAuth Request to server with auth {auth}", string.Join("", identifier.SecretKeyOrOAuth.Take(10)));
