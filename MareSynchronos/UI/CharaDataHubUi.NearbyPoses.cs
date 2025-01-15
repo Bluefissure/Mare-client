@@ -13,13 +13,13 @@ internal partial class CharaDataHubUi
     {
         _uiSharedService.BigText("附近的姿势");
 
-        DrawHelpFoldout("This tab will show you all Shared World Poses nearby you." + Environment.NewLine + Environment.NewLine
-                        + "Shared World Poses are poses in character data that have world data attached to them and are set to shared. "
-                        + "This means that all data that is in 'Shared with You' that has a pose with world data attached to it will be shown here if you are nearby." + Environment.NewLine
-                        + "By default all poses that are shared will be shown. Poses taken in housing areas will by default only be shown on the correct server and location." + Environment.NewLine + Environment.NewLine
-                        + "Shared World Poses will appear in the world as floating wisps, as well as in the list below. You can mouse over a Shared World Pose in the list for it to get highlighted in the world." + Environment.NewLine + Environment.NewLine
-                        + "You can apply Shared World Poses to yourself or spawn the associated character to pose with them." + Environment.NewLine + Environment.NewLine
-                        + "You can adjust the filter and change further settings in the 'Settings & Filter' foldout.");
+        DrawHelpFoldout("本标签将显示你附近的他人共享的姿势." + Environment.NewLine + Environment.NewLine
+                        + "这里的姿势是指附加了位置信息且访问权限设置为共享的姿势. "
+                        + "这意味着所有在 '与你共享' 中设置了位置信息且在你所在地附近的姿势将被显示." + Environment.NewLine
+                        + "默认会显示所有应该显示的姿势. 在房屋中设置的姿势应该在正确的服务器和地区显示." + Environment.NewLine + Environment.NewLine
+                        + "姿势默认显示为漂浮的幽灵, 也会显示在下方的列表中. 鼠标悬浮在一条记录上时对应的幽灵将被高亮." + Environment.NewLine + Environment.NewLine
+                        + "你可以将对应的姿势应用到自身或生成一个角色并应用." + Environment.NewLine + Environment.NewLine
+                        + "你可以在 '设置 & 过滤' 中进行相关设置.");
 
         UiSharedService.DrawTree("设置 & 过滤", () =>
         {
@@ -34,29 +34,29 @@ internal partial class CharaDataHubUi
                 _configService.Current.NearbyOwnServerOnly = onlyCurrent;
                 _configService.Save();
             }
-            _uiSharedService.DrawHelpText("Toggling this off will show you the location of all shared Poses with World Data from all Servers");
+            _uiSharedService.DrawHelpText("关闭这个选项将显示所有服务器中在这附近的姿势");
             bool showOwn = _configService.Current.NearbyShowOwnData;
             if (ImGui.Checkbox("也显示你的数据", ref showOwn))
             {
                 _configService.Current.NearbyShowOwnData = showOwn;
                 _configService.Save();
             }
-            _uiSharedService.DrawHelpText("Toggling this on will also show you the location of your own Poses");
+            _uiSharedService.DrawHelpText("打开这个选项将显示你上传的姿势");
             bool ignoreHousing = _configService.Current.NearbyIgnoreHousingLimitations;
             if (ImGui.Checkbox("无视房屋限制", ref ignoreHousing))
             {
                 _configService.Current.NearbyIgnoreHousingLimitations = ignoreHousing;
                 _configService.Save();
             }
-            _uiSharedService.DrawHelpText("This will display all poses in their location regardless of housing limitations. (Ignoring Ward, Plot, Room)" + UiSharedService.TooltipSeparator
-                + "Note: Poses that utilize housing props, furniture, etc. will not be displayed correctly if not spawned in the right location.");
+            _uiSharedService.DrawHelpText("这将解除在房屋中设置的姿势的限制. (无视分区, 门牌, 房间)" + UiSharedService.TooltipSeparator
+                + "注意: 包含房屋相关装饰, 家居等的姿势. 在非对应位置的显示可能会有问题.");
             bool showWisps = _configService.Current.NearbyDrawWisps;
             if (ImGui.Checkbox("在有姿势的位置显示幽灵", ref showWisps))
             {
                 _configService.Current.NearbyDrawWisps = showWisps;
                 _configService.Save();
             }
-            _uiSharedService.DrawHelpText("When enabled, Mare will draw floating wisps where other's poses are in the world.");
+            _uiSharedService.DrawHelpText("开启时, 将在有姿势的位置绘制幽灵.");
             int poseDetectionDistance = _configService.Current.NearbyDistanceFilter;
             ImGui.SetNextItemWidth(100);
             if (ImGui.SliderInt("检测距离", ref poseDetectionDistance, 5, 1000))
@@ -64,15 +64,15 @@ internal partial class CharaDataHubUi
                 _configService.Current.NearbyDistanceFilter = poseDetectionDistance;
                 _configService.Save();
             }
-            _uiSharedService.DrawHelpText("This setting allows you to change the maximum distance in which poses will be shown. Set it to the maximum if you want to see all poses on the current map.");
+            _uiSharedService.DrawHelpText("可以修改显示姿势的最远距离. 最大可以显示本地图中的所有姿势.");
             bool alwaysShow = _configService.Current.NearbyShowAlways;
             if (ImGui.Checkbox("关闭标签后继续显示", ref alwaysShow))
             {
                 _configService.Current.NearbyShowAlways = alwaysShow;
                 _configService.Save();
             }
-            _uiSharedService.DrawHelpText("This will allow Mare to continue the calculation of position of wisps etc. active outside of the 'Poses Nearby' tab." + UiSharedService.TooltipSeparator
-                + "Note: The wisps etc. will disappear during combat and performing.");
+            _uiSharedService.DrawHelpText("打开选项将在标签关闭后继续显示相关姿势." + UiSharedService.TooltipSeparator
+                + "注意: 在战斗和演奏中不会显示.");
         });
 
         if (!_uiSharedService.IsInGpose)

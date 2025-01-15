@@ -251,7 +251,7 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
         }
         else
         {
-            targetName = "Invalid Target";
+            targetName = "无效的目标";
         }
         return canApply;
     }

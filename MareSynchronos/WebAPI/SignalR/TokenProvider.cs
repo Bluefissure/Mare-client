@@ -116,10 +116,10 @@ public sealed class TokenProvider : IDisposable, IMediatorSubscriber
             if (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
                 if (isRenewal)
-                    Mediator.Publish(new NotificationMessage("Error refreshing token", "Your authentication token could not be renewed. Try reconnecting to Mare manually.",
+                    Mediator.Publish(new NotificationMessage("更新令牌时发生错误", "无法更新你的令牌. 请手动连接到Mare.",
                     NotificationType.Error));
                 else
-                    Mediator.Publish(new NotificationMessage("Error generating token", "Your authentication token could not be generated. Check Mares Main UI (/mare in chat) to see the error message.",
+                    Mediator.Publish(new NotificationMessage("生成令牌时发生错误", "无法生成你的令牌. 查看Mare主界面 /mare 查看错误详情.",
                     NotificationType.Error));
                 Mediator.Publish(new DisconnectedMessage());
                 throw new MareAuthFailureException(response);
@@ -139,11 +139,11 @@ public sealed class TokenProvider : IDisposable, IMediatorSubscriber
         if (tokenTime <= dateTimeMinus10 || tokenTime >= dateTimePlus10)
         {
             _tokenCache.TryRemove(identifier, out _);
-            Mediator.Publish(new NotificationMessage("Invalid system clock", "The clock of your computer is invalid. " +
-                "Mare will not function properly if the time zone is not set correctly. " +
-                "Please set your computers time zone correctly and keep your clock synchronized with the internet.",
+            Mediator.Publish(new NotificationMessage("系统时间无效", "系统时间无效. " +
+                "Mare需要准确的电脑时间来运行 " +
+                "请正确设置你的电脑时区并同步时间.",
                 NotificationType.Error));
-            throw new InvalidOperationException($"JwtToken is behind DateTime.UtcNow, DateTime.UtcNow is possibly wrong. DateTime.UtcNow is {DateTime.UtcNow}, JwtToken.ValidTo is {jwtToken.ValidTo}");
+            throw new InvalidOperationException($"JwtToken 晚于 DateTime.UtcNow, DateTime.UtcNow 可能有误. DateTime.UtcNow 为 {DateTime.UtcNow}, JwtToken.ValidTo 为 {jwtToken.ValidTo}");
         }
         return response;
     }

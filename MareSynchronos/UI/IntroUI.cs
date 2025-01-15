@@ -243,9 +243,9 @@ public partial class IntroUi : WindowMediatorSubscriberBase
                 var textSize = ImGui.CalcTextSize(text);
 
                 ImGuiHelpers.ScaledDummy(5);
-                UiSharedService.DrawGroupedCenteredColorText("Strongly consider to use OAuth2 to authenticate, if the server supports it (the current main server does). " +
-                    "The authentication flow is simpler and you do not require to store or maintain Secret Keys. " +
-                    "You already implicitly register using Discord, so the OAuth2 method will be cleaner and more straight-forward to use.", ImGuiColors.DalamudYellow, 500);
+                UiSharedService.DrawGroupedCenteredColorText("请使用 OAuth2 方式验证, MareCN服务器目前仅支持OAuth2认证. " +
+                    "OAuth2认证更为简单且无需管理复数密钥. " +
+                    "既然已经使用Discord注册, 为什么不用更方便的OAuth2呢.", ImGuiColors.DalamudYellow, 500);
                 ImGuiHelpers.ScaledDummy(5);
 
                 ImGui.AlignTextToFramePadding();

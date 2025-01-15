@@ -116,7 +116,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
         }
 
         using var tabBar = ImRaii.TabBar("analysisRecordingTabBar");
-        using (var tabItem = ImRaii.TabItem("Analysis"))
+        using (var tabItem = ImRaii.TabItem("分析"))
         {
             if (tabItem)
             {
@@ -124,13 +124,13 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
                 DrawAnalysis();
             }
         }
-        using (var tabItem = ImRaii.TabItem("Transient Files"))
+        using (var tabItem = ImRaii.TabItem("瞬时文件"))
         {
             if (tabItem)
             {
                 using var tabbar = ImRaii.TabBar("transientData");
 
-                using (var transientData = ImRaii.TabItem("Stored Transient File Data"))
+                using (var transientData = ImRaii.TabItem("储存的瞬时文件记录"))
                 {
                     using var id = ImRaii.PushId("data");
 
@@ -139,7 +139,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
                         DrawStoredData();
                     }
                 }
-                using (var transientRecord = ImRaii.TabItem("Record Transient Data"))
+                using (var transientRecord = ImRaii.TabItem("记录瞬时文件"))
                 {
                     using var id = ImRaii.PushId("recording");
 
@@ -163,13 +163,13 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
 
     private void DrawStoredData()
     {
-        UiSharedService.DrawTree("What is this? (Explanation / Help)", () =>
+        UiSharedService.DrawTree("这是什么? (说明 / 帮助)", () =>
         {
-            UiSharedService.TextWrapped("This tab allows you to see which transient files are attached to your character.");
-            UiSharedService.TextWrapped("Transient files are files that cannot be resolved to your character permanently. Mare gathers these files in the background while you execute animations, VFX, sound effects, etc.");
-            UiSharedService.TextWrapped("When sending your character data to others, Mare will combine the files listed in \"All Jobs\" and the corresponding currently used job.");
-            UiSharedService.TextWrapped("The purpose of this tab is primarily informational for you to see which files you are carrying with you. You can remove added game paths, however if you are using the animations etc. again, "
-                + "Mare will automatically attach these after using them. If you disable associated mods in Penumbra, the associated entries here will also be deleted automatically.");
+            UiSharedService.TextWrapped("本标签显示了你身上的瞬时文件的相关信息.");
+            UiSharedService.TextWrapped("瞬时文件是指那些不会长久附着于你角色上的相关文件. Mare将在你使用动画、VFX、音效等文件时进行记录.");
+            UiSharedService.TextWrapped("当向其他用户发送文件时, Mare将综合 \"所有职业\" 中的所有文件并传递当前职业的对应文件.");
+            UiSharedService.TextWrapped("本标签的主要作用是提示你到底在使用哪些文件. 你可以手工移除对应的文件, 但如果你再次进行使用表情等操作, "
+                + "Mare会再次将它们记录下来. 如果你在Penumbra中禁用了Mod, 相关条目会被自动删除.");
         });
 
         ImGuiHelpers.ScaledDummy(5);
@@ -178,7 +178,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
         Vector2 availableContentRegion = Vector2.Zero;
         using (ImRaii.Group())
         {
-            ImGui.TextUnformatted("Character");
+            ImGui.TextUnformatted("角色");
             ImGui.Separator();
             ImGuiHelpers.ScaledDummy(3);
             availableContentRegion = ImGui.GetContentRegionAvail();
@@ -207,14 +207,14 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
         bool selectedData = config.TryGetValue(_selectedStoredCharacter, out var transientStorage) && transientStorage != null;
         using (ImRaii.Group())
         {
-            ImGui.TextUnformatted("Job");
+            ImGui.TextUnformatted("职业");
             ImGui.Separator();
             ImGuiHelpers.ScaledDummy(3);
             using (ImRaii.ListBox("##data", new Vector2(150, availableContentRegion.Y)))
             {
                 if (selectedData)
                 {
-                    if (ImGui.Selectable("All Jobs", string.Equals(_selectedJobEntry, "alljobs", StringComparison.Ordinal)))
+                    if (ImGui.Selectable("所有职业", string.Equals(_selectedJobEntry, "alljobs", StringComparison.Ordinal)))
                     {
                         _selectedJobEntry = "alljobs";
                     }
@@ -239,7 +239,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
             var selectedList = string.Equals(_selectedJobEntry, "alljobs", StringComparison.Ordinal)
                 ? config[_selectedStoredCharacter].GlobalPersistentCache
                 : (string.IsNullOrEmpty(_selectedJobEntry) ? [] : config[_selectedStoredCharacter].JobSpecificCache[uint.Parse(_selectedJobEntry)]);
-            ImGui.TextUnformatted($"Attached Files (Total Files: {selectedList.Count})");
+            ImGui.TextUnformatted($"附加的文件 (总文件: {selectedList.Count})");
             ImGui.Separator();
             ImGuiHelpers.ScaledDummy(3);
             using (ImRaii.Disabled(string.IsNullOrEmpty(_selectedJobEntry)))
@@ -247,7 +247,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
 
                 var restContent = availableContentRegion.X - ImGui.GetCursorPosX();
                 using var group = ImRaii.Group();
-                if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowRight, "Resolve Game Paths to used File Paths"))
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowRight, "将游戏路径解析为文件路径"))
                 {
                     _ = Task.Run(async () =>
                     {
@@ -266,7 +266,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
                 ImGui.SameLine();
                 using (ImRaii.Disabled(!_storedPathsToRemove.Any()))
                 {
-                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "Remove selected Game Paths"))
+                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "移除选中的游戏路径"))
                     {
                         foreach (var item in _storedPathsToRemove)
                         {
@@ -282,7 +282,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
                 ImGui.SameLine();
                 using (ImRaii.Disabled(!UiSharedService.CtrlPressed()))
                 {
-                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "Clear ALL Game Paths"))
+                    if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "全部清除"))
                     {
                         selectedList.Clear();
                         _transientConfigService.Save();
@@ -291,24 +291,24 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
                         _filterGamePath = string.Empty;
                     }
                 }
-                UiSharedService.AttachToolTip("Hold CTRL to delete all game paths from the displayed list"
-                    + UiSharedService.TooltipSeparator + "You usually do not need to do this. All animation and VFX data will be automatically handled through Mare.");
+                UiSharedService.AttachToolTip("按住CTRL删除所有路径"
+                    + UiSharedService.TooltipSeparator + "你一般不需要这么做. 动画和VFX数据会被Mare自动处理.");
                 ImGuiHelpers.ScaledDummy(5);
                 ImGuiHelpers.ScaledDummy(30);
                 ImGui.SameLine();
                 ImGui.SetNextItemWidth((restContent - 30) / 2f);
-                ImGui.InputTextWithHint("##filterGamePath", "Filter by Game Path", ref _filterGamePath, 255);
+                ImGui.InputTextWithHint("##filterGamePath", "按游戏路径过滤", ref _filterGamePath, 255);
                 ImGui.SameLine();
                 ImGui.SetNextItemWidth((restContent - 30) / 2f);
-                ImGui.InputTextWithHint("##filterFilePath", "Filter by File Path", ref _filterFilePath, 255);
+                ImGui.InputTextWithHint("##filterFilePath", "按文件路径过滤", ref _filterFilePath, 255);
 
                 using (var dataTable = ImRaii.Table("##table", 3, ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.ScrollY | ImGuiTableFlags.RowBg))
                 {
                     if (dataTable)
                     {
                         ImGui.TableSetupColumn("", ImGuiTableColumnFlags.WidthFixed, 30);
-                        ImGui.TableSetupColumn("Game Path", ImGuiTableColumnFlags.WidthFixed, (restContent - 30) / 2f);
-                        ImGui.TableSetupColumn("File Path", ImGuiTableColumnFlags.WidthFixed, (restContent - 30) / 2f);
+                        ImGui.TableSetupColumn("游戏路径", ImGuiTableColumnFlags.WidthFixed, (restContent - 30) / 2f);
+                        ImGui.TableSetupColumn("文件路径", ImGuiTableColumnFlags.WidthFixed, (restContent - 30) / 2f);
                         ImGui.TableSetupScrollFreeze(0, 1);
                         ImGui.TableHeadersRow();
                         int id = 0;
@@ -333,7 +333,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
                             }
                             ImGui.TableNextColumn();
                             ImGui.TextUnformatted(entry);
-                            UiSharedService.AttachToolTip(entry + UiSharedService.TooltipSeparator + "Click to copy to clipboard");
+                            UiSharedService.AttachToolTip(entry + UiSharedService.TooltipSeparator + "点击复制到剪贴板");
                             if (ImGui.IsItemClicked(ImGuiMouseButton.Left))
                             {
                                 ImGui.SetClipboardText(entry);
@@ -342,7 +342,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
                             if (hasFileResolve)
                             {
                                 ImGui.TextUnformatted(filePath ?? "Unk");
-                                UiSharedService.AttachToolTip(filePath ?? "Unk" + UiSharedService.TooltipSeparator + "Click to copy to clipboard");
+                                UiSharedService.AttachToolTip(filePath ?? "Unk" + UiSharedService.TooltipSeparator + "点击复制到剪贴板");
                                 if (ImGui.IsItemClicked(ImGuiMouseButton.Left))
                                 {
                                     ImGui.SetClipboardText(filePath);
@@ -351,7 +351,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
                             else
                             {
                                 ImGui.TextUnformatted("-");
-                                UiSharedService.AttachToolTip("Resolve Game Paths to used File Paths to display the associated file paths.");
+                                UiSharedService.AttachToolTip("将游戏路径解析为使用的文件路径以显示对应本地文件路径.");
                             }
                         }
                     }
@@ -362,7 +362,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
 
     private void DrawRecording()
     {
-        UiSharedService.DrawTree("What is this? (Explanation / Help)", () =>
+        UiSharedService.DrawTree("这是什么? (说明 / 帮助)", () =>
         {
             UiSharedService.TextWrapped("This tab allows you to attempt to fix mods that do not sync correctly, especially those with modded models and animations." + Environment.NewLine + Environment.NewLine
                 + "To use this, start the recording, execute one or multiple emotes/animations you want to attempt to fix and check if new data appears in the table below." + Environment.NewLine
@@ -379,7 +379,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
         });
         using (ImRaii.Disabled(_transientResourceManager.IsTransientRecording))
         {
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Play, "Start Transient Recording"))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Play, "开始记录"))
             {
                 _transientRecordCts.Cancel();
                 _transientRecordCts.Dispose();
@@ -391,7 +391,7 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
         ImGui.SameLine();
         using (ImRaii.Disabled(!_transientResourceManager.IsTransientRecording))
         {
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Stop, "Stop Transient Recording"))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Stop, "停止记录"))
             {
                 _transientRecordCts.Cancel();
             }
@@ -399,43 +399,43 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
         if (_transientResourceManager.IsTransientRecording)
         {
             ImGui.SameLine();
-            UiSharedService.ColorText($"RECORDING - Time Remaining: {_transientResourceManager.RecordTimeRemaining.Value}", ImGuiColors.DalamudYellow);
+            UiSharedService.ColorText($"记录中 - 剩余时间: {_transientResourceManager.RecordTimeRemaining.Value}", ImGuiColors.DalamudYellow);
             ImGuiHelpers.ScaledDummy(5);
-            UiSharedService.DrawGroupedCenteredColorText("DO NOT CHANGE YOUR APPEARANCE OR MODS WHILE RECORDING, YOU CAN ACCIDENTALLY MAKE SOME OF YOUR APPEARANCE RELATED MODS PERMANENT.", ImGuiColors.DalamudRed, 800);
+            UiSharedService.DrawGroupedCenteredColorText("不要开关Mod或修改外貌, 你可能会将部分外貌Mod永久关联.", ImGuiColors.DalamudRed, 800);
         }
 
         ImGuiHelpers.ScaledDummy(5);
-        ImGui.Checkbox("Show previously added transient files in the recording", ref _showAlreadyAddedTransients);
-        _uiSharedService.DrawHelpText("Use this only if you want to see what was previously already caught by Mare");
+        ImGui.Checkbox("显示之前记录的瞬时文件", ref _showAlreadyAddedTransients);
+        _uiSharedService.DrawHelpText("仅在你想知道Mare已经记录了哪些文件的时候使用");
         ImGuiHelpers.ScaledDummy(5);
 
         using (ImRaii.Disabled(_transientResourceManager.IsTransientRecording || _transientResourceManager.RecordedTransients.All(k => !k.AddTransient) || !_acknowledgeReview))
         {
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, "Save Recorded Transient Data"))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Save, "保存已记录的瞬时文件记录"))
             {
                 _transientResourceManager.SaveRecording();
                 _acknowledgeReview = false;
             }
         }
         ImGui.SameLine();
-        ImGui.Checkbox("I acknowledge I have reviewed the recorded data", ref _acknowledgeReview);
+        ImGui.Checkbox("我确定我已经再次确认过了即将保存的记录", ref _acknowledgeReview);
         if (_transientResourceManager.RecordedTransients.Any(k => !k.AlreadyTransient))
         {
             ImGuiHelpers.ScaledDummy(5);
-            UiSharedService.DrawGroupedCenteredColorText("Please review the recorded mod files before saving and deselect files that got into the recording on accident.", ImGuiColors.DalamudYellow);
+            UiSharedService.DrawGroupedCenteredColorText("请再次确认保存的记录, 并移除任何非瞬时文件.", ImGuiColors.DalamudYellow);
             ImGuiHelpers.ScaledDummy(5);
         }
 
         ImGuiHelpers.ScaledDummy(5);
         var width = ImGui.GetContentRegionAvail();
-        using var table = ImRaii.Table("Recorded Transients", 4, ImGuiTableFlags.ScrollY | ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.RowBg);
+        using var table = ImRaii.Table("记录的瞬时文件", 4, ImGuiTableFlags.ScrollY | ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.RowBg);
         if (table)
         {
             int id = 0;
             ImGui.TableSetupColumn("", ImGuiTableColumnFlags.WidthFixed, 30);
-            ImGui.TableSetupColumn("Owner", ImGuiTableColumnFlags.WidthFixed, 100);
-            ImGui.TableSetupColumn("Game Path", ImGuiTableColumnFlags.WidthFixed, (width.X - 30 - 100) / 2f);
-            ImGui.TableSetupColumn("File Path", ImGuiTableColumnFlags.WidthFixed, (width.X - 30 - 100) / 2f);
+            ImGui.TableSetupColumn("所有者", ImGuiTableColumnFlags.WidthFixed, 100);
+            ImGui.TableSetupColumn("游戏路径", ImGuiTableColumnFlags.WidthFixed, (width.X - 30 - 100) / 2f);
+            ImGui.TableSetupColumn("文件路径", ImGuiTableColumnFlags.WidthFixed, (width.X - 30 - 100) / 2f);
             ImGui.TableSetupScrollFreeze(0, 1);
             ImGui.TableHeadersRow();
             var transients = _transientResourceManager.RecordedTransients.ToList();
@@ -474,9 +474,9 @@ public class DataAnalysisUi : WindowMediatorSubscriberBase
 
     private void DrawAnalysis()
     {
-        UiSharedService.DrawTree("What is this? (Explanation / Help)", () =>
+        UiSharedService.DrawTree("这是什么? (说明 / 帮助)", () =>
         {
-            UiSharedService.TextWrapped("This tab shows you all files and their sizes that are currently in use through your character and associated entities in Mare");
+            UiSharedService.TextWrapped("这个标签显示了你正在使用的, 将通过Mare传递的相关文件信息");
         });
 
         if (_cachedAnalysis!.Count == 0) return;
