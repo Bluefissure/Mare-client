@@ -66,6 +66,11 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
                 .Where(w => !w.Name.RawData.IsEmpty && w.DataCenter.Row != 0 && (w.IsPublic || char.IsUpper((char)w.Name.RawData[0])) || w is { Region:5, RowId: >= 1000})
                 .ToDictionary(w => (ushort)w.RowId, w => w.Name.ToString());
         });
+        JobData = new(() =>
+        {
+            return gameData.GetExcelSheet<ClassJob>(Dalamud.Game.ClientLanguage.English)!
+                .ToDictionary(k => k.RowId, k => k.NameEnglish.ToString());
+        });
         TerritoryData = new(() =>
         {
             return gameData.GetExcelSheet<Lumina.Excel.GeneratedSheets.TerritoryType>(Dalamud.Game.ClientLanguage.English)!
@@ -134,6 +139,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     public bool IsInCombatOrPerforming { get; private set; } = false;
     public bool HasModifiedGameFiles => _gameData.HasModifiedGameDataFiles;
     public uint ClassJobId => _classJobId!.Value;
+    public Lazy<Dictionary<uint, string>> JobData { get; private set; }
     public Lazy<Dictionary<ushort, string>> WorldData { get; private set; }
     public Lazy<Dictionary<uint, string>> TerritoryData { get; private set; }
     public Lazy<Dictionary<uint, (Lumina.Excel.GeneratedSheets.Map Map, string MapName)>> MapData { get; private set; }
