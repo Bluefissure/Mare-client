@@ -1,4 +1,5 @@
-﻿using MareSynchronos.API.Data.Enum;
+﻿using FFXIVClientStructs.FFXIV.Client.UI;
+using MareSynchronos.API.Data.Enum;
 using MareSynchronos.API.Dto;
 using MareSynchronos.API.Dto.Group;
 using MareSynchronos.API.Dto.User;
@@ -99,6 +100,20 @@ public partial class ApiController
                 Mediator.Publish(new NotificationMessage("Info from " + _serverManager.CurrentServer!.ServerName, message, NotificationType.Info, TimeSpan.FromSeconds(5)));
                 break;
         }
+
+        unsafe
+        {
+            var warning = messageSeverity != MessageSeverity.Information;
+            if (!message.Contains("Welcome"))
+            {
+                var text = $"{(warning ? "Mare警告: " : "Mare通知: ")} {message}";
+                RaptureAtkModule.Instance()->ShowTextGimmickHint(
+                    text,
+                    warning ? RaptureAtkModule.TextGimmickHintStyle.Warning : RaptureAtkModule.TextGimmickHintStyle.Info,
+                    50);
+            }
+        }
+
 
         return Task.CompletedTask;
     }
