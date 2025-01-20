@@ -443,6 +443,12 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         OnGroupChangeUserPairPermissions((dto) => _ = Client_GroupChangeUserPairPermissions(dto));
 
         OnUserApplyMoodlesByStatus(dto => _ = Client_UserApplyMoodlesByStatus(dto));
+        
+        OnGposeLobbyJoin((dto) => _ = Client_GposeLobbyJoin(dto));
+        OnGposeLobbyLeave((dto) => _ = Client_GposeLobbyLeave(dto));
+        OnGposeLobbyPushCharacterData((dto) => _ = Client_GposeLobbyPushCharacterData(dto));
+        OnGposeLobbyPushPoseData((dto, data) => _ = Client_GposeLobbyPushPoseData(dto, data));
+        OnGposeLobbyPushWorldData((dto, data) => _ = Client_GposeLobbyPushWorldData(dto, data));
 
         _healthCheckTokenSource?.Cancel();
         _healthCheckTokenSource?.Dispose();

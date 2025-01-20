@@ -40,7 +40,7 @@ public sealed class CommandManagerService : IDisposable
                 "其他可用命令:" + Environment.NewLine +
                 "\t /mare toggle - 若已连接到Mare服务器, 断开连接, 否则, 连接到当前设置的服务器" + Environment.NewLine +
                 "\t /mare toggle on|off - 根据参数连接或断开连接" + Environment.NewLine +
-                "\t /mare gpose - 打开GPose MCDF导入窗口 (仅在GPose中生效)" + Environment.NewLine +
+                "\t /mare gpose - 打开Mare角色数据中心界面" + Environment.NewLine +
                 "\t /mare analyze - 打开Mare角色数据分析界面" + Environment.NewLine +
                 "\t /mare settings - 打开设置界面"
         });
