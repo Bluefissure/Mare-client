@@ -118,7 +118,7 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
             CharaDataMetaInfoDto metaInfo = new(dataDownloadDto.Id, dataDownloadDto.Uploader)
             {
                 CanBeDownloaded = true,
-                Description = $"Data from {dataDownloadDto.Uploader.AliasOrUID} for {dataDownloadDto.Id}",
+                Description = $"来自 {dataDownloadDto.Uploader.AliasOrUID} 的 {dataDownloadDto.Id} 数据",
                 UpdatedDate = dataDownloadDto.UpdatedDate,
             };
 
@@ -299,11 +299,11 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
 
 
             if (result == null)
-                return ("Failed to create character data, see log for more information", false);
+                return ("创建角色数据失败, 查看log获取更多信息", false);
 
             await AddOrUpdateDto(result).ConfigureAwait(false);
 
-            return ("Created Character Data", true);
+            return ("已创建角色数据", true);
         });
     }
 
@@ -333,14 +333,14 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
                 if (metaInfo == null)
                 {
                     _metaInfoCache[importCode] = null;
-                    return ("Failed to download meta info for this code. Check if the code is valid and you have rights to access it.", false);
+                    return ("无法下载对应的元数据. 请确认输入正确且拥有访问权限.", false);
                 }
                 await CacheData(metaInfo).ConfigureAwait(false);
                 if (store)
                 {
                     LastDownloadedMetaInfo = await CharaDataMetaInfoExtendedDto.Create(metaInfo, _dalamudUtilService).ConfigureAwait(false);
                 }
-                return ("Ok", true);
+                return ("成功", true);
             }
             finally
             {
@@ -470,7 +470,7 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
 
                 long expectedExtractedSize = LoadedMcdfHeader.Result.ExpectedLength;
                 var charaFile = LoadedMcdfHeader.Result.LoadedFile;
-                DataApplicationProgress = "Extracting MCDF data";
+                DataApplicationProgress = "正在解压MCDF数据";
 
                 var extractedFiles = _fileHandler.McdfExtractFiles(charaFile, expectedExtractedSize, actuallyExtractedFiles);
 
@@ -479,7 +479,7 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
                     extractedFiles[entry.Key] = entry.Value;
                 }
 
-                DataApplicationProgress = "Applying MCDF data";
+                DataApplicationProgress = "正在应用MCDF数据";
 
                 var extended = await CharaDataMetaInfoExtendedDto.Create(new(charaFile.FilePath, new UserData(string.Empty)), _dalamudUtilService)
                     .ConfigureAwait(false);
@@ -777,7 +777,7 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
         Guid penumbraCollection;
         try
         {
-            DataApplicationProgress = "Reverting previous Application";
+            DataApplicationProgress = "正在恢复上一次应用的状态";
 
             Logger.LogTrace("[{appId}] Reverting chara {chara}", applicationId, tempHandler.Name);
             bool reverted = await _characterHandler.RevertHandledChara(tempHandler.Name).ConfigureAwait(false);
@@ -786,7 +786,7 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
 
             Logger.LogTrace("[{appId}] Applying data in Penumbra", applicationId);
 
-            DataApplicationProgress = "Applying Penumbra information";
+            DataApplicationProgress = "正在应用Penumbra数据";
             penumbraCollection = await _ipcManager.Penumbra.CreateTemporaryCollectionAsync(Logger, metaInfo.Uploader.UID + metaInfo.Id).ConfigureAwait(false);
             var idx = await _dalamudUtilService.RunOnFrameworkThread(() => tempHandler.GetGameObject()?.ObjectIndex).ConfigureAwait(false) ?? 0;
             await _ipcManager.Penumbra.AssignTemporaryCollectionAsync(Logger, penumbraCollection, idx).ConfigureAwait(false);
@@ -794,14 +794,14 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
             await _ipcManager.Penumbra.SetManipulationDataAsync(Logger, applicationId, penumbraCollection, manipData ?? string.Empty).ConfigureAwait(false);
 
             Logger.LogTrace("[{appId}] Applying Glamourer data and Redrawing", applicationId);
-            DataApplicationProgress = "Applying Glamourer and redrawing Character";
+            DataApplicationProgress = "正在应用Glamourer并重绘";
             await _ipcManager.Glamourer.ApplyAllAsync(Logger, tempHandler, glamourerData, applicationId, token).ConfigureAwait(false);
             await _ipcManager.Penumbra.RedrawAsync(Logger, tempHandler, applicationId, token).ConfigureAwait(false);
             await _dalamudUtilService.WaitWhileCharacterIsDrawing(Logger, tempHandler, applicationId, ct: token).ConfigureAwait(false);
             Logger.LogTrace("[{appId}] Removing collection", applicationId);
             await _ipcManager.Penumbra.RemoveTemporaryCollectionAsync(Logger, applicationId, penumbraCollection).ConfigureAwait(false);
 
-            DataApplicationProgress = "Applying Customize+ data";
+            DataApplicationProgress = "正在应用Customize+数据";
             Logger.LogTrace("[{appId}] Appplying C+ data", applicationId);
 
             if (!string.IsNullOrEmpty(customizeData))
@@ -820,7 +820,7 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
                 int i = 15;
                 while (i > 0)
                 {
-                    DataApplicationProgress = $"All data applied. Reverting automatically in {i} seconds.";
+                    DataApplicationProgress = $"已应用. 将在 {i} 秒后恢复到之前的状态.";
                     await Task.Delay(TimeSpan.FromSeconds(1), token).ConfigureAwait(false);
                     i--;
                 }
@@ -835,9 +835,9 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
         finally
         {
             if (token.IsCancellationRequested)
-                DataApplicationProgress = "Application aborted. Reverting Character...";
+                DataApplicationProgress = "应用被取消. 正在恢复角色...";
             else if (autoRevert)
-                DataApplicationProgress = "Application finished. Reverting Character...";
+                DataApplicationProgress = "应用失败. 正在恢复角色...";
             if (autoRevert)
             {
                 await _characterHandler.RevertChara(tempHandler.Name, cPlusId).ConfigureAwait(false);
@@ -894,7 +894,7 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
         var playerChar = await _dalamudUtilService.GetPlayerCharacterAsync().ConfigureAwait(false);
         bool isSelf = playerChar != null && string.Equals(playerChar.Name.TextValue, chara.Name.TextValue, StringComparison.Ordinal);
 
-        DataApplicationProgress = "Checking local files";
+        DataApplicationProgress = "正在检查本地文件";
 
         Logger.LogTrace("[{appId}] Computing local missing files", applicationId);
 
@@ -911,18 +911,18 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
         {
             try
             {
-                DataApplicationProgress = "Downloading Missing Files. Please be patient.";
+                DataApplicationProgress = "正在下载缺失的文件. 请稍后.";
                 await _fileHandler.DownloadFilesAsync(tempHandler, missingFiles, modPaths, token).ConfigureAwait(false);
             }
             catch (FileNotFoundException)
             {
-                DataApplicationProgress = "Failed to download one or more files. Aborting.";
+                DataApplicationProgress = "下载文件失败. 放弃操作.";
                 DataApplicationTask = null;
                 return;
             }
             catch (OperationCanceledException)
             {
-                DataApplicationProgress = "Application aborted.";
+                DataApplicationProgress = "未能成功应用.";
                 DataApplicationTask = null;
                 return;
             }
@@ -947,22 +947,22 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
             if (missingFiles.Any())
             {
                 Logger.LogInformation("Failed to upload {files}", string.Join(", ", missingFiles));
-                return ($"Upload failed: {missingFiles.Count} missing or forbidden to upload local files.", false);
+                return ($"上传失败: {missingFiles.Count} 文件缺失或未能上传.", false);
             }
 
             if (postUpload != null)
                 await postUpload.Invoke().ConfigureAwait(false);
 
-            return ("Upload sucessful", true);
+            return ("上传成功", true);
         }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Error during upload");
             if (ex is OperationCanceledException)
             {
-                return ("Upload Cancelled", false);
+                return ("上传取消", false);
             }
-            return ("Error in upload, see log for more details", false);
+            return ("上传错误, 查看log获取更多信息", false);
         }
         finally
         {

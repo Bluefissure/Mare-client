@@ -128,14 +128,14 @@ public sealed record GposeLobbyUserData(UserData UserData)
 
     public string WorldDataDescriptor { get; private set; } = string.Empty;
     public Vector2 MapCoordinates { get; private set; }
-    public Lumina.Excel.Sheets.Map Map { get; private set; }
+    public Lumina.Excel.GeneratedSheets.Map Map { get; private set; }
     public HandledCharaDataEntry? HandledChara { get; set; }
 
     public async Task SetWorldDataDescriptor(DalamudUtilService dalamudUtilService)
     {
         if (WorldData == null)
         {
-            WorldDataDescriptor = "No World Data found";
+            WorldDataDescriptor = "未找到位置数据";
         }
 
         var worldData = WorldData!.Value;
@@ -145,30 +145,30 @@ public sealed record GposeLobbyUserData(UserData UserData)
         Map = dalamudUtilService.MapData.Value[worldData.LocationInfo.MapId].Map;
 
         StringBuilder sb = new();
-        sb.AppendLine("Server: " + dalamudUtilService.WorldData.Value[(ushort)worldData.LocationInfo.ServerId]);
-        sb.AppendLine("Territory: " + dalamudUtilService.TerritoryData.Value[worldData.LocationInfo.TerritoryId]);
-        sb.AppendLine("Map: " + dalamudUtilService.MapData.Value[worldData.LocationInfo.MapId].MapName);
+        sb.AppendLine("服务器: " + dalamudUtilService.WorldData.Value[(ushort)worldData.LocationInfo.ServerId]);
+        sb.AppendLine("地区: " + dalamudUtilService.TerritoryData.Value[worldData.LocationInfo.TerritoryId]);
+        sb.AppendLine("地图: " + dalamudUtilService.MapData.Value[worldData.LocationInfo.MapId].MapName);
 
         if (worldData.LocationInfo.WardId != 0)
-            sb.AppendLine("Ward #: " + worldData.LocationInfo.WardId);
+            sb.AppendLine("门牌号 #: " + worldData.LocationInfo.WardId);
         if (worldData.LocationInfo.DivisionId != 0)
         {
-            sb.AppendLine("Subdivision: " + worldData.LocationInfo.DivisionId switch
+            sb.AppendLine("扩展区: " + worldData.LocationInfo.DivisionId switch
             {
-                1 => "No",
-                2 => "Yes",
+                1 => "否",
+                2 => "是",
                 _ => "-"
             });
         }
         if (worldData.LocationInfo.HouseId != 0)
         {
-            sb.AppendLine("House #: " + (worldData.LocationInfo.HouseId == 100 ? "Apartments" : worldData.LocationInfo.HouseId.ToString()));
+            sb.AppendLine("房屋 #: " + (worldData.LocationInfo.HouseId == 100 ? "公寓" : worldData.LocationInfo.HouseId.ToString()));
         }
         if (worldData.LocationInfo.RoomId != 0)
         {
-            sb.AppendLine("Apartment #: " + worldData.LocationInfo.RoomId);
+            sb.AppendLine("公寓 #: " + worldData.LocationInfo.RoomId);
         }
-        sb.AppendLine("Coordinates: X: " + MapCoordinates.X.ToString("0.0", CultureInfo.InvariantCulture) + ", Y: " + MapCoordinates.Y.ToString("0.0", CultureInfo.InvariantCulture));
+        sb.AppendLine("位置: X: " + MapCoordinates.X.ToString("0.0", CultureInfo.InvariantCulture) + ", Y: " + MapCoordinates.Y.ToString("0.0", CultureInfo.InvariantCulture));
         WorldDataDescriptor = sb.ToString();
     }
 }

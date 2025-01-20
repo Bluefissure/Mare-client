@@ -15,18 +15,18 @@ internal sealed partial class CharaDataHubUi
         if (!_charaDataManager.BrioAvailable)
         {
             ImGuiHelpers.ScaledDummy(5);
-            UiSharedService.DrawGroupedCenteredColorText("BRIO IS MANDATORY FOR GPOSE TOGETHER.", ImGuiColors.DalamudRed);
+            UiSharedService.DrawGroupedCenteredColorText("你必须安装Brio才能使用在线GPose.", ImGuiColors.DalamudRed);
             ImGuiHelpers.ScaledDummy(5);
         }
 
         if (!_uiSharedService.ApiController.IsConnected)
         {
             ImGuiHelpers.ScaledDummy(5);
-            UiSharedService.DrawGroupedCenteredColorText("CANNOT USE GPOSE TOGETHER WHILE DISCONNECTED FROM THE SERVER.", ImGuiColors.DalamudRed);
+            UiSharedService.DrawGroupedCenteredColorText("必须连接到服务器才能使用在线GPose.", ImGuiColors.DalamudRed);
             ImGuiHelpers.ScaledDummy(5);
         }
 
-        _uiSharedService.BigText("GPose Together");
+        _uiSharedService.BigText("在线GPose");
         DrawHelpFoldout("GPose together is a way to do multiplayer GPose sessions and collaborations." + UiSharedService.DoubleNewLine
             + "GPose together requires Brio to function. Only Brio is also supported for the actual posing interactions. Attempting to pose using other tools will lead to conflicts and exploding characters." + UiSharedService.DoubleNewLine
             + "To use GPose together you either create or join a GPose Together Lobby. After you and other people have joined, make sure that everyone is on the same map. "
@@ -37,23 +37,23 @@ internal sealed partial class CharaDataHubUi
         using var disabled = ImRaii.Disabled(!_charaDataManager.BrioAvailable || !_uiSharedService.ApiController.IsConnected);
 
         UiSharedService.DistanceSeparator();
-        _uiSharedService.BigText("Lobby Controls");
+        _uiSharedService.BigText("大厅设置");
         if (string.IsNullOrEmpty(_charaDataGposeTogetherManager.CurrentGPoseLobbyId))
         {
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Plus, "Create New GPose Together Lobby"))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.Plus, "创建新的在线GPose大厅"))
             {
                 _charaDataGposeTogetherManager.CreateNewLobby();
             }
             ImGuiHelpers.ScaledDummy(5);
             ImGui.SetNextItemWidth(250);
-            ImGui.InputTextWithHint("##lobbyId", "GPose Lobby Id", ref _joinLobbyId, 30);
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowRight, "Join GPose Together Lobby"))
+            ImGui.InputTextWithHint("##lobbyId", "在线GPose大厅ID", ref _joinLobbyId, 30);
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowRight, "加入在线GPose大厅"))
             {
                 _charaDataGposeTogetherManager.JoinGPoseLobby(_joinLobbyId);
                 _joinLobbyId = string.Empty;
             }
             if (!string.IsNullOrEmpty(_charaDataGposeTogetherManager.LastGPoseLobbyId)
-                && _uiSharedService.IconTextButton(FontAwesomeIcon.LongArrowAltRight, $"Rejoin Last Lobby {_charaDataGposeTogetherManager.LastGPoseLobbyId}"))
+                && _uiSharedService.IconTextButton(FontAwesomeIcon.LongArrowAltRight, $"重新加入最近的在线GPose大厅 {_charaDataGposeTogetherManager.LastGPoseLobbyId}"))
             {
                 _charaDataGposeTogetherManager.JoinGPoseLobby(_charaDataGposeTogetherManager.LastGPoseLobbyId);
             }
@@ -61,7 +61,7 @@ internal sealed partial class CharaDataHubUi
         else
         {
             ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted("GPose Lobby");
+            ImGui.TextUnformatted("在线GPose大厅");
             ImGui.SameLine();
             UiSharedService.ColorTextWrapped(_charaDataGposeTogetherManager.CurrentGPoseLobbyId, ImGuiColors.ParsedGreen);
             ImGui.SameLine();
@@ -69,31 +69,31 @@ internal sealed partial class CharaDataHubUi
             {
                 ImGui.SetClipboardText(_charaDataGposeTogetherManager.CurrentGPoseLobbyId);
             }
-            UiSharedService.AttachToolTip("Copy Lobby ID to clipboard.");
+            UiSharedService.AttachToolTip("复制大厅ID到剪切板.");
             using (ImRaii.Disabled(!UiSharedService.CtrlPressed()))
             {
-                if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowLeft, "Leave GPose Lobby"))
+                if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowLeft, "离开在线GPose大厅"))
                 {
                     _charaDataGposeTogetherManager.LeaveGPoseLobby();
                 }
             }
-            UiSharedService.AttachToolTip("Leave the current GPose lobby." + UiSharedService.TooltipSeparator + "Hold CTRL and click to leave.");
+            UiSharedService.AttachToolTip("离开当前的在线GPose大厅." + UiSharedService.TooltipSeparator + "按住CTRL并点击.");
         }
         UiSharedService.DistanceSeparator();
         using (ImRaii.Disabled(string.IsNullOrEmpty(_charaDataGposeTogetherManager.CurrentGPoseLobbyId)))
         {
-            if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowUp, "Send Updated Character Data"))
+            if (_uiSharedService.IconTextButton(FontAwesomeIcon.ArrowUp, "发送更新的角色数据"))
             {
                 _ = _charaDataGposeTogetherManager.PushCharacterDownloadDto();
             }
-            UiSharedService.AttachToolTip("This will send your current appearance, pose and world data to all users in the lobby.");
+            UiSharedService.AttachToolTip("这将上传你的外貌, 姿势和位置数据给大厅中的所有用户.");
             if (!_uiSharedService.IsInGpose)
             {
                 ImGuiHelpers.ScaledDummy(5);
-                UiSharedService.DrawGroupedCenteredColorText("Assigning users to characters is only available in GPose.", ImGuiColors.DalamudYellow, 300);
+                UiSharedService.DrawGroupedCenteredColorText("将用户分配到角色功能仅在GPose中可用.", ImGuiColors.DalamudYellow, 300);
             }
             UiSharedService.DistanceSeparator();
-            ImGui.TextUnformatted("Users In Lobby");
+            ImGui.TextUnformatted("用户列表");
             var gposeCharas = _dalamudUtilService.GetGposeCharactersFromObjectTable();
             var self = _dalamudUtilService.GetPlayerCharacter();
             gposeCharas = gposeCharas.Where(c => c != null && !string.Equals(c.Name.TextValue, self.Name.TextValue, StringComparison.Ordinal)).ToList();
@@ -104,7 +104,7 @@ internal sealed partial class CharaDataHubUi
 
                 if (!_charaDataGposeTogetherManager.UsersInLobby.Any() && !string.IsNullOrEmpty(_charaDataGposeTogetherManager.CurrentGPoseLobbyId))
                 {
-                    UiSharedService.DrawGroupedCenteredColorText("No other users in current GPose lobby", ImGuiColors.DalamudYellow);
+                    UiSharedService.DrawGroupedCenteredColorText("只有你在", ImGuiColors.DalamudYellow);
                 }
                 else
                 {
@@ -143,7 +143,7 @@ internal sealed partial class CharaDataHubUi
                     _ = _charaDataGposeTogetherManager.ApplyCharaData(user);
                 }
             }
-            UiSharedService.AttachToolTip("Apply newly received character data to selected actor." + UiSharedService.TooltipSeparator + "Note: If the button is grayed out, the latest data has already been applied.");
+            UiSharedService.AttachToolTip("将新接收的数据应用到角色." + UiSharedService.TooltipSeparator + "注意: 如果按钮为灰色, 表明已应用了最新的数据.");
             ImGui.SameLine();
             using (ImRaii.Disabled(!_uiSharedService.IsInGpose || user.CharaData == null || sameMapAndServer.SameEverything))
             {
@@ -152,13 +152,13 @@ internal sealed partial class CharaDataHubUi
                     _ = _charaDataGposeTogetherManager.SpawnAndApplyData(user);
                 }
             }
-            UiSharedService.AttachToolTip("Spawn new actor, apply character data and and assign it to this user." + UiSharedService.TooltipSeparator + "Note: If the button is grayed out, " +
-                "the user has not sent any character data or you are on the same map, server and instance. If the latter is the case, join a group with that user and assign the character to them.");
+            UiSharedService.AttachToolTip("生成一个新角色, 并将用户数据应用到该角色." + UiSharedService.TooltipSeparator + "注意: 如果按钮为灰色, " +
+                "则用户尚未上传数据或你与他们在同一地图之中. 如果是后者的情况下, 你需要和他们配对并将数据应用在对应角色身上.");
 
 
             using (ImRaii.Group())
             {
-                UiSharedService.ColorText("Map Info", ImGuiColors.DalamudGrey);
+                UiSharedService.ColorText("地图信息", ImGuiColors.DalamudGrey);
                 ImGui.SameLine();
                 _uiSharedService.IconText(FontAwesomeIcon.ExternalLinkSquareAlt, ImGuiColors.DalamudGrey);
             }
@@ -170,25 +170,25 @@ internal sealed partial class CharaDataHubUi
             {
                 _dalamudUtilService.SetMarkerAndOpenMap(new(user.WorldData.Value.PositionX, user.WorldData.Value.PositionY, user.WorldData.Value.PositionZ), user.Map);
             }
-            UiSharedService.AttachToolTip((sameMapAndServer.SameMap ? "You are on the same map." : "You are not on the same map.") + UiSharedService.TooltipSeparator
-                + "Note: Click to open the users location on your map." + Environment.NewLine
-                + "Note: For GPose synchronization to work properly, you must be on the same map.");
+            UiSharedService.AttachToolTip((sameMapAndServer.SameMap ? "你们在同一张地图内." : "你们不在同一张地图内.") + UiSharedService.TooltipSeparator
+                + "注意: 点击以在地图上显示用户位置." + Environment.NewLine
+                + "注意: 你们必须处于同一张地图才能正确共享GPose数据.");
 
             ImGui.SameLine();
             _uiSharedService.IconText(FontAwesomeIcon.Globe, sameMapAndServer.SameServer ? ImGuiColors.ParsedGreen : ImGuiColors.DalamudRed);
-            UiSharedService.AttachToolTip((sameMapAndServer.SameMap ? "You are on the same server." : "You are not on the same server.") + UiSharedService.TooltipSeparator
-                + "Note: GPose synchronization is not dependent on the current server, but you will have to spawn a character for the other lobby users.");
+            UiSharedService.AttachToolTip((sameMapAndServer.SameMap ? "你们在同一个服务器中." : "你们不在同一个服务器中.") + UiSharedService.TooltipSeparator
+                + "注意: GPose同步不要求你们位于同一个服务器中, 但你可能会需要为每个其他用户生成一个角色.");
 
             ImGui.SameLine();
             _uiSharedService.IconText(FontAwesomeIcon.Running, sameMapAndServer.SameEverything ? ImGuiColors.ParsedGreen : ImGuiColors.DalamudRed);
-            UiSharedService.AttachToolTip(sameMapAndServer.SameEverything ? "You are in the same instanced area." : "You are not the same instanced area." + UiSharedService.TooltipSeparator +
-                "Note: Users not in your instance, but on the same map, will be drawn as floating wisps." + Environment.NewLine
-                + "Note: GPose synchronization is not dependent on the current instance, but you will have to spawn a character for the other lobby users.");
+            UiSharedService.AttachToolTip(sameMapAndServer.SameEverything ? "你们在同一个分线中." : "你们不在同一个分线中." + UiSharedService.TooltipSeparator +
+                "注意: 你们不在同一分线, 但在同一张地图内, 将会显示为幽灵." + Environment.NewLine
+                + "注意: GPose同步不要求你们位于同一个分线中, 但你可能会需要为每个其他用户生成一个角色.");
 
             using (ImRaii.Disabled(!_uiSharedService.IsInGpose))
             {
                 ImGui.SetNextItemWidth(200);
-                using (var combo = ImRaii.Combo("##character", string.IsNullOrEmpty(user.AssociatedCharaName) ? "No character assigned" : CharaName(user.AssociatedCharaName)))
+                using (var combo = ImRaii.Combo("##character", string.IsNullOrEmpty(user.AssociatedCharaName) ? "尚未分配角色" : CharaName(user.AssociatedCharaName)))
                 {
                     if (combo)
                     {
@@ -213,12 +213,12 @@ internal sealed partial class CharaDataHubUi
                         user.Address = nint.Zero;
                     }
                 }
-                UiSharedService.AttachToolTip("Unassign Actor for this user");
+                UiSharedService.AttachToolTip("解除分配");
                 if (_uiSharedService.IsInGpose && user.Address == nint.Zero)
                 {
                     ImGui.SameLine();
                     _uiSharedService.IconText(FontAwesomeIcon.ExclamationTriangle, ImGuiColors.DalamudRed);
-                    UiSharedService.AttachToolTip("No valid character assigned for this user. Pose data will not be applied.");
+                    UiSharedService.AttachToolTip("用户尚未被分配到有效的角色上. 姿势数据不会被应用.");
                 }
             }
         }, 5, width);
