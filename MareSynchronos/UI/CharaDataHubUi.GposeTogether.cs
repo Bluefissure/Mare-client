@@ -27,12 +27,12 @@ internal sealed partial class CharaDataHubUi
         }
 
         _uiSharedService.BigText("在线GPose");
-        DrawHelpFoldout("GPose together is a way to do multiplayer GPose sessions and collaborations." + UiSharedService.DoubleNewLine
-            + "GPose together requires Brio to function. Only Brio is also supported for the actual posing interactions. Attempting to pose using other tools will lead to conflicts and exploding characters." + UiSharedService.DoubleNewLine
-            + "To use GPose together you either create or join a GPose Together Lobby. After you and other people have joined, make sure that everyone is on the same map. "
-            + "It is not required for you to be on the same server, DC or instance. Users that are on the same map will be drawn as moving purple wisps in the overworld, so you can easily find each other." + UiSharedService.DoubleNewLine
-            + "Once you are close to each other you can initiate GPose. You must either assign or spawn characters for each of the lobby users. Their own poses and positions to their character will be automatically applied." + Environment.NewLine
-            + "Pose and location data during GPose are updated approximately every 10-20s.");
+        DrawHelpFoldout("在线GPose可以让多个用户同时编辑GPose状态." + UiSharedService.DoubleNewLine
+            + "使用在线GPose需要安装Brio. 目前仅支持使用Brio进行编辑. 尝试使用其他软件编辑会破坏同步并使游戏爆炸." + UiSharedService.DoubleNewLine
+            + "要使用在线GPose你需要加入一个GPose大厅. 当用户加入后, 请保证你们所有人都在同一张地图. "
+            + "你们不需要处于同一个服务器, 大区或分线内. 在同一张地图上的用户将被显示为紫色的幽灵, 你可以以此找到其他人." + UiSharedService.DoubleNewLine
+            + "当你们都处于画面中后你们便可以打开GPose. 你需要为每个在大厅中的用户分配一个角色或生成一个角色. 他们的姿势和位置将被应用到角色." + Environment.NewLine
+            + "位置和姿势数据每10-20秒进行一次同步.");
 
         using var disabled = ImRaii.Disabled(!_charaDataManager.BrioAvailable || !_uiSharedService.ApiController.IsConnected);
 
