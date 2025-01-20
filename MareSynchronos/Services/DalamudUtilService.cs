@@ -349,6 +349,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         houseId = (uint)tempHouseId;
         if (houseId != 0)
         {
+            //TODO:7.1
             //territoryId = HousingManager.GetOriginalHouseTerritoryTypeId();
         }
         uint roomId = houseMan == null ? 0 : (uint)(houseMan->GetCurrentRoom());
