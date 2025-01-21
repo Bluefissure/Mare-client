@@ -238,6 +238,11 @@ internal sealed partial class CharaDataHubUi
         bool hasCustomizeData = !string.IsNullOrEmpty(updateDto.CustomizeData);
         ImGui.SameLine(200);
         _uiSharedService.BooleanToColoredIcon(hasCustomizeData, false);
+
+        // ImGui.TextUnformatted("包含 Moodles 数据");
+        // bool hasMoodlesData = !string.IsNullOrEmpty(updateDto.MoodlesData);
+        // ImGui.SameLine(200);
+        // _uiSharedService.BooleanToColoredIcon(hasMoodlesData, false);
     }
 
     private void DrawEditCharaDataGeneral(CharaDataFullExtendedDto dataDto, CharaDataExtendedUpdateDto updateDto)

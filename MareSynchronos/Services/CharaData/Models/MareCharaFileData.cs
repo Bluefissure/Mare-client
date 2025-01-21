@@ -12,6 +12,7 @@ public record MareCharaFileData
     public string GlamourerData { get; set; } = string.Empty;
     public string CustomizePlusData { get; set; } = string.Empty;
     public string ManipulationData { get; set; } = string.Empty;
+    public string MoodlesData { get; set; } = string.Empty;
     public List<FileData> Files { get; set; } = [];
     public List<FileSwap> FileSwaps { get; set; } = [];
 
@@ -28,6 +29,7 @@ public record MareCharaFileData
         dto.CustomizePlusData.TryGetValue(ObjectKind.Player, out var customizePlusData);
         CustomizePlusData = customizePlusData ?? string.Empty;
         ManipulationData = dto.ManipulationData;
+        MoodlesData = dto.MoodlesData;
 
         if (dto.FileReplacements.TryGetValue(ObjectKind.Player, out var fileReplacements))
         {

@@ -13,6 +13,7 @@ using MareSynchronos.Utils;
 using MareSynchronos.WebAPI;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
+using System.ComponentModel;
 using System.Text;
 
 namespace MareSynchronos.Services;
@@ -166,6 +167,7 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
             GlamourerData = dataDto.GlamourerData,
             FileSwaps = dataDto.FileSwaps,
             ManipulationData = dataDto.ManipulationData,
+            MoodlesData = dataDto.MoodlesData,
             UpdatedDate = dataDto.UpdatedDate
         };
 
@@ -485,7 +487,7 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
                     .ConfigureAwait(false);
                 await ApplyDataAsync(applicationId, tempHandler, isSelf, autoRevert: false, extended,
                     extractedFiles, charaFile.CharaFileData.ManipulationData, charaFile.CharaFileData.GlamourerData,
-                    charaFile.CharaFileData.CustomizePlusData, CancellationToken.None).ConfigureAwait(false);
+                    charaFile.CharaFileData.CustomizePlusData, charaFile.CharaFileData.MoodlesData, CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -649,6 +651,7 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
             GlamourerData = dataDto.GlamourerData,
             FileSwaps = dataDto.FileSwaps,
             ManipulationData = dataDto.ManipulationData,
+            MoodlesData = dataDto.MoodlesData,
             UpdatedDate = dataDto.UpdatedDate
         };
 
@@ -771,7 +774,7 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
     }
 
     private async Task ApplyDataAsync(Guid applicationId, GameObjectHandler tempHandler, bool isSelf, bool autoRevert,
-        CharaDataMetaInfoExtendedDto metaInfo, Dictionary<string, string> modPaths, string? manipData, string? glamourerData, string? customizeData, CancellationToken token)
+        CharaDataMetaInfoExtendedDto metaInfo, Dictionary<string, string> modPaths, string? manipData, string? glamourerData, string? customizeData, string? moodlesData, CancellationToken token)
     {
         Guid? cPlusId = null;
         Guid penumbraCollection;
@@ -800,6 +803,14 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
             await _dalamudUtilService.WaitWhileCharacterIsDrawing(Logger, tempHandler, applicationId, ct: token).ConfigureAwait(false);
             Logger.LogTrace("[{appId}] Removing collection", applicationId);
             await _ipcManager.Penumbra.RemoveTemporaryCollectionAsync(Logger, applicationId, penumbraCollection).ConfigureAwait(false);
+
+            if (!string.IsNullOrEmpty(moodlesData))
+            {
+                var player = await _dalamudUtilService.GetPlayerNameWithWorldAsync().ConfigureAwait(false);
+                DataApplicationProgress = "正在应用Moodles数据";
+                Logger.LogTrace("[{appId}] Applying Moodles data", applicationId);
+                await _ipcManager.Moodles.ApplyStatusesFromPairToSelf(player, player, moodlesData).ConfigureAwait(false);
+            }
 
             DataApplicationProgress = "正在应用Customize+数据";
             Logger.LogTrace("[{appId}] Appplying C+ data", applicationId);
@@ -934,7 +945,7 @@ public sealed partial class CharaDataManager : DisposableMediatorSubscriberBase
         var extendedMetaInfo = await CacheData(metaInfo).ConfigureAwait(false);
 
         await ApplyDataAsync(applicationId, tempHandler, isSelf, autoRevert, extendedMetaInfo, modPaths, charaDataDownloadDto.ManipulationData, charaDataDownloadDto.GlamourerData,
-            charaDataDownloadDto.CustomizeData, token).ConfigureAwait(false);
+            charaDataDownloadDto.CustomizeData, charaDataDownloadDto.MoodlesData, token).ConfigureAwait(false);
     }
 
     public async Task<(string Result, bool Success)> UploadFiles(List<GamePathEntry> missingFileList, Func<Task>? postUpload = null)

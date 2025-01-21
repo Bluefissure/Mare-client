@@ -231,6 +231,7 @@ public sealed class CharaDataFileHandler : IDisposable
             else updateDto.CustomizeData = customizeDataString;
 
             updateDto.ManipulationData = data.ManipulationData;
+            updateDto.MoodlesData = data.MoodlesData;
 
             var hasFiles = data.FileReplacements.TryGetValue(ObjectKind.Player, out var fileReplacements);
             if (!hasFiles)

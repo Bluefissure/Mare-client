@@ -126,6 +126,7 @@ public class CharaDataGposeTogetherManager : DisposableMediatorSubscriberBase
                 FileGamePaths = filegamePaths,
                 FileSwaps = fileSwapPaths,
                 GlamourerData = playerData.GlamourerData[API.Data.Enum.ObjectKind.Player],
+                MoodlesData = playerData.MoodlesData,
             };
 
             _lastCreatedCharaData = (playerData, charaDataDownloadDto);

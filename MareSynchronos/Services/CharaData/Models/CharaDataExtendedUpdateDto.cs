@@ -33,6 +33,7 @@ public sealed record CharaDataExtendedUpdateDto : CharaDataUpdateDto
         GlamourerData = base.GlamourerData,
         ShareType = base.ShareType,
         ManipulationData = base.ManipulationData,
+        MoodlesData = base.MoodlesData,
         Poses = Poses
     };
 
@@ -48,6 +49,22 @@ public sealed record CharaDataExtendedUpdateDto : CharaDataUpdateDto
             if (string.Equals(base.ManipulationData, _charaDataFullDto.ManipulationData, StringComparison.Ordinal))
             {
                 base.ManipulationData = null;
+            }
+        }
+    }
+
+    public new string MoodlesData
+    {
+        get
+        {
+            return base.MoodlesData ?? _charaDataFullDto.MoodlesData;
+        }
+        set
+        {
+            base.MoodlesData = value;
+            if (string.Equals(base.MoodlesData, _charaDataFullDto.MoodlesData, StringComparison.Ordinal))
+            {
+                base.MoodlesData = null;
             }
         }
     }
@@ -306,6 +323,7 @@ public sealed record CharaDataExtendedUpdateDto : CharaDataUpdateDto
         base.FileGamePaths = null;
         base.CustomizeData = null;
         base.ManipulationData = null;
+        base.MoodlesData = null;
         AllowedUsers = null;
         AllowedGroups = null;
         Poses = null;
@@ -351,6 +369,7 @@ public sealed record CharaDataExtendedUpdateDto : CharaDataUpdateDto
                 || base.FileGamePaths != null
                 || base.CustomizeData != null
                 || base.ManipulationData != null
+                || base.MoodlesData != null
                 || Poses != null;
 
     public bool IsAppearanceEqual =>
@@ -358,5 +377,6 @@ public sealed record CharaDataExtendedUpdateDto : CharaDataUpdateDto
         && string.Equals(CustomizeData, _charaDataFullDto.CustomizeData, StringComparison.Ordinal)
         && FileGamePaths == _charaDataFullDto.FileGamePaths
         && FileSwaps == _charaDataFullDto.FileSwaps
-        && string.Equals(ManipulationData, _charaDataFullDto.ManipulationData, StringComparison.Ordinal);
+        && string.Equals(ManipulationData, _charaDataFullDto.ManipulationData, StringComparison.Ordinal)
+        && string.Equals(MoodlesData, _charaDataFullDto.MoodlesData, StringComparison.Ordinal);
 }
