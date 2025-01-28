@@ -22,7 +22,7 @@ public class ConfigurationMigrator(ILogger<ConfigurationMigrator> logger, Transi
         if (serverConfigService.Current.Version == 1)
         {
             _logger.LogInformation("Migrating Server Config V1 => V2");
-            var centralServer = serverConfigService.Current.ServerStorage.Find(f => f.ServerName.Equals("Lunae Crescere Incipientis (Central Server EU)", StringComparison.Ordinal));
+            var centralServer = serverConfigService.Current.ServerStorage.Find(f => f.ServerName.Equals("Otter Mare (CN main server)", StringComparison.Ordinal));
             if (centralServer != null)
             {
                 centralServer.ServerName = ApiController.MainServer;

@@ -75,7 +75,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         // Called whenever we are requesting to apply a set of moodles from our clients Moodle Statuses, to another pair.
         Mediator.Subscribe<MoodlesApplyStatusToPair>(this, (msg) =>
         {
-            Logger.LogDebug("Applying List of your Statuses from your Moodles to {msg}",msg.StatusDto.User.AliasOrUID);
+            Logger.LogDebug("Applying Statuses from your Moodles to {msg}",msg.StatusDto.User.AliasOrUID);
             _ = Task.Run(async () =>
             {
                 await UserApplyMoodlesByStatus(msg.StatusDto).ConfigureAwait(false);
@@ -154,7 +154,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
             {
                 Logger.LogWarning("Multiple secret keys for current character");
                 _connectionDto = null;
-                Mediator.Publish(new NotificationMessage("Multiple Identical Characters detected", "Your Service configuration has multiple characters with the same name and world set up. Delete the duplicates in the character management to be able to connect to Mare.",
+                Mediator.Publish(new NotificationMessage("发现重复的角色配置", "你的服务器设置中有多个角色拥有相同角色名和服务器. 请删除重复的角色并重新连接.",
                     NotificationType.Error));
                 await StopConnectionAsync(ServerState.MultiChara).ConfigureAwait(false);
                 _connectionCancellationTokenSource?.Cancel();
@@ -177,7 +177,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
             {
                 Logger.LogWarning("Multiple secret keys for current character");
                 _connectionDto = null;
-                Mediator.Publish(new NotificationMessage("Multiple Identical Characters detected", "Your Service configuration has multiple characters with the same name and world set up. Delete the duplicates in the character management to be able to connect to Mare.",
+                Mediator.Publish(new NotificationMessage("发现重复的角色配置", "你的服务器设置中有多个角色拥有相同角色名和服务器. 请删除重复的角色并重新连接.",
                     NotificationType.Error));
                 await StopConnectionAsync(ServerState.MultiChara).ConfigureAwait(false);
                 _connectionCancellationTokenSource?.Cancel();
@@ -207,7 +207,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
         Logger.LogInformation("Recreating Connection");
         Mediator.Publish(new EventMessage(new Services.Events.Event(nameof(ApiController), Services.Events.EventSeverity.Informational,
-            $"Starting Connection to {_serverManager.CurrentServer.ServerName}")));
+            $"正在连接到 {_serverManager.CurrentServer.ServerName}")));
 
         _connectionCancellationTokenSource?.Cancel();
         _connectionCancellationTokenSource?.Dispose();
@@ -257,10 +257,10 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
                 {
                     if (_connectionDto.CurrentClientVersion > currentClientVer)
                     {
-                        Mediator.Publish(new NotificationMessage("Client incompatible",
-                            $"Your client is outdated ({currentClientVer.Major}.{currentClientVer.Minor}.{currentClientVer.Build}), current is: " +
+                        Mediator.Publish(new NotificationMessage("客户端不兼容",
+                            $"你的客户端过旧 ({currentClientVer.Major}.{currentClientVer.Minor}.{currentClientVer.Build}), 目前版本: " +
                             $"{_connectionDto.CurrentClientVersion.Major}.{_connectionDto.CurrentClientVersion.Minor}.{_connectionDto.CurrentClientVersion.Build}. " +
-                            $"This client version is incompatible and will not be able to connect. Please update your Mare Synchronos client.",
+                            $"你的客户端版本与服务器不兼容. 请更新Mare.",
                             NotificationType.Error));
                     }
                     await StopConnectionAsync(ServerState.VersionMisMatch).ConfigureAwait(false);
@@ -269,10 +269,10 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
                 if (_connectionDto.CurrentClientVersion > currentClientVer)
                 {
-                    Mediator.Publish(new NotificationMessage("Client outdated",
-                        $"Your client is outdated ({currentClientVer.Major}.{currentClientVer.Minor}.{currentClientVer.Build}), current is: " +
+                    Mediator.Publish(new NotificationMessage("客户端需要更新",
+                        $"你的客户端过旧 ({currentClientVer.Major}.{currentClientVer.Minor}.{currentClientVer.Build}), 目前版本: " +
                         $"{_connectionDto.CurrentClientVersion.Major}.{_connectionDto.CurrentClientVersion.Minor}.{_connectionDto.CurrentClientVersion.Build}. " +
-                        $"Please keep your Mare Synchronos client up-to-date.",
+                        $"请更新Mare.",
                         NotificationType.Warning));
                 }
 
@@ -280,7 +280,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
                 {
                     Logger.LogError("Detected modified game files on connection");
                     if (!_mareConfigService.Current.DebugStopWhining)
-                        Mediator.Publish(new NotificationMessage("Modified Game Files detected",
+                        Mediator.Publish(new NotificationMessage("发现了被修改的游戏文件",
                             "Dalamud has reported modified game files in your FFXIV installation. " +
                             "You will be able to connect, but the synchronization functionality might be (partially) broken. " +
                             "Exit the game and repair it through XIVLauncher to get rid of this message.",
@@ -292,7 +292,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
                     Logger.LogWarning("Model LOD is enabled during connection");
                     if (!_mareConfigService.Current.DebugStopWhining)
                     {
-                        Mediator.Publish(new NotificationMessage("Model LOD is enabled",
+                        Mediator.Publish(new NotificationMessage("细节层次未关闭",
                             "You have \"Use low-detail models on distant objects (LOD)\" enabled. Having model LOD enabled is known to be a reason to cause " +
                             "random crashes when loading in or rendering modded pairs. Disable LOD while using Mare: " +
                             "Go to XIV Menu -> System Configuration -> Graphics Settings and disable the model LOD option.", NotificationType.Warning, TimeSpan.FromSeconds(15)));
@@ -318,7 +318,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
                 }
 
                 ServerState = ServerState.Reconnecting;
-                Logger.LogInformation("Failed to establish connection, retrying");
+                Logger.LogInformation("未能建立连接, 正在重试");
                 await Task.Delay(TimeSpan.FromSeconds(new Random().Next(5, 20)), token).ConfigureAwait(false);
             }
             catch (InvalidOperationException ex)
@@ -331,7 +331,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
             {
                 Logger.LogWarning(ex, "Exception on Connection");
 
-                Logger.LogInformation("Failed to establish connection, retrying");
+                Logger.LogInformation("未能建立连接, 正在重试");
                 await Task.Delay(TimeSpan.FromSeconds(new Random().Next(5, 20)), token).ConfigureAwait(false);
             }
         }
@@ -548,7 +548,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         ServerState = ServerState.Reconnecting;
         Logger.LogWarning(arg, "Connection closed... Reconnecting");
         Mediator.Publish(new EventMessage(new Services.Events.Event(nameof(ApiController), Services.Events.EventSeverity.Warning,
-            $"Connection interrupted, reconnecting to {_serverManager.CurrentServer.ServerName}")));
+            $"连接中断, 正在重新连接到 {_serverManager.CurrentServer.ServerName}")));
 
     }
 
@@ -596,7 +596,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         if (_mareHub is not null)
         {
             Mediator.Publish(new EventMessage(new Services.Events.Event(nameof(ApiController), Services.Events.EventSeverity.Informational,
-                $"Stopping existing connection to {_serverManager.CurrentServer.ServerName}")));
+                $"正在停止连接到 {_serverManager.CurrentServer.ServerName}")));
 
             _initialized = false;
             _healthCheckTokenSource?.Cancel();
@@ -643,7 +643,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         Logger.LogDebug($"[ApplyStatusesToSelf] Calling Moodles to apply status from {applierNameWithWorld} to {clientPlayerNameWithWorld}.");
         await _ipcManager.Moodles.ApplyStatusesFromPairToSelf(applierNameWithWorld, clientPlayerNameWithWorld, dto.Statuses).ConfigureAwait(false);
         // Log the Interaction Event.
-        Mediator.Publish(new EventMessage(new(player.Name.TextValue, dto.User, dto.User.UID, EventSeverity.Informational, "Moodle Status(s) Applied")));
+        Mediator.Publish(new EventMessage(new(player.Name.TextValue, dto.User, dto.User.UID, EventSeverity.Informational, "Moodle 效果已添加")));
     }
 }
 #pragma warning restore MA0040
