@@ -63,8 +63,8 @@ public class CreateSyncshellUI : WindowMediatorSubscriberBase
         {
             UiSharedService.TextWrapped("根据你的首选权限设置创建一个新的同步贝." + Environment.NewLine +
                 "- 你最多可以拥有 " + _apiController.ServerInfo.MaxGroupsCreatedByUser + " 个同步贝." + Environment.NewLine +
-                "- 你最多可以加入 " + _apiController.ServerInfo.MaxGroupsJoinedByUser + " 个同步贝 (包括你拥有的)" + Environment.NewLine +
-                "- 每个同步贝最多拥有 " + _apiController.ServerInfo.MaxGroupUserCount + " 个用户");
+                "- 你最多可以加入 " + _apiController.ServerInfo.MaxGroupsJoinedByUser + " 个同步贝 (包括你拥有的)." + Environment.NewLine +
+                "- 每个同步贝最多拥有 " + _apiController.ServerInfo.MaxGroupUserCount + " 个用户.");
             ImGuiHelpers.ScaledDummy(2f);
             ImGui.TextUnformatted("你目前的同步贝首选权限设置为:");
             ImGui.AlignTextToFramePadding();

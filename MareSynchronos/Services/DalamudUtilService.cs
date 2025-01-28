@@ -31,6 +31,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     private readonly IClientState _clientState;
     private readonly ICondition _condition;
     private readonly IDataManager _gameData;
+    private readonly IGameConfig _gameConfig;
     private readonly BlockedCharacterHandler _blockedCharacterHandler;
     private readonly IFramework _framework;
     private readonly IGameGui _gameGui;
@@ -47,7 +48,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     private bool _sentBetweenAreas = false;
 
     public DalamudUtilService(ILogger<DalamudUtilService> logger, IClientState clientState, IObjectTable objectTable, IFramework framework,
-        IGameGui gameGui, ICondition condition, IDataManager gameData, ITargetManager targetManager,
+        IGameGui gameGui, ICondition condition, IDataManager gameData, ITargetManager targetManager, IGameConfig gameConfig,
         BlockedCharacterHandler blockedCharacterHandler, MareMediator mediator, PerformanceCollectorService performanceCollector)
     {
         _logger = logger;
@@ -57,6 +58,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
         _gameGui = gameGui;
         _condition = condition;
         _gameData = gameData;
+        _gameConfig = gameConfig;
         _blockedCharacterHandler = blockedCharacterHandler;
         Mediator = mediator;
         _performanceCollector = performanceCollector;
@@ -143,6 +145,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     public Lazy<Dictionary<ushort, string>> WorldData { get; private set; }
     public Lazy<Dictionary<uint, string>> TerritoryData { get; private set; }
     public Lazy<Dictionary<uint, (Lumina.Excel.GeneratedSheets.Map Map, string MapName)>> MapData { get; private set; }
+    public bool IsLodEnabled { get; private set; }
 
     public MareMediator Mediator { get; }
 
@@ -316,7 +319,7 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
     public uint GetHomeWorldId()
     {
         EnsureIsOnFramework();
-        return _clientState.LocalPlayer!.HomeWorld.Id;
+        return _clientState.LocalPlayer?.HomeWorld.Id ?? 0;
     }
 
     public uint GetWorldId()
@@ -739,6 +742,12 @@ public class DalamudUtilService : IHostedService, IMediatorSubscriber
                 _logger.LogDebug("Logged out");
                 IsLoggedIn = false;
                 Mediator.Publish(new DalamudLogoutMessage());
+            }
+
+            if (_gameConfig != null 
+                && _gameConfig.TryGet(Dalamud.Game.Config.SystemConfigOption.LodType_DX11, out bool lodEnabled))
+            {
+                IsLodEnabled = lodEnabled;
             }
 
             if (IsInCombatOrPerforming)

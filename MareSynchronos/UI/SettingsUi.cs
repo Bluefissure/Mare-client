@@ -711,11 +711,12 @@ public class SettingsUi : WindowMediatorSubscriberBase
         }
 
         bool stopWhining = _configService.Current.DebugStopWhining;
-        if (ImGui.Checkbox("不要提示我游戏文件被修改", ref stopWhining))
+        if (ImGui.Checkbox("不要提示我游戏文件被修改或细节层次未关闭", ref stopWhining))
         {
             _configService.Current.DebugStopWhining = stopWhining;
         }
-        _uiShared.DrawHelpText("Having modified game files will still mark your logs with UNSUPPORTED and you will not receive support, message shown or not.");
+        _uiShared.DrawHelpText("无论是否打开本选项都会将你的Log标记为UNSUPPORTED, 你将不会接受到管理们的帮助." + UiSharedService.TooltipSeparator
+            + "打开细节层次可能导致游戏崩溃.");
     }
 
     private void DrawFileStorageSettings()
