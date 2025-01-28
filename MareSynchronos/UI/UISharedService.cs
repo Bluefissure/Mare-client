@@ -969,7 +969,7 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 {
                     TextWrapped("Discord OAuth 完成, 状态: ");
                     ImGui.SameLine();
-                    if (_discordOAuthGetCode.Result != null)
+                    if (_discordOAuthGetCode?.Result != null)
                     {
                         selectedServer.OAuthToken = _discordOAuthGetCode.Result;
                         _discordOAuthGetCode = null;
