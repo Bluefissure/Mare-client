@@ -21,6 +21,7 @@ using MareSynchronos.WebAPI;
 using MareSynchronos.WebAPI.Files;
 using MareSynchronos.WebAPI.Files.Models;
 using MareSynchronos.WebAPI.SignalR.Utils;
+using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Diagnostics;
@@ -714,6 +715,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
         if (ImGui.Checkbox("不要提示我游戏文件被修改或细节层次未关闭", ref stopWhining))
         {
             _configService.Current.DebugStopWhining = stopWhining;
+            _configService.Save();
         }
         _uiShared.DrawHelpText("无论是否打开本选项都会将你的Log标记为UNSUPPORTED, 你将不会接受到管理们的帮助." + UiSharedService.TooltipSeparator
             + "打开细节层次可能导致游戏崩溃.");
@@ -1751,6 +1753,17 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     _uiShared.DrawHelpText("无法编辑主服务的名称。");
                 }
 
+                ImGui.SetNextItemWidth(200);
+                var serverTransport = _serverConfigurationManager.GetTransport();
+                _uiShared.DrawCombo("服务器传输方式", Enum.GetValues<HttpTransportType>().Where(t => t != HttpTransportType.None),
+                    (v) => v.ToString(),
+                    onSelected: (t) => _serverConfigurationManager.SetTransportType(t),
+                    serverTransport);
+                _uiShared.DrawHelpText("你一般不应该切换这个选项, 如果你不知道这是什么东西, 别改." + Environment.NewLine
+                    + "如果你使用VPN或其他网络工具出现问题, 先试试ServerSentEvents然后才是LongPolling." + UiSharedService.TooltipSeparator
+                    + "注意: 如果服务器不支持, 会按照以下顺序回退: WebSockets > ServerSentEvents > LongPolling");
+
+
                 if (ImGui.Checkbox("使用 Discord OAuth2 认证", ref useOauth))
                 {
                     selectedServer.UseOAuth2 = useOauth;
@@ -1777,6 +1790,7 @@ public class SettingsUi : WindowMediatorSubscriberBase
                     }
                     _uiShared.DrawHelpText("按住CTRL键可删除此服务");
                 }
+
                 ImGui.EndTabItem();
             }
 

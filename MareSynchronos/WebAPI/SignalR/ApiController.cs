@@ -42,6 +42,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     private ServerState _serverState;
     private CensusUpdateMessage? _lastCensus;
     private IpcManager _ipcManager;
+    private readonly SemaphoreSlim _zoneSwitchSemaphore = new(1, 1);
 
     public ApiController(ILogger<ApiController> logger, HubFactory hubFactory, DalamudUtilService dalamudUtil,
         PairManager pairManager, ServerConfigurationManager serverManager, MareMediator mediator,
@@ -64,6 +65,8 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
         Mediator.Subscribe<CyclePauseMessage>(this, (msg) => _ = CyclePauseAsync(msg.UserData));
         Mediator.Subscribe<CensusUpdateMessage>(this, (msg) => _lastCensus = msg);
         Mediator.Subscribe<PauseMessage>(this, (msg) => _ = PauseAsync(msg.UserData));
+        Mediator.Subscribe<ZoneSwitchStartMessage>(this, (msg) => _zoneSwitchSemaphore.Wait());
+        Mediator.Subscribe<ZoneSwitchEndMessage>(this, (msg) => _zoneSwitchSemaphore.Release());
 
         ServerState = ServerState.Offline;
 
@@ -383,6 +386,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
         _healthCheckTokenSource?.Cancel();
         _ = Task.Run(async () => await StopConnectionAsync(ServerState.Disconnected).ConfigureAwait(false));
+        _zoneSwitchSemaphore.Dispose();
         _connectionCancellationTokenSource?.Cancel();
     }
 
@@ -554,6 +558,13 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
 
     private async Task<bool> RefreshTokenAsync(CancellationToken ct)
     {
+        int zoneSwitchWaitAttempts = 0;
+        while (_zoneSwitchSemaphore.CurrentCount == 0 && zoneSwitchWaitAttempts <= 15)
+        {
+            Logger.LogTrace("Refresh Token - Waiting for Zone Switch Semaphore, attempt {attempt}", zoneSwitchWaitAttempts++);
+            await Task.Delay(TimeSpan.FromSeconds(1), ct).ConfigureAwait(false);
+        }
+
         Logger.LogDebug("Checking token");
 
         bool requireReconnect = false;
