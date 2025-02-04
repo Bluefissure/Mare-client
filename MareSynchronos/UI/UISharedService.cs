@@ -950,11 +950,11 @@ public partial class UiSharedService : DisposableMediatorSubscriberBase
                 }
             }
 
-            if (_discordOAuthCheck != null && _discordOAuthCheck.IsCompleted)
+            if (_discordOAuthCheck != null && _discordOAuthCheck.IsCompleted && _discordOAuthCheck.Result != null)
             {
                 if (IconTextButton(FontAwesomeIcon.ArrowRight, "进行验证"))
                 {
-                    _discordOAuthGetCode = _serverConfigurationManager.GetDiscordOAuthToken(_discordOAuthCheck.Result!, selectedServer.ServerUri, _discordOAuthGetCts.Token);
+                    _discordOAuthGetCode = _serverConfigurationManager.GetDiscordOAuthToken(_discordOAuthCheck.Result, selectedServer.ServerUri, _discordOAuthGetCts.Token);
                 }
                 else if (_discordOAuthGetCode != null && !_discordOAuthGetCode.IsCompleted)
                 {
