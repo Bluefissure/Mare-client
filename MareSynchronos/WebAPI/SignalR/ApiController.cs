@@ -41,6 +41,7 @@ public sealed partial class ApiController : DisposableMediatorSubscriberBase, IM
     private HubConnection? _mareHub;
     private ServerState _serverState;
     private CensusUpdateMessage? _lastCensus;
+    private IpcManager _ipcManager;
 
     public ApiController(ILogger<ApiController> logger, HubFactory hubFactory, DalamudUtilService dalamudUtil,
         PairManager pairManager, ServerConfigurationManager serverManager, MareMediator mediator,
