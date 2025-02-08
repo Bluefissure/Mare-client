@@ -38,8 +38,9 @@ internal sealed partial class CharaDataHubUi
         }
 
         var indent = ImRaii.PushIndent(10f);
-        if (canUpdate || (!_charaDataManager.UploadTask?.IsCompleted ?? false))
+        if (canUpdate || _charaDataManager.UploadTask != null)
         {
+            ImGuiHelpers.ScaledDummy(5);
             UiSharedService.DrawGrouped(() =>
             {
                 if (canUpdate)
@@ -83,6 +84,11 @@ internal sealed partial class CharaDataHubUi
                             UiSharedService.ColorTextWrapped(_charaDataManager.UploadTask.Result.Output, color);
                         }
                     });
+                }
+                else if (_charaDataManager.UploadTask?.IsCompleted ?? false)
+                {
+                    var color = UiSharedService.GetBoolColor(_charaDataManager.UploadTask.Result.Success);
+                    UiSharedService.ColorTextWrapped(_charaDataManager.UploadTask.Result.Output, color);
                 }
             });
         }
@@ -364,7 +370,7 @@ internal sealed partial class CharaDataHubUi
             if (_uiSharedService.IconTextButton(FontAwesomeIcon.Trash, "删除角色数据"))
             {
                 _ = _charaDataManager.DeleteCharaData(dataDto);
-                _selectedDtoId = string.Empty;
+                SelectedDtoId = string.Empty;
             }
         }
         if (!UiSharedService.CtrlPressed())
@@ -575,7 +581,7 @@ internal sealed partial class CharaDataHubUi
                 {
                     var uDto = _charaDataManager.GetUpdateDto(entry.Id);
                     ImGui.TableNextColumn();
-                    if (string.Equals(entry.Id, _selectedDtoId, StringComparison.Ordinal))
+                    if (string.Equals(entry.Id, SelectedDtoId, StringComparison.Ordinal))
                         _uiSharedService.IconText(FontAwesomeIcon.CaretRight);
 
                     ImGui.TableNextColumn();
@@ -592,48 +598,48 @@ internal sealed partial class CharaDataHubUi
                     {
                         ImGui.TextUnformatted(idText);
                     }
-                    if (ImGui.IsItemClicked()) _selectedDtoId = entry.Id;
+                    if (ImGui.IsItemClicked()) SelectedDtoId = entry.Id;
 
                     ImGui.TableNextColumn();
                     ImGui.TextUnformatted(entry.Description);
-                    if (ImGui.IsItemClicked()) _selectedDtoId = entry.Id;
+                    if (ImGui.IsItemClicked()) SelectedDtoId = entry.Id;
                     UiSharedService.AttachToolTip(entry.Description);
 
                     ImGui.TableNextColumn();
                     ImGui.TextUnformatted(entry.CreatedDate.ToLocalTime().ToString());
-                    if (ImGui.IsItemClicked()) _selectedDtoId = entry.Id;
+                    if (ImGui.IsItemClicked()) SelectedDtoId = entry.Id;
 
                     ImGui.TableNextColumn();
                     ImGui.TextUnformatted(entry.UpdatedDate.ToLocalTime().ToString());
-                    if (ImGui.IsItemClicked()) _selectedDtoId = entry.Id;
+                    if (ImGui.IsItemClicked()) SelectedDtoId = entry.Id;
 
                     ImGui.TableNextColumn();
                     ImGui.TextUnformatted(entry.DownloadCount.ToString());
-                    if (ImGui.IsItemClicked()) _selectedDtoId = entry.Id;
+                    if (ImGui.IsItemClicked()) SelectedDtoId = entry.Id;
 
                     ImGui.TableNextColumn();
                     bool isDownloadable = !entry.HasMissingFiles
                         && !string.IsNullOrEmpty(entry.GlamourerData);
                     _uiSharedService.BooleanToColoredIcon(isDownloadable, false);
-                    if (ImGui.IsItemClicked()) _selectedDtoId = entry.Id;
-                    UiSharedService.AttachToolTip(isDownloadable ? "可被下载" : "无法下载: 缺失文件或数据, 请手动浏览该条目");
+                    if (ImGui.IsItemClicked()) SelectedDtoId = entry.Id;
+                    UiSharedService.AttachToolTip(isDownloadable ? "可被其他人下载" : "无法下载: 缺失文件或数据, 请手动浏览该条目");
 
                     ImGui.TableNextColumn();
                     var count = entry.FileGamePaths.Concat(entry.FileSwaps).Count();
                     ImGui.TextUnformatted(count.ToString());
-                    if (ImGui.IsItemClicked()) _selectedDtoId = entry.Id;
+                    if (ImGui.IsItemClicked()) SelectedDtoId = entry.Id;
                     UiSharedService.AttachToolTip(count == 0 ? "无附加文件" : "有附加文件");
 
                     ImGui.TableNextColumn();
                     bool hasGlamourerData = !string.IsNullOrEmpty(entry.GlamourerData);
                     _uiSharedService.BooleanToColoredIcon(hasGlamourerData, false);
-                    if (ImGui.IsItemClicked()) _selectedDtoId = entry.Id;
+                    if (ImGui.IsItemClicked()) SelectedDtoId = entry.Id;
                     UiSharedService.AttachToolTip(string.IsNullOrEmpty(entry.GlamourerData) ? "无Glamourer数据" : "有Glamourer数据");
 
                     ImGui.TableNextColumn();
                     bool hasCustomizeData = !string.IsNullOrEmpty(entry.CustomizeData);
                     _uiSharedService.BooleanToColoredIcon(hasCustomizeData, false);
-                    if (ImGui.IsItemClicked()) _selectedDtoId = entry.Id;
+                    if (ImGui.IsItemClicked()) SelectedDtoId = entry.Id;
                     UiSharedService.AttachToolTip(string.IsNullOrEmpty(entry.CustomizeData) ? "无Customize+数据" : "有Customize+数据");
 
                     ImGui.TableNextColumn();
@@ -641,7 +647,7 @@ internal sealed partial class CharaDataHubUi
                     if (!Equals(DateTime.MaxValue, entry.ExpiryDate))
                         eIcon = FontAwesomeIcon.Clock;
                     _uiSharedService.IconText(eIcon, ImGuiColors.DalamudYellow);
-                    if (ImGui.IsItemClicked()) _selectedDtoId = entry.Id;
+                    if (ImGui.IsItemClicked()) SelectedDtoId = entry.Id;
                     if (eIcon != FontAwesomeIcon.None)
                     {
                         UiSharedService.AttachToolTip($"将于 {entry.ExpiryDate.ToLocalTime()} 过期");
@@ -695,12 +701,12 @@ internal sealed partial class CharaDataHubUi
         var charaDataEntries = _charaDataManager.OwnCharaData.Count;
         if (charaDataEntries != _dataEntries && _selectNewEntry && _charaDataManager.OwnCharaData.Any())
         {
-            _selectedDtoId = _charaDataManager.OwnCharaData.Last().Value.Id;
+            SelectedDtoId = _charaDataManager.OwnCharaData.Last().Value.Id;
             _selectNewEntry = false;
         }
         _dataEntries = _charaDataManager.OwnCharaData.Count;
 
-        _ = _charaDataManager.OwnCharaData.TryGetValue(_selectedDtoId, out var dto);
+        _ = _charaDataManager.OwnCharaData.TryGetValue(SelectedDtoId, out var dto);
         DrawEditCharaData(dto);
     }
 
