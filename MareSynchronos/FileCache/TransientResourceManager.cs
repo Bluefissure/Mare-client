@@ -17,8 +17,8 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
     private readonly HashSet<string> _cachedHandledPaths = new(StringComparer.Ordinal);
     private readonly TransientConfigService _configurationService;
     private readonly DalamudUtilService _dalamudUtil;
-    private readonly string[] _fileTypesToHandle = ["tmb", "pap", "avfx", "atex", "sklb", "eid", "phyb", "scd", "skp", "shpk"];
-    private readonly string[] _fileTypesToHandleRecording = ["tmb", "pap", "avfx", "atex", "sklb", "eid", "phyb", "scd", "skp", "shpk", "tex", "mdl", "mtrl"];
+    private readonly string[] _handledFileTypes = ["tmb", "pap", "avfx", "atex", "sklb", "eid", "phyb", "scd", "skp", "shpk"];
+    private readonly string[] _handledRecordingFileTypes = ["tex", "mdl", "mtrl"];
     private readonly HashSet<GameObjectHandler> _playerRelatedPointers = [];
     private ConcurrentDictionary<IntPtr, ObjectKind> _cachedFrameAddresses = [];
     private ConcurrentDictionary<ObjectKind, HashSet<string>>? _semiTransientResources = null;
@@ -80,19 +80,27 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
 
     public void CleanUpSemiTransientResources(ObjectKind objectKind, List<FileReplacement>? fileReplacement = null)
     {
-        if (SemiTransientResources.TryGetValue(objectKind, out HashSet<string>? value))
+        if (!SemiTransientResources.TryGetValue(objectKind, out HashSet<string>? value))
+            return;
+
+        if (fileReplacement == null)
         {
-            if (fileReplacement == null)
-            {
-                value.Clear();
-                return;
-            }
+            value.Clear();
+            return;
+        }
 
-            foreach (var replacement in fileReplacement.Where(p => !p.HasFileReplacement).SelectMany(p => p.GamePaths).ToList())
-            {
-                PlayerConfig.RemovePath(replacement);
-            }
+        int removedPaths = 0;
+        foreach (var replacement in fileReplacement.Where(p => !p.HasFileReplacement).SelectMany(p => p.GamePaths).ToList())
+        {
+            removedPaths++;
+            PlayerConfig.RemovePath(replacement);
+            value.Remove(replacement);
+        }
 
+        if (removedPaths > 0)
+        {
+            Logger.LogTrace("Removed {amount} of SemiTransient paths during CleanUp, Saving from {name}", removedPaths, nameof(CleanUpSemiTransientResources));
+            // force reload semi transient resources
             _configurationService.Save();
         }
     }
@@ -124,27 +132,33 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
             semiTransientResources.Add(gamePath);
         }
 
-        if (objectKind == ObjectKind.Player && newlyAddedGamePaths.Any())
+        bool saveConfig = false;
+        if (objectKind == ObjectKind.Player && newlyAddedGamePaths.Count != 0)
         {
+            saveConfig = true;
             foreach (var item in newlyAddedGamePaths.Where(f => !string.IsNullOrEmpty(f)))
             {
                 PlayerConfig.AddOrElevate(_dalamudUtil.ClassJobId, item);
             }
-
-            _configurationService.Save();
         }
-        else if (objectKind == ObjectKind.Pet && newlyAddedGamePaths.Any())
+        else if (objectKind == ObjectKind.Pet && newlyAddedGamePaths.Count != 0)
         {
-            foreach (var item in newlyAddedGamePaths.Where(f => !string.IsNullOrEmpty(f)))
-            {
-                if (!PlayerConfig.JobSpecificPetCache.TryGetValue(_dalamudUtil.ClassJobId, out var petPerma))
-                {
-                    PlayerConfig.JobSpecificPetCache[_dalamudUtil.ClassJobId] = petPerma = [];
-                }
+            saveConfig = true;
 
-                petPerma.Add(item);
+            if (!PlayerConfig.JobSpecificPetCache.TryGetValue(_dalamudUtil.ClassJobId, out var petPerma))
+            {
+                PlayerConfig.JobSpecificPetCache[_dalamudUtil.ClassJobId] = petPerma = [];
             }
 
+            foreach (var item in newlyAddedGamePaths.Where(f => !string.IsNullOrEmpty(f)))
+            {
+                petPerma.Add(item);
+            }
+        }
+
+        if (saveConfig)
+        {
+            Logger.LogTrace("Saving transient.json from {method}", nameof(PersistTransientResources));
             _configurationService.Save();
         }
 
@@ -159,6 +173,7 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
             if (objectKind == ObjectKind.Player)
             {
                 PlayerConfig.RemovePath(path);
+                Logger.LogTrace("Saving transient.json from {method}", nameof(RemoveTransientResource));
                 _configurationService.Save();
             }
         }
@@ -169,18 +184,24 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
         if (SemiTransientResources.TryGetValue(objectKind, out var semiTransient) && semiTransient != null && semiTransient.Contains(item))
             return false;
 
-        if (!TransientResources.TryGetValue(objectKind, out HashSet<string>? value))
+        if (!TransientResources.TryGetValue(objectKind, out HashSet<string>? transientResource))
         {
-            value = new HashSet<string>(StringComparer.Ordinal);
-            TransientResources[objectKind] = value;
+            transientResource = new HashSet<string>(StringComparer.Ordinal);
+            TransientResources[objectKind] = transientResource;
         }
 
-        value.Add(item.ToLowerInvariant());
-        return true;
+        return transientResource.Add(item.ToLowerInvariant());
     }
 
     internal void ClearTransientPaths(ObjectKind objectKind, List<string> list)
     {
+        // ignore all recording only datatypes
+        int recordingOnlyRemoved = list.RemoveAll(entry => _handledRecordingFileTypes.Any(ext => entry.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
+        if (recordingOnlyRemoved > 0)
+        {
+            Logger.LogTrace("Ignored {0} game paths when clearing transients", recordingOnlyRemoved);
+        }
+
         if (TransientResources.TryGetValue(objectKind, out var set))
         {
             foreach (var file in set.Where(p => list.Contains(p, StringComparer.OrdinalIgnoreCase)))
@@ -197,7 +218,7 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
         {
             foreach (var file in semiset.Where(p => list.Contains(p, StringComparer.OrdinalIgnoreCase)))
             {
-                Logger.LogTrace("Removing From Transient: {file}", file);
+                Logger.LogTrace("Removing From SemiTransient: {file}", file);
                 PlayerConfig.RemovePath(file);
             }
 
@@ -206,6 +227,7 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
             if (removed > 0)
             {
                 reloadSemiTransient = true;
+                Logger.LogTrace("Saving transient.json from {method}", nameof(ClearTransientPaths));
                 _configurationService.Save();
             }
         }
@@ -295,10 +317,13 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
 
         // ignore files that are the same
         var replacedGamePath = gamePath.ToLowerInvariant().Replace("\\", "/", StringComparison.OrdinalIgnoreCase);
-        if (string.Equals(filePath, replacedGamePath, StringComparison.OrdinalIgnoreCase)) return;
+        if (string.Equals(filePath, replacedGamePath, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
 
         // ignore files to not handle
-        var handledTypes = IsTransientRecording ? _fileTypesToHandleRecording : _fileTypesToHandle;
+        var handledTypes = IsTransientRecording ? _handledRecordingFileTypes.Concat(_handledFileTypes) : _handledFileTypes;
         if (!handledTypes.Any(type => gamePath.EndsWith(type, StringComparison.OrdinalIgnoreCase)))
         {
             lock (_cacheAdditionLock)
@@ -320,29 +345,34 @@ public sealed class TransientResourceManager : DisposableMediatorSubscriberBase
 
         // ^ all of the code above is just to sanitize the data
 
-        if (!TransientResources.TryGetValue(objectKind, out HashSet<string>? value))
+        if (!TransientResources.TryGetValue(objectKind, out HashSet<string>? transientResources))
         {
-            value = new(StringComparer.OrdinalIgnoreCase);
-            TransientResources[objectKind] = value;
+            transientResources = new(StringComparer.OrdinalIgnoreCase);
+            TransientResources[objectKind] = transientResources;
         }
 
         var owner = _playerRelatedPointers.FirstOrDefault(f => f.Address == gameObjectAddress);
         bool alreadyTransient = false;
 
-        if (value.Contains(replacedGamePath)
-            || SemiTransientResources.SelectMany(k => k.Value).Any(f => string.Equals(f, gamePath, StringComparison.OrdinalIgnoreCase)))
+        bool transientContains = transientResources.Contains(replacedGamePath);
+        bool semiTransientContains = SemiTransientResources.SelectMany(k => k.Value).Any(f => string.Equals(f, gamePath, StringComparison.OrdinalIgnoreCase));
+        if (transientContains || semiTransientContains)
         {
             if (!IsTransientRecording)
-                Logger.LogTrace("Not adding {replacedPath} : {filePath}", replacedGamePath, filePath);
+                Logger.LogTrace("Not adding {replacedPath} => {filePath}, Reason: Transient: {contains}, SemiTransient: {contains2}", replacedGamePath, filePath,
+                    transientContains, semiTransientContains);
             alreadyTransient = true;
         }
         else
         {
             if (!IsTransientRecording)
             {
-                value.Add(replacedGamePath);
-                Logger.LogDebug("Adding {replacedGamePath} for {gameObject} ({filePath})", replacedGamePath, owner?.ToString() ?? gameObjectAddress.ToString("X"), filePath);
-                SendTransients(gameObjectAddress);
+                bool isAdded = transientResources.Add(replacedGamePath);
+                if (isAdded)
+                {
+                    Logger.LogDebug("Adding {replacedGamePath} for {gameObject} ({filePath})", replacedGamePath, owner?.ToString() ?? gameObjectAddress.ToString("X"), filePath);
+                    SendTransients(gameObjectAddress);
+                }
             }
         }
 

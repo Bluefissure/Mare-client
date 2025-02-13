@@ -6,7 +6,6 @@ using ImGuiNET;
 using MareSynchronos.API.Dto.CharaData;
 using MareSynchronos.Services.CharaData.Models;
 using System.Numerics;
-using MareSynchronos.Services;
 
 namespace MareSynchronos.UI;
 
@@ -141,25 +140,22 @@ internal sealed partial class CharaDataHubUi
 
         ImGui.SetNextItemWidth(200);
         var dtoShareType = updateDto.ShareType;
-        using (ImRaii.Disabled(dtoAccessType == AccessTypeDto.Public))
+        if (ImGui.BeginCombo("Sharing", GetShareTypeString(dtoShareType)))
         {
-            if (ImGui.BeginCombo("共享", GetShareTypeString(dtoShareType)))
+            foreach (var shareType in Enum.GetValues(typeof(ShareTypeDto)).Cast<ShareTypeDto>())
             {
-                foreach (var shareType in Enum.GetValues(typeof(ShareTypeDto)).Cast<ShareTypeDto>())
+                if (ImGui.Selectable(GetShareTypeString(shareType), shareType == dtoShareType))
                 {
-                    if (ImGui.Selectable(GetShareTypeString(shareType), shareType == dtoShareType))
-                    {
-                        updateDto.ShareType = shareType;
-                    }
+                    updateDto.ShareType = shareType;
                 }
-
-                ImGui.EndCombo();
             }
+
+            ImGui.EndCombo();
         }
-        _uiSharedService.DrawHelpText("如何共享你的数据." + UiSharedService.TooltipSeparator
+        _uiSharedService.DrawHelpText("你想如何分享你的数据." + UiSharedService.TooltipSeparator
             + "仅代码: 仅拥有对应代码的用户可以访问数据" + Environment.NewLine
             + "共享: 满足 '访问权限' 设置的用户可以在 '与你共享' 标签中访问数据 (也可以通过代码访问)" + UiSharedService.TooltipSeparator
-            + "注意: 共享状态下, 访问权限不可设置为 '所有人'");
+            + "注意: 将权限设置为 '所有人' 和将权限设为 '所有配对' 效果基本相同, 但只有与你配对的用户才能访问.");
 
         ImGuiHelpers.ScaledDummy(10f);
     }
@@ -559,7 +555,7 @@ internal sealed partial class CharaDataHubUi
         }
 
         using (var table = ImRaii.Table("拥有的数据", 12, ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.ScrollY,
-            new Vector2(ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X, 100)))
+            new Vector2(ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X, 110)))
         {
             if (table)
             {
@@ -577,7 +573,7 @@ internal sealed partial class CharaDataHubUi
                 ImGui.TableSetupColumn("过期", ImGuiTableColumnFlags.WidthFixed, 18);
                 ImGui.TableSetupScrollFreeze(0, 1);
                 ImGui.TableHeadersRow();
-                foreach (var entry in _charaDataManager.OwnCharaData.Values)
+                foreach (var entry in _charaDataManager.OwnCharaData.Values.OrderBy(b => b.CreatedDate))
                 {
                     var uDto = _charaDataManager.GetUpdateDto(entry.Id);
                     ImGui.TableNextColumn();

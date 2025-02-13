@@ -93,7 +93,16 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
         _pairManager = pairManager;
         _charaDataGposeTogetherManager = charaDataGposeTogetherManager;
         Mediator.Subscribe<GposeStartMessage>(this, (_) => IsOpen |= _configService.Current.OpenMareHubOnGposeStart);
+        Mediator.Subscribe<OpenCharaDataHubWithFilterMessage>(this, (msg) =>
+        {
+            IsOpen = true;
+            _openDataApplicationShared = true;
+            _sharedWithYouOwnerFilter = msg.UserData.AliasOrUID;
+            UpdateFilteredItems();
+        });
     }
+
+    private bool _openDataApplicationShared = false;
 
     public string CharaName(string name)
     {
@@ -207,7 +216,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             }
         }
 
-        using (var applicationTabItem = ImRaii.TabItem("应用数据"))
+        using (var applicationTabItem = ImRaii.TabItem("应用数据", _openDataApplicationShared ? ImGuiTabItemFlags.SetSelected : ImGuiTabItemFlags.None))
         {
             if (applicationTabItem)
             {
@@ -243,7 +252,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                     }
                 }
 
-                using (var gposeTabItem = ImRaii.TabItem("应用数据"))
+                using (var gposeTabItem = ImRaii.TabItem("应用数据", _openDataApplicationShared ? ImGuiTabItemFlags.SetSelected : ImGuiTabItemFlags.None))
                 {
                     if (gposeTabItem)
                     {
@@ -704,7 +713,7 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
             }
         }
 
-        using (var sharedWithYouTabItem = ImRaii.TabItem("与你共享"))
+        using (var sharedWithYouTabItem = ImRaii.TabItem("与你共享的", _openDataApplicationShared ? ImGuiTabItemFlags.SetSelected : ImGuiTabItemFlags.None))
         {
             using var id = ImRaii.PushId("sharedWithYouTab");
             if (sharedWithYouTabItem)
@@ -718,8 +727,12 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
 
                 DrawUpdateSharedDataButton();
 
-
-                UiSharedService.DrawTree("过滤", () =>
+                int activeFilters = 0;
+                if (!string.IsNullOrEmpty(_sharedWithYouOwnerFilter)) activeFilters++;
+                if (!string.IsNullOrEmpty(_sharedWithYouDescriptionFilter)) activeFilters++;
+                if (_sharedWithYouDownloadableFilter) activeFilters++;
+                string filtersText = activeFilters == 0 ? "过滤" : $"正在使用 ({activeFilters} 过滤器)";
+                UiSharedService.DrawTree($"{filtersText}##filters", () =>
                 {
                     var filterWidth = ImGui.GetWindowContentRegionMax().X - ImGui.GetWindowContentRegionMin().X;
                     ImGui.SetNextItemWidth(filterWidth);
@@ -758,6 +771,9 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                 ImGuiHelpers.ScaledDummy(5);
                 foreach (var entry in _filteredDict ?? [])
                 {
+                    bool isFilteredAndHasToBeOpened = entry.Key.Contains(_sharedWithYouOwnerFilter) && _openDataApplicationShared;
+                    if (isFilteredAndHasToBeOpened)
+                        ImGui.SetNextItemOpen(isFilteredAndHasToBeOpened);
                     UiSharedService.DrawTree($"{entry.Key} - [{entry.Value.Count} 角色数据集]##{entry.Key}", () =>
                     {
                         foreach (var data in entry.Value)
@@ -766,6 +782,8 @@ internal sealed partial class CharaDataHubUi : WindowMediatorSubscriberBase
                         }
                         ImGuiHelpers.ScaledDummy(5);
                     });
+                    if (isFilteredAndHasToBeOpened)
+                        _openDataApplicationShared = false;
                 }
             }
         }
